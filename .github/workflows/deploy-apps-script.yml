@@ -42,4 +42,4 @@ jobs:
           DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
         run: |
           test -n "$DEPLOYMENT_ID" || (echo "Missing repository secret: DEPLOYMENT_ID" && exit 1)
-          clasp deploy --deploymentId "$DEPLOYMENT_ID" --description "Mantul Dashboard deployment from GitHub"
+          clasp deploy -i "$DEPLOYMENT_ID" -d "Mantul Dashboard deployment from GitHub"
