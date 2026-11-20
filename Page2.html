@@ -23,6 +23,8 @@
 #page2View .p2-title{font-size:20px;font-weight:800;letter-spacing:-.3px;color:#173b70;margin:0 0 4px}
 #page2View .p2-subtitle{font-size:11px;color:#718096;margin:0 0 12px}
 #page2View .p2-status{font-size:10px;color:#718096;margin:6px 2px 11px}
+#page2View[aria-busy="true"] .p2-status::before{content:"";display:inline-block;width:8px;height:8px;margin:0 7px 0 1px;border:2px solid #cbd5e1;border-top-color:#2563eb;border-radius:50%;vertical-align:-1px;animation:p2-loading-spin .75s linear infinite}
+@keyframes p2-loading-spin{to{transform:rotate(360deg)}}
 #page2View .p2-color-guide{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:9px;color:#64748b;margin-bottom:10px}
 #page2View .p2-guide-item{display:inline-flex;align-items:center;gap:4px}
 #page2View .p2-dot{width:7px;height:7px;border-radius:50%;display:inline-block}
