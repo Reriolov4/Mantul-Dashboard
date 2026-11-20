@@ -39,22 +39,34 @@ function page2Unique_(rows, index) {
   return Object.keys(o).sort((a,b) => a.localeCompare(b,'id'));
 }
 function page2BuildMeta_() {
-  const rows = page2Read_().filter(r => page2Key_(r[21]) === 'SOO');
-  const years = page2Unique_(rows,0).sort((a,b) => Number(a)-Number(b));
+  // Bangun seluruh opsi filter dalam satu lintasan; hindari membuat beberapa
+  // array perantara besar dari RAW_DATA_SALES.
+  const values = page2Read_();
+  const fields = {years:0, months:1, teams:26, subdists:10, brands:6, subbrands:5, accounts:27, categories:28};
+  const sets = {};
+  Object.keys(fields).forEach(k => sets[k] = new Set());
+  const dateSet = new Set();
+  values.forEach(r => {
+    if (page2Key_(r[21]) !== 'SOO') return;
+    Object.keys(fields).forEach(k => {
+      const value = page2Text_(r[fields[k]]);
+      if (value) sets[k].add(k === 'months' ? page2Month_(value) : value);
+    });
+    const date = page2Date_(r[0], r[1], r[2]);
+    if (date) dateSet.add(date);
+  });
   const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  const monthsPresent = page2Unique_(rows,1).map(page2Month_);
-  const dateKeys = page2Unique_(rows.map(r => [page2Date_(r[0],r[1],r[2])]).filter(r => r[0]),0);
-  const months = monthOrder.filter(m => monthsPresent.includes(m));
+  const sorted = key => Array.from(sets[key]).sort((a,b) => a.localeCompare(b,'id'));
   return {
-    years: years,
-    months: months,
-    dateKeys: dateKeys,
-    teams: page2Unique_(rows,26),
-    subdists: page2Unique_(rows,10),
-    brands: page2Unique_(rows,6),
-    subbrands: page2Unique_(rows,5),
-    accounts: page2Unique_(rows,27),
-    categories: page2Unique_(rows,28),
+    years: sorted('years').sort((a,b) => Number(a)-Number(b)),
+    months: monthOrder.filter(m => sets.months.has(m)),
+    dateKeys: Array.from(dateSet).sort(),
+    teams: sorted('teams'),
+    subdists: sorted('subdists'),
+    brands: sorted('brands'),
+    subbrands: sorted('subbrands'),
+    accounts: sorted('accounts'),
+    categories: sorted('categories'),
     salesTypes: ['SOO'],
     distributors: ['ALL'],
     updatedAt: PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED') || 'Live dari Google Sheets'
@@ -96,6 +108,7 @@ function page2BuildDashboardData_(filters) {
   const makeBucket = () => ({ ao:new Set(), ec:new Set(), groups:{subdist:{},account:{},category:{},sbu:{}} });
   const CY = makeBucket(), LY = makeBucket();
   const monthly = monthNames.map(m => ({month:m,ao:0,aoLy:0,ec:0,ecLy:0}));
+  const monthlySets = monthNames.map(() => ({cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()}));
   const dailyMap = {};
   const mtdMonth = periodMonths.slice().sort((a,b)=>monthNames.indexOf(a)-monthNames.indexOf(b)).slice(-1)[0] || monthNames[new Date().getMonth()];
   const customer = r => page2Key_(r[12]);
@@ -114,6 +127,12 @@ function page2BuildDashboardData_(filters) {
     const b = y === year ? CY : LY;
     const ecKey = cust + '|' + date;
     b.ao.add(cust); b.ec.add(ecKey);
+    const monthIndex = monthNames.indexOf(m);
+    if (monthIndex >= 0) {
+      const ms = monthlySets[monthIndex];
+      (y === year ? ms.cyAO : ms.lyAO).add(cust);
+      (y === year ? ms.cyEC : ms.lyEC).add(ecKey);
+    }
     addGroup(b,'subdist',page2Text_(r[10]),cust,date);
     addGroup(b,'account',page2Text_(r[27]),cust,date);
     addGroup(b,'category',page2Text_(r[28]),cust,date);
@@ -127,16 +146,8 @@ function page2BuildDashboardData_(filters) {
       dailyMap[dk].ao.add(cust); dailyMap[dk].ec.add(ecKey);
     }
   });
-  // Hitung AO/EC bulanan secara terpisah; AO = customer unik per bulan,
-  // EC = pasangan customer + tanggal (transaksi harian outlet), bukan baris SKU.
-  monthNames.forEach((m,idx) => {
-    const sets = {cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
-    rows.forEach(r => {
-      const y=Number(r[0]); if (page2Month_(r[1])!==m || (y!==year && y!==ly) || !periodMonths.includes(m)) return;
-      const c=customer(r), d=page2Date_(y,m,r[2]); if(!c||!d||(selectedMonthDays.length&&!selectedMonthDays.includes(d.slice(8,10))))return;
-      (y===year?sets.cyAO:sets.lyAO).add(c);
-      (y===year?sets.cyEC:sets.lyEC).add(c+'|'+d);
-    });
+  // Monthly AO/EC sudah dikumpulkan pada lintasan utama di atas.
+  monthlySets.forEach((sets,idx) => {
     monthly[idx].ao=sets.cyAO.size; monthly[idx].aoLy=sets.lyAO.size;
     monthly[idx].ec=sets.cyEC.size; monthly[idx].ecLy=sets.lyEC.size;
   });
