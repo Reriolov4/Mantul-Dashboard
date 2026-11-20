@@ -21,8 +21,20 @@ function page2Text_(v) { return String(v == null ? '' : v).trim(); }
 function page2Key_(v) { return page2Text_(v).toUpperCase(); }
 function page2Read_() {
   const sh = page2Source_();
-  // A:AH = 34 kolom; jangan membatasi pembacaan pada struktur file Excel lama.
-  return sh.getRange(2, 1, sh.getLastRow() - 1, 31).getValues();
+  const rowCount = sh.getLastRow() - 1;
+  if (rowCount <= 0) return [];
+
+  // Page 2 hanya memakai A:C, F:G, K, M, V, dan AA:AE.
+  // Ambil dua blok kolom yang diperlukan saja; kolom N:U dan kolom lain
+  // tidak ikut dibaca. Bentuk array tetap dipertahankan agar indeks lama aman.
+  const left = sh.getRange(2, 1, rowCount, 13).getValues();  // A:M
+  const right = sh.getRange(2, 22, rowCount, 10).getValues(); // V:AE
+  return left.map((row, i) => {
+    const compact = new Array(31);
+    for (let c = 0; c < 13; c++) compact[c] = row[c];
+    for (let c = 0; c < 10; c++) compact[21 + c] = right[i][c];
+    return compact;
+  });
 }
 function page2Date_(year, month, day) {
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
