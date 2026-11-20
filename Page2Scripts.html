@@ -24,7 +24,7 @@ function page2Init(){
  google.script.run.withSuccessHandler(meta=>{
   p2Meta=meta;const years=meta.years||[];const year=p2$('p2Year');year.innerHTML='';years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;year.appendChild(o);});year.value=years.includes('2026')?'2026':(years[years.length-1]||'');
   p2Fill('p2Months',meta.months||[]);p2Fill('p2Teams',meta.teams||[]);p2Fill('p2Subdists',meta.subdists||[]);p2Fill('p2Categories',meta.categories||[]);p2DateOptions();p2UpdateTriggers();page2Apply();
- }).withFailureHandler(e=>{if(view)view.removeAttribute('aria-busy');p2$('p2Status').textContent='Gagal memuat opsi filter: '+(e.message||String(e));}).page2GetMeta();
+ }).withFailureHandler(e=>{if(view)view.removeAttribute('aria-busy');p2$('p2Status').textContent='Gagal memuat opsi filter: '+(e.message||String(e));if(!p2Data)p2SetLoadingState_('Gagal memuat');}).page2GetMeta();
 }
 document.addEventListener('click',e=>{const trigger=e.target.closest('#page2View .p2-trigger');if(trigger){const filter=trigger.closest('.p2-filter');const wasOpen=filter.classList.contains('open');p2CloseMenus();if(!wasOpen)filter.classList.add('open');return;}if(!e.target.closest('#page2View .p2-menu'))p2CloseMenus();});
 document.addEventListener('change',e=>{if(e.target.closest('#page2View .p2-checklist'))p2UpdateTriggers();if(e.target&&e.target.id==='p2Year')p2DateOptions();});
