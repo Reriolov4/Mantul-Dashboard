@@ -50,10 +50,10 @@ function page2Unique_(rows, index) {
   rows.forEach(r => { const v = page2Text_(r[index]); if (v) o[v] = true; });
   return Object.keys(o).sort((a,b) => a.localeCompare(b,'id'));
 }
-function page2BuildMeta_() {
+function page2BuildMeta_(sourceRows) {
   // Bangun seluruh opsi filter dalam satu lintasan; hindari membuat beberapa
   // array perantara besar dari RAW_DATA_SALES.
-  const values = page2Read_();
+  const values = sourceRows || page2Read_();
   const fields = {years:0, months:1, teams:26, subdists:10, brands:6, subbrands:5, accounts:27, categories:28};
   const sets = {};
   Object.keys(fields).forEach(k => sets[k] = new Set());
@@ -89,9 +89,9 @@ function page2FilterList_(v) {
   return (Array.isArray(v) ? v : [v]).map(page2Key_).filter(Boolean);
 }
 function page2Growth_(cy,ly) { return ly ? (cy / ly - 1) * 100 : (cy ? null : 0); }
-function page2BuildDashboardData_(filters) {
+function page2BuildDashboardData_(filters, sourceRows) {
   filters = filters || {};
-  const all = page2Read_();
+  const all = sourceRows || page2Read_();
   const year = Number(filters.year) || new Date().getFullYear();
   const ly = year - 1;
   const selectedMonths = page2FilterList_(filters.months);
@@ -250,5 +250,24 @@ function getPage2DashboardData(filters) {
   const key = page2CacheKey_('p2data', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
+  }, 180);
+}
+
+
+/**
+ * Initial Page 2 payload: read RAW_DATA_SALES once, then build both filter
+ * metadata and dashboard aggregates from the same compact row set.
+ */
+function getPage2InitialPayload() {
+  const key = page2CacheKey_('p2initial', 'v1');
+  return page2Cached_(key, function() {
+    const sourceRows = page2Read_();
+    const meta = page2BuildMeta_(sourceRows);
+    const years = meta.years || [];
+    const year = years.includes('2026')
+      ? 2026
+      : (Number(years[years.length - 1]) || new Date().getFullYear());
+    const data = page2BuildDashboardData_({ year: year }, sourceRows);
+    return { meta: meta, data: data };
   }, 180);
 }
