@@ -39,7 +39,7 @@ function page2Init(){
   p2Fill('p2Categories',meta.categories||[]);
   p2DateOptions();
   p2UpdateTriggers();
-  if(!data)throw new Error('Respons awal Page 2 tidak berisi data dashboard.');
+  if(!data){if(view)view.removeAttribute('aria-busy');p2$('p2Status').textContent='Respons awal Page 2 tidak berisi data dashboard.';p2SetLoadingState_('Gagal memuat');return;}
   p2Data=data;
   page2Render();
   if(view)view.removeAttribute('aria-busy');
