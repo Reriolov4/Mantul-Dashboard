@@ -122,7 +122,17 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const monthly = monthNames.map(m => ({month:m,ao:0,aoLy:0,ec:0,ecLy:0}));
   const monthlySets = monthNames.map(() => ({cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()}));
   const dailyMap = {};
-  const mtdMonth = periodMonths.slice().sort((a,b)=>monthNames.indexOf(a)-monthNames.indexOf(b)).slice(-1)[0] || monthNames[new Date().getMonth()];
+  // MTD mengikuti bulan terpilih paling akhir. Jika filter bulan kosong
+  // (artinya semua bulan), gunakan bulan terbaru yang benar-benar tersedia
+  // pada tahun berjalan, bukan otomatis Desember.
+  const selectedMtdMonth = periodMonths.slice().sort((a,b)=>monthNames.indexOf(a)-monthNames.indexOf(b)).slice(-1)[0];
+  const latestAvailableMonth = rows.reduce((latest, r) => {
+    if (Number(r[0]) !== year) return latest;
+    const idx = monthNames.indexOf(page2Month_(r[1]));
+    return idx > latest ? idx : latest;
+  }, -1);
+  const mtdMonth = selectedMtdMonth || (latestAvailableMonth >= 0 ? monthNames[latestAvailableMonth] : monthNames[new Date().getMonth()]);
+  const mtdAO = {cy:new Set(),ly:new Set(),cyEC:new Set(),lyEC:new Set()};
   const customer = r => page2Key_(r[12]);
   const addGroup = (bucket, dim, label, cust, date) => {
     if (!label) return;
@@ -149,9 +159,10 @@ function page2BuildDashboardData_(filters, sourceRows) {
     addGroup(b,'account',page2Text_(r[27]),cust,date);
     addGroup(b,'category',page2Text_(r[28]),cust,date);
     addGroup(b,'sbu',page2Text_(r[30]),cust,date);
-    const mi = monthNames.indexOf(m);
-    const mBucket = monthly[mi];
-    if (y === year) { /* monthly counts built below from month-specific sets */ }
+    if (m === mtdMonth) {
+      (y === year ? mtdAO.cy : mtdAO.ly).add(cust);
+      (y === year ? mtdAO.cyEC : mtdAO.lyEC).add(ecKey);
+    }
     const dk = date;
     if (y === year) {
       if (!dailyMap[dk]) dailyMap[dk] = {date:dk,ao:new Set(),ec:new Set()};
@@ -163,12 +174,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
     monthly[idx].ao=sets.cyAO.size; monthly[idx].aoLy=sets.lyAO.size;
     monthly[idx].ec=sets.cyEC.size; monthly[idx].ecLy=sets.lyEC.size;
   });
-  const mtdRows = rows.filter(r => Number(r[0])===year && page2Month_(r[1])===mtdMonth && (!selectedMonthDays.length || selectedMonthDays.includes(page2Date_(year,r[1],r[2]).slice(8,10))));
-  const mtdRowsLY = rows.filter(r => Number(r[0])===ly && page2Month_(r[1])===mtdMonth && (!selectedMonthDays.length || selectedMonthDays.includes(page2Date_(ly,r[1],r[2]).slice(8,10))));
-  const uniqueCount = (arr, fn) => new Set(arr.map(fn).filter(Boolean)).size;
-  const aoMTD = uniqueCount(mtdRows,customer), aoMTDLY = uniqueCount(mtdRowsLY,customer);
-  const ecMTD = uniqueCount(mtdRows,r=>{const c=customer(r),d=page2Date_(year,r[1],r[2]);return c&&d?c+'|'+d:'';});
-  const ecMTDLY = uniqueCount(mtdRowsLY,r=>{const c=customer(r),d=page2Date_(ly,r[1],r[2]);return c&&d?c+'|'+d:'';});
+  const aoMTD = mtdAO.cy.size, aoMTDLY = mtdAO.ly.size;
+  const ecMTD = mtdAO.cyEC.size, ecMTDLY = mtdAO.lyEC.size;
   const groupResult = (dim) => {
     const a=CY.groups[dim],b=LY.groups[dim],names=Array.from(new Set(Object.keys(a).concat(Object.keys(b))));
     return names.map(name=>{
@@ -181,7 +188,16 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const ao=cy?cy.ao.size:0,aoLy=prev?prev.ao.size:0;
     return {name:sbu,aoCY:ao,aoLY:aoLy,growth:page2Growth_(ao,aoLy),ctr:CY.ao.size?ao/CY.ao.size*100:0};
   };
-  const daily = Object.keys(dailyMap).sort().map(k=>({date:k,ao:dailyMap[k].ao.size,ec:dailyMap[k].ec.size}));
+  // Roll-up per nomor tanggal: jumlahkan nilai harian dari seluruh bulan
+  // yang dipilih. AO tetap unik per tanggal; EC tetap unik per customer-tanggal.
+  const dailyTotals = Array.from({length:31},(_,i)=>({day:String(i+1).padStart(2,'0'),ao:0,ec:0}));
+  Object.keys(dailyMap).forEach(k => {
+    const dayIndex = Number(k.slice(8,10)) - 1;
+    if (dayIndex < 0 || dayIndex >= 31) return;
+    dailyTotals[dayIndex].ao += dailyMap[k].ao.size;
+    dailyTotals[dayIndex].ec += dailyMap[k].ec.size;
+  });
+  const daily = dailyTotals;
   const ao=CY.ao.size, aoLy=LY.ao.size, ec=CY.ec.size, ecLy=LY.ec.size;
   const compositionGroups = dim => groupResult(dim);
   return {
@@ -267,7 +283,15 @@ function getPage2InitialPayload() {
     const year = years.includes('2026')
       ? 2026
       : (Number(years[years.length - 1]) || new Date().getFullYear());
-    const data = page2BuildDashboardData_({ year: year }, sourceRows);
+    // Default filter bulan sama dengan bulan yang tersedia untuk tahun awal.
+    // Dengan begitu MTD initial-load konsisten dengan pilihan filter di UI.
+    const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    const initialMonths = Array.from(new Set(sourceRows
+      .filter(r => Number(r[0]) === year && page2Key_(r[21]) === 'SOO')
+      .map(r => page2Month_(r[1]))
+      .filter(m => monthOrder.includes(m))))
+      .sort((a,b) => monthOrder.indexOf(a)-monthOrder.indexOf(b));
+    const data = page2BuildDashboardData_({ year: year, months: initialMonths }, sourceRows);
     return { meta: meta, data: data };
   }, 180);
 }
