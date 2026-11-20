@@ -13,7 +13,10 @@ function p2SelectAll(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').for
 function p2Clear(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);p2UpdateTriggers();}
 function p2CloseMenus(){document.querySelectorAll('#page2View .p2-filter.open').forEach(x=>x.classList.remove('open'));p2UpdateTriggers();}
 function page2Init(){
- if(!window.google||!google.script||!google.script.run){p2$('p2Status').textContent='Buka dashboard melalui Google Apps Script Web App.';return;}
+ const view=p2$('page2View'),status=p2$('p2Status');
+ if(view)view.setAttribute('aria-busy','true');
+ if(status){status.setAttribute('aria-live','polite');status.textContent='Memuat opsi filter RAW_DATA_SALES...';}
+ if(!window.google||!google.script||!google.script.run){if(status)status.textContent='Buka dashboard melalui Google Apps Script Web App.';if(view)view.removeAttribute('aria-busy');return;}
  google.script.run.withSuccessHandler(meta=>{
   p2Meta=meta;const years=meta.years||[];const year=p2$('p2Year');year.innerHTML='';years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;year.appendChild(o);});year.value=years.includes('2026')?'2026':(years[years.length-1]||'');
   p2Fill('p2Months',meta.months||[]);p2Fill('p2Teams',meta.teams||[]);p2Fill('p2Subdists',meta.subdists||[]);p2Fill('p2Categories',meta.categories||[]);p2DateOptions();p2UpdateTriggers();page2Apply();
@@ -24,16 +27,20 @@ document.addEventListener('change',e=>{if(e.target.closest('#page2View .p2-check
 function page2Apply(){
  if(!p2Meta)return;
  const requestId=++p2RequestSeq;
- p2$('p2Status').textContent='Mengolah data SOO dari RAW_DATA_SALES...';
+ const view=p2$('page2View'),status=p2$('p2Status');
+ if(view)view.setAttribute('aria-busy','true');
+ if(status){status.setAttribute('aria-live','polite');status.textContent='Memuat KPI dan grafik SOO dari RAW_DATA_SALES...';}
  const f=p2FilterValues();
  google.script.run.withSuccessHandler(d=>{
   // Abaikan hasil request lama jika pengguna sudah menerapkan filter baru.
   if(requestId!==p2RequestSeq)return;
   p2Data=d;page2Render();
+  if(view)view.removeAttribute('aria-busy');
   p2$('p2Status').textContent=`${p2Fmt(d.kpi.rows)} baris sumber terfilter • Jenis Sales SOO • Distributor ALL • ${d.updatedAt||'Live Google Sheets'}`;
  }).withFailureHandler(e=>{
   if(requestId!==p2RequestSeq)return;
-  p2$('p2Status').textContent=e.message||String(e);
+  if(view)view.removeAttribute('aria-busy');
+  p2$('p2Status').textContent='Gagal memuat data: '+(e.message||String(e));
  }).getPage2DashboardData(f);
 }
 function page2Reset(){if(!p2Meta)return;p2$('p2Year').value=(p2Meta.years||[]).includes('2026')?'2026':(p2Meta.years||[]).slice(-1)[0];['p2Months','p2Dates','p2Teams','p2Subdists','p2Categories'].forEach(p2SelectAll);p2CloseMenus();page2Apply();}
