@@ -5,10 +5,11 @@
  */
 
 function getDatabase_() {
-  if (!SPREADSHEET_ID || String(SPREADSHEET_ID).indexOf('GANTI_') === 0) {
-    throw new Error('SPREADSHEET_ID belum dikonfigurasi di Config.gs.');
+  const spreadsheetId = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+  if (!spreadsheetId || !String(spreadsheetId).trim()) {
+    throw new Error('Konfigurasi SPREADSHEET_ID belum diisi pada Apps Script > Project Settings > Script Properties.');
   }
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
+  return SpreadsheetApp.openById(String(spreadsheetId).trim());
 }
 
 function getOrCreateSheet_(name) {
@@ -413,9 +414,10 @@ function cacheDashboardData_() {
 }
 
 function assertUploadPermission_() {
-  const email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-  const allowed = (UPLOAD_ALLOWED_EMAILS || []).map(x => String(x).trim().toLowerCase()).filter(Boolean);
+  const email = (Session.getActiveUser().getEmail() || '').trim().toLowerCase();
+  const configured = PropertiesService.getScriptProperties().getProperty('UPLOAD_ALLOWED_EMAILS') || '';
+  const allowed = configured.split(',').map(x => String(x).trim().toLowerCase()).filter(Boolean);
   if (!email || allowed.indexOf(email) === -1) {
-    throw new Error('Akun Anda belum diizinkan mengunggah data. Tambahkan email Google Workspace yang tepat ke UPLOAD_ALLOWED_EMAILS di Config.gs.');
+    throw new Error('Akun Anda belum diizinkan mengunggah data. Atur UPLOAD_ALLOWED_EMAILS pada Apps Script > Project Settings > Script Properties (pisahkan beberapa email dengan koma).');
   }
 }
