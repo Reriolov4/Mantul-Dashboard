@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sales Performance Dashboard 2026</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <?!= include('Styles'); ?>
+
+<style>
+.header-utilities{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.page-switch{position:relative!important;top:auto!important;margin:0;padding:10px 2.5vw!important}
+.page-switch-inner{max-width:1600px;margin:0 auto}
+@media(max-width:700px){.header-utilities{width:100%;justify-content:flex-start}.page-switch-inner{border-radius:18px}}
+</style>
+</head>
+<body>
+<style>
+.page-switch{display:flex;align-items:center;gap:10px;padding:12px 2.5vw;background:#f4f6f9;position:sticky;top:0;z-index:1000}
+.page-switch-inner{display:flex;align-items:center;gap:18px;width:100%;min-height:62px;padding:10px 16px;background:#fff;border-radius:36px;box-shadow:0 3px 18px rgba(20,35,60,.06)}
+.page-switch-mark{width:36px;height:36px;flex:0 0 36px;border-radius:50%;display:grid;place-items:center;background:#2563eb;color:#fff;font-size:18px;font-weight:900}
+.page-switch-buttons{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.page-switch button{border:0;border-radius:24px;background:transparent;color:#303b4b;padding:10px 17px;font-size:13px;font-weight:650;cursor:pointer;transition:background .15s,color .15s}
+.page-switch button.active{background:#2563eb;color:#fff;box-shadow:0 4px 12px rgba(37,99,235,.22)}
+@media(max-width:600px){.page-switch{padding:8px}.page-switch-inner{gap:10px;padding:9px 11px;border-radius:22px}.page-switch button{padding:9px 11px;font-size:11px}}
+</style>
+
+
+<header><div class="head"><div><div class="eyebrow">COMMERCIAL PERFORMANCE • 2026 FOCUS</div><div class="title">Bismillahirohmanirohim,</div><div class="sub">Sales Performance Dashboard • Area Banda Aceh</div><div class="status" id="status">Menghubungkan ke database...</div></div><div class="header-utilities"><input accept=".xlsx,.xls,.csv" hidden="" id="fileInput" type="file"/><button class="report-pdf" type="button" onclick="downloadPptPdf()">▤ Download Laporan PDF</button><button class="dashboard-screenshot-btn" type="button" onclick="captureDashboardSummaryPng(this)" title="Screenshot seluruh ringkasan dashboard">▧ Screenshot Dashboard</button></div></div></header>
+
+<nav class="page-switch" aria-label="Navigasi halaman">
+  <div class="page-switch-inner">
+    <div class="page-switch-mark" aria-hidden="true">✦</div>
+    <div class="page-switch-buttons">
+      <button type="button" class="p1-nav active" onclick="page1Show()">▦ Sales Performance</button>
+      <button type="button" class="p2-nav" onclick="page2Show()">◉ Outlets | Sales Force</button>
+    </div>
+  </div>
+</nav>
+
+
+
+
+<main class="wrap">
+<section class="filters">
+<div><label>TAHUN ANALISIS</label><select id="year"><option>2025</option><option selected="">2026</option></select></div><div class="month-filter" id="monthFilter"><label>BULAN</label><button class="month-trigger" id="monthTrigger" type="button" aria-expanded="false">Pilih bulan</button><div class="month-menu"><div class="month-actions"><button id="selectAllMonths" type="button">Pilih Semua</button><button id="clearMonths" type="button">Kosongkan</button><button id="resetYtd" type="button">Reset ke YTD</button></div><div class="month-actions" style="margin-top:7px"><button id="applyMonths" type="button" style="background:#2563eb;color:#fff;border-color:#2563eb;width:100%">Terapkan Pilihan</button></div><div class="month-checks" id="monthChecks"></div></div></div><div><label>JENIS SALES</label><select id="sales"><option value="SOO">SOO</option><option value="SO">SO</option></select></div><div><label>PIC</label><select id="pic"><option value="ALL">Semua PIC</option></select></div><div class="month-filter subdist-filter" id="subdistFilter"><label>SUBDIST</label><button class="month-trigger" id="subdistTrigger" type="button" aria-expanded="false">Semua Subdist</button><div class="month-menu"><div class="month-actions"><button id="selectAllSubdists" type="button">Pilih Semua</button><button id="clearSubdists" type="button">Reset</button><button id="applySubdists" type="button" style="background:#2563eb;color:#fff;border-color:#2563eb;width:100%">Terapkan Pilihan</button></div><div class="month-checks" id="subdistChecks"></div></div><select id="subdist" hidden><option value="ALL">Semua</option></select></div>
+<div class="month-filter product-filter" id="brandFilter"><label>BRAND</label><button class="month-trigger" id="brandTrigger" type="button" aria-expanded="false">Semua Brand</button><div class="month-menu"><div class="month-actions"><button id="selectAllBrands" type="button">Pilih Semua</button><button id="clearBrands" type="button">Reset</button><button id="applyBrands" type="button" style="background:#2563eb;color:#fff;border-color:#2563eb;width:100%">Terapkan Pilihan</button></div><div class="month-checks" id="brandChecks"></div></div></div>
+<div class="month-filter product-filter" id="subbrandFilter"><label>SUBBRAND</label><button class="month-trigger" id="subbrandTrigger" type="button" aria-expanded="false">Semua Subbrand</button><div class="month-menu"><div class="month-actions"><button id="selectAllSubbrands" type="button">Pilih Semua</button><button id="clearSubbrands" type="button">Reset</button><button id="applySubbrands" type="button" style="background:#2563eb;color:#fff;border-color:#2563eb;width:100%">Terapkan Pilihan</button></div><div class="month-checks" id="subbrandChecks"></div></div></div>
+<div class="month-filter product-filter" id="categoryFilter"><label>CATEGORY</label><button class="month-trigger" id="categoryTrigger" type="button" aria-expanded="false">Semua Category</button><div class="month-menu"><div class="month-actions"><button id="selectAllCategories" type="button">Pilih Semua</button><button id="clearCategories" type="button">Reset</button><button id="applyCategories" type="button" style="background:#2563eb;color:#fff;border-color:#2563eb;width:100%">Terapkan Pilihan</button></div><div class="month-checks" id="categoryChecks"></div></div></div>
+</section>
+<section class="kpis">
+<div class="kpi"><div class="klabel">ACTUAL SALES</div><div class="kvalue" id="total">-</div><div class="hint" id="period">Periode terpilih</div></div>
+<div class="kpi"><div class="klabel">TARGET</div><div class="kvalue" id="targetKpi">-</div><div class="hint">Target periode terpilih</div></div>
+<div class="kpi"><div class="klabel">% ACHIEVEMENT</div><div class="kvalue" id="ach">-</div><div class="hint">Actual dibanding target</div></div>
+<div class="kpi"><div class="klabel">GRW vs LY</div><div class="kvalue" id="growth">-</div><div class="hint">Periode terpilih vs LY</div></div>
+<div class="kpi kpi-mtd"><div class="klabel">ACTUAL MTD</div><div class="kvalue" id="actualMtd">-</div><div class="hint" id="mtdPeriod">Bulan berjalan</div></div>
+<div class="kpi kpi-mtd"><div class="klabel">TGT MTD</div><div class="kvalue" id="targetMtd">-</div><div class="hint">Target bulan berjalan</div></div>
+<div class="kpi kpi-mtd"><div class="klabel">% ACH MTD</div><div class="kvalue" id="achMtd">-</div><div class="hint">Actual MTD dibanding target</div></div>
+<div class="kpi kpi-mtd"><div class="klabel">GRW MTD</div><div class="kvalue" id="growthMtd">-</div><div class="hint">Bulan berjalan vs bulan sama LY</div></div>
+</section>
+<section class="executive-top">
+  <div class="performance-stack">
+    <section class="sbu-section">
+      <div class="sbu-heading"><h3>Pencapaian per SBU</h3><span class="hint">Actual, % achievement, GRW vs LY, dan CTR pada periode terpilih</span></div>
+      <div class="sbu-cards" id="sbuCards"></div>
+    </section>
+    <section class="pf-section">
+      <div class="pf-cards" id="pfCards"></div>
+    </section>
+  </div>
+  <div class="panel trend-panel">
+    <h3>Omset 2025 vs 2026 vs Target 2026</h3>
+    <div class="desc">Perbandingan omset aktual tahun lalu, aktual tahun berjalan, dan target tahun berjalan</div>
+    <div class="chartbox"><canvas id="trend"></canvas></div>
+  </div>
+</section>
+<section class="donut-row">
+  <div class="panel donut-panel category-panel">
+    <h3>Komposisi Penjualan per Category</h3>
+    <div class="desc">Kontribusi dan growth Category pada periode terpilih</div>
+    <div class="chartbox"><canvas id="categories"></canvas></div>
+  </div>
+  <div class="panel donut-panel brand-panel">
+    <h3>Komposisi Penjualan per Brand</h3>
+    <div class="desc">Kontribusi dan growth Brand pada periode terpilih</div>
+    <div class="chartbox"><canvas id="brands"></canvas></div>
+  </div>
+  <div class="panel donut-panel subdist-panel">
+    <h3>Komposisi Penjualan per Subdist</h3>
+    <div class="desc">Kontribusi dan growth Subdist pada periode terpilih</div>
+    <div class="chartbox"><canvas id="subdists"></canvas></div>
+  </div>
+</section>
+<div class="section-title">SALES PERFORMANCE <span class="pill" id="matrixPeriod">YTD</span></div>
+<div class="panel matrix" id="panelBySubdist"><h3>BY SUBDIST</h3><div class="desc">Pencapaian bulan berjalan, estimasi BE, dan tren masing-masing subdistributor</div><div class="matrix-actions"><button type="button" class="matrix-icon-btn screenshot-btn" onclick="captureMatrixPng(this)" title="Screenshot matrix" aria-label="Screenshot matrix">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button></div><div class="tablewrap" id="bySubdistWrap"><table id="matrixSubdistTable"><colgroup class="locked-columns"><col style="width:220px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"></colgroup><thead><tr><th>Subdist</th><th>Actual MTD</th><th>Target MTD</th><th>% ACH MTD</th><th>Actual YTD</th><th>Target YTD</th><th>% ACH YTD</th><th>GRW vs LY</th><th>GRW vs LM</th><th>GRW vs L3M</th><th>CTR</th><th>AVG / Month</th><th>BE</th><th>%BE</th></tr></thead><tbody id="matrixSubdist"></tbody></table></div></div>
+<div class="panel matrix monthly-matrix" id="panelTrendSubdist"><h3>TREND BY SUBDIST</h3><div class="desc">Omset bulanan, target MTD, dan pencapaian bulan terpilih per Subdist</div><div class="matrix-actions"><button type="button" class="excel-export matrix-icon-btn" onclick="exportTrendExcel('subdist')" title="Download Excel" aria-label="Download Excel">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" /></svg></button><button type="button" class="matrix-icon-btn screenshot-btn" onclick="captureMatrixPng(this)" title="Screenshot matrix" aria-label="Screenshot matrix">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button></div><div class="tablewrap"><table><colgroup class="locked-columns"><col style="width:220px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"></colgroup><thead><tr><th>Subdist</th><th data-month="JAN">Jan</th><th data-month="FEB">Feb</th><th data-month="MAR">Mar</th><th data-month="APR">Apr</th><th data-month="MAY">May</th><th data-month="JUN">Jun</th><th data-month="JUL">Jul</th><th data-month="AUG">Aug</th><th data-month="SEP">Sep</th><th data-month="OCT">Oct</th><th data-month="NOV">Nov</th><th data-month="DEC">Dec</th><th>TGT MTD</th><th>%ACH MTD</th><th>Target YTD</th><th>%ACH YTD</th><th>GRW YTD</th><th>Grw vs LM</th><th>Grw vs L3M</th><th>CTR</th><th>Avg 2026</th><th>Avg L3M</th><th>BE</th><th>%BE</th></tr></thead><tbody id="matrixMonthlySubdist"></tbody></table></div></div><div class="panel matrix" id="panelByCategory"><h3>BY CATEGORY</h3><div class="desc">Pencapaian target dan pertumbuhan per kategori</div><div class="matrix-actions"><button type="button" class="matrix-icon-btn screenshot-btn" onclick="captureMatrixPng(this)" title="Screenshot matrix" aria-label="Screenshot matrix">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button></div><div class="tablewrap"><table id="matrixCategoryTable"><colgroup class="locked-columns"><col style="width:220px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"></colgroup><thead><tr><th>Category</th><th>Actual MTD</th><th>Target MTD</th><th>% ACH MTD</th><th>Actual YTD</th><th>Target YTD</th><th>% ACH YTD</th><th>GRW vs LY</th><th>GRW vs LM</th><th>GRW vs L3M</th><th>CTR</th><th>AVG / Month</th><th>BE</th><th>%BE</th></tr></thead><tbody id="matrixCategory"></tbody></table></div></div>
+<div class="panel matrix monthly-matrix" id="panelTrendCategoryBrand"><h3>TREND BY CATEGORY &amp; BRAND</h3><div class="desc">Omset bulanan, target MTD, dan pencapaian bulan terpilih per Category dan Brand</div><div class="matrix-actions"><button type="button" class="excel-export matrix-icon-btn" onclick="exportTrendExcel('categoryBrand')" title="Download Excel" aria-label="Download Excel">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" /></svg></button><button type="button" class="matrix-icon-btn screenshot-btn" onclick="captureMatrixPng(this)" title="Screenshot matrix" aria-label="Screenshot matrix">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button></div><div class="tablewrap" id="trendCategoryBrandWrap"><table id="matrixMonthlyCategoryBrandTable"><colgroup class="locked-columns"><col style="width:220px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:78px"></colgroup><thead><tr><th>Category / Brand</th><th data-month="JAN">Jan</th><th data-month="FEB">Feb</th><th data-month="MAR">Mar</th><th data-month="APR">Apr</th><th data-month="MAY">May</th><th data-month="JUN">Jun</th><th data-month="JUL">Jul</th><th data-month="AUG">Aug</th><th data-month="SEP">Sep</th><th data-month="OCT">Oct</th><th data-month="NOV">Nov</th><th data-month="DEC">Dec</th><th>TGT MTD</th><th>%ACH MTD</th><th>Target YTD</th><th>%ACH YTD</th><th>GRW YTD</th><th>Grw vs LM</th><th>Grw vs L3M</th><th>CTR</th><th>Avg 2026</th><th>Avg L3M</th><th>BE</th><th>%BE</th></tr></thead><tbody id="matrixMonthlyCategoryBrand"></tbody></table></div></div>
+<div class="panel matrix" id="panelBySubbrand"><h3>BY SUBBRAND</h3><div class="desc">Pencapaian dan tren masing-masing subbrand</div><div class="matrix-actions"><button type="button" class="matrix-icon-btn screenshot-btn" onclick="captureMatrixPng(this)" title="Screenshot matrix" aria-label="Screenshot matrix">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button></div><div class="tablewrap" id="subbrandTableWrap"><table><thead><tr><th>Subbrand</th><th>Actual MTD</th><th>Target MTD</th><th>% ACH MTD</th><th>Actual YTD</th><th>Target YTD</th><th>% ACH YTD</th><th>GRW vs LY</th><th>GRW vs LM</th><th>GRW vs L3M</th><th>CTR</th><th>AVG / Month</th><th>BE</th><th>%BE</th></tr></thead><tbody id="matrixSubbrand"></tbody></table></div></div>
+<div class="panel matrix" id="panelByBrand"><h3>BY BRAND</h3><div class="desc">Pencapaian dan tren masing-masing brand</div><div class="matrix-actions"><button type="button" class="matrix-icon-btn screenshot-btn" onclick="captureMatrixPng(this)" title="Screenshot matrix" aria-label="Screenshot matrix">
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button></div><div class="tablewrap" id="brandTableWrap"><table><thead><tr><th>Brand</th><th>Actual MTD</th><th>Target MTD</th><th>% ACH MTD</th><th>Actual YTD</th><th>Target YTD</th><th>% ACH YTD</th><th>GRW vs LY</th><th>GRW vs LM</th><th>GRW vs L3M</th><th>CTR</th><th>AVG / Month</th><th>BE</th><th>%BE</th></tr></thead><tbody id="matrixBrand"></tbody></table></div></div><section class="lower">
+</section>
+<?!= include('Page2'); ?>
+<div class="footer">Dashboard interaktif • Data tersimpan terpusat di Google Sheets dan dapat diakses oleh tim internal.</div></main>
+
+<?!= include('Scripts'); ?>
+<?!= include('Page2Scripts'); ?>
+</body>
+</html>

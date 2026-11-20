@@ -1,0 +1,110 @@
+<script>
+let p2Data=null,p2Meta=null,p2Charts={},p2RequestSeq=0,p2Metric={month:'ao',day:'ao',subdist:'ao',account:'ao',category:'ao'};
+const p2$=id=>document.getElementById(id);
+const p2Fmt=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:1});
+const p2Esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function p2Selected(id){const el=p2$(id);if(!el)return [];if(el.tagName==='SELECT')return [...el.selectedOptions].map(o=>o.value);return [...el.querySelectorAll('input[type="checkbox"]:checked')].map(o=>o.value);}
+function p2Fill(id,values,selectAll=true){const el=p2$(id);if(!el)return;const old=new Set(p2Selected(id));el.innerHTML='';(values||[]).forEach(v=>{const label=document.createElement('label');label.className='p2-checkitem';const cb=document.createElement('input');cb.type='checkbox';cb.value=String(v);cb.checked=selectAll||old.has(String(v));const text=document.createElement('span');text.textContent=String(v);label.append(cb,text);el.appendChild(label);});}
+function p2DateOptions(){p2Fill('p2Dates',Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0')),true);}
+function p2FilterValues(){return {year:p2$('p2Year').value,months:p2Selected('p2Months'),dates:p2Selected('p2Dates'),teams:p2Selected('p2Teams'),subdists:p2Selected('p2Subdists'),categories:p2Selected('p2Categories')};}
+function p2UpdateTrigger(id,triggerId,allText){const selected=p2Selected(id),el=p2$(triggerId);if(!el)return;const total=p2$(id)?.querySelectorAll('input[type="checkbox"]').length||0;el.textContent=selected.length===total?allText:selected.length===0?'Tidak ada pilihan':selected.length===1?selected[0]:selected.length+' dipilih';}
+function p2UpdateTriggers(){p2UpdateTrigger('p2Months','p2MonthsTrigger','Pilih Semua Bulan');p2UpdateTrigger('p2Dates','p2DatesTrigger','Semua Tanggal');p2UpdateTrigger('p2Subdists','p2SubdistsTrigger','Semua Subdist');p2UpdateTrigger('p2Teams','p2TeamsTrigger','Semua Tim');p2UpdateTrigger('p2Categories','p2CategoriesTrigger','Semua Category');}
+function p2SelectAll(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=true);p2UpdateTriggers();}
+function p2Clear(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);p2UpdateTriggers();}
+function p2CloseMenus(){document.querySelectorAll('#page2View .p2-filter.open').forEach(x=>x.classList.remove('open'));p2UpdateTriggers();}
+function page2Init(){
+ if(!window.google||!google.script||!google.script.run){p2$('p2Status').textContent='Buka dashboard melalui Google Apps Script Web App.';return;}
+ google.script.run.withSuccessHandler(meta=>{
+  p2Meta=meta;const years=meta.years||[];const year=p2$('p2Year');year.innerHTML='';years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;year.appendChild(o);});year.value=years.includes('2026')?'2026':(years[years.length-1]||'');
+  p2Fill('p2Months',meta.months||[]);p2Fill('p2Teams',meta.teams||[]);p2Fill('p2Subdists',meta.subdists||[]);p2Fill('p2Categories',meta.categories||[]);p2DateOptions();p2UpdateTriggers();page2Apply();
+ }).withFailureHandler(e=>p2$('p2Status').textContent=e.message||String(e)).page2GetMeta();
+}
+document.addEventListener('click',e=>{const trigger=e.target.closest('#page2View .p2-trigger');if(trigger){const filter=trigger.closest('.p2-filter');const wasOpen=filter.classList.contains('open');p2CloseMenus();if(!wasOpen)filter.classList.add('open');return;}if(!e.target.closest('#page2View .p2-menu'))p2CloseMenus();});
+document.addEventListener('change',e=>{if(e.target.closest('#page2View .p2-checklist'))p2UpdateTriggers();if(e.target&&e.target.id==='p2Year')p2DateOptions();});
+function page2Apply(){
+ if(!p2Meta)return;
+ const requestId=++p2RequestSeq;
+ p2$('p2Status').textContent='Mengolah data SOO dari RAW_DATA_SALES...';
+ const f=p2FilterValues();
+ google.script.run.withSuccessHandler(d=>{
+  // Abaikan hasil request lama jika pengguna sudah menerapkan filter baru.
+  if(requestId!==p2RequestSeq)return;
+  p2Data=d;page2Render();
+  p2$('p2Status').textContent=`${p2Fmt(d.kpi.rows)} baris sumber terfilter • Jenis Sales SOO • Distributor ALL • ${d.updatedAt||'Live Google Sheets'}`;
+ }).withFailureHandler(e=>{
+  if(requestId!==p2RequestSeq)return;
+  p2$('p2Status').textContent=e.message||String(e);
+ }).getPage2DashboardData(f);
+}
+function page2Reset(){if(!p2Meta)return;p2$('p2Year').value=(p2Meta.years||[]).includes('2026')?'2026':(p2Meta.years||[]).slice(-1)[0];['p2Months','p2Dates','p2Teams','p2Subdists','p2Categories'].forEach(p2SelectAll);p2CloseMenus();page2Apply();}
+function p2Growth(v){if(v===null||v===undefined)return '—';return (v>0?'+':'')+Number(v).toFixed(1)+'%';}
+function p2SetGrowth(id,v){const el=p2$(id);el.textContent=p2Growth(v);el.className='k-growth '+(v===null||!Number.isFinite(Number(v))?'p2-neutral':v>0?'p2-positive':v<0?'p2-negative':'p2-neutral');}
+function p2IndicatorClass(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return 'p2-neutral';return v>0?'p2-positive':v<0?'p2-negative':'p2-neutral';}
+function p2CtrClass(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return 'p2-ctr-neutral';return v>=25?'p2-ctr-blue':v>=10?'p2-ctr-darkgreen':v>=5?'p2-ctr-lightgreen':v>=3?'p2-ctr-orange':'p2-ctr-red';}
+function p2SetIndicator(id,v,kind){const el=p2$(id);el.className=kind==='ctr'?p2CtrClass(v):p2IndicatorClass(v);}
+function p2SetText(id,v){p2$(id).textContent=v;}
+function page2Render(){
+ if(!p2Data)return;const d=p2Data,k=d.kpi;
+ p2SetText('p2AO',p2Fmt(k.ao));p2SetText('p2AOdesc',`Outlet unik ${k.year} • ${k.monthCount} bulan`);p2SetText('p2AOly',`AO LY (${k.ly}): ${p2Fmt(k.aoLy)}`);p2SetGrowth('p2AOgrowth',k.aoGrowth);p2$('p2AOgrowth').textContent='Growth vs LY '+p2Growth(k.aoGrowth);
+ p2SetText('p2EC',p2Fmt(k.ec));p2SetText('p2ECdesc',`Customer per tanggal ${k.year} • YTD`);p2SetText('p2ECly',`EC LY (${k.ly}): ${p2Fmt(k.ecLy)}`);p2SetGrowth('p2ECgrowth',k.ecGrowth);p2$('p2ECgrowth').textContent='Growth vs LY '+p2Growth(k.ecGrowth);
+ p2SetText('p2AOMTD',p2Fmt(k.aoMTD));p2SetText('p2AOMTDdesc','AO '+k.mtdMonth+' '+k.year);p2SetGrowth('p2AOMTDgrowth',k.aoMTDLY?(k.aoMTD/k.aoMTDLY-1)*100:(k.aoMTD?null:0));p2$('p2AOMTDgrowth').textContent='vs LY '+p2Growth(k.aoMTDLY?(k.aoMTD/k.aoMTDLY-1)*100:(k.aoMTD?null:0))+' • LY '+p2Fmt(k.aoMTDLY);
+ p2SetText('p2ECMTD',p2Fmt(k.ecMTD));p2SetText('p2ECMTDdesc','EC '+k.mtdMonth+' '+k.year);p2SetGrowth('p2ECMTDgrowth',k.ecMTDLY?(k.ecMTD/k.ecMTDLY-1)*100:(k.ecMTD?null:0));p2$('p2ECMTDgrowth').textContent='vs LY '+p2Growth(k.ecMTDLY?(k.ecMTD/k.ecMTDLY-1)*100:(k.ecMTD?null:0))+' • LY '+p2Fmt(k.ecMTDLY);
+ [['B7','b7'],['SAKA','saka']].forEach(([label,key])=>{const x=d.sbu[key];p2SetText('p2'+label,p2Fmt(x.aoCY));p2SetText('p2'+label+'CY',p2Fmt(x.aoCY));p2SetText('p2'+label+'LY',p2Fmt(x.aoLY));p2SetText('p2'+label+'GRW',p2Growth(x.growth));p2SetIndicator('p2'+label+'GRW',x.growth,'growth');p2SetText('p2'+label+'CTR',p2Fmt(x.ctr)+'%');p2SetIndicator('p2'+label+'CTR',x.ctr,'ctr');});
+ page2DrawCharts();
+}
+const p2Palette=['#284b8f','#2f7775','#2f7139','#b87525','#76508d','#b23d42','#5986b7','#9b9b54','#5b6472','#c16d55'];
+const p2CenterText={id:'p2CenterText',afterDraw(chart){if(chart.config.type!=='doughnut')return;const total=(chart.data.datasets[0]?.data||[]).reduce((a,b)=>a+Number(b||0),0);const ctx=chart.ctx,area=chart.chartArea;if(!area)return;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#64748b';ctx.font='600 10px Arial';ctx.fillText('TOTAL AO', (area.left+area.right)/2,(area.top+area.bottom)/2-9);ctx.fillStyle='#172b4d';ctx.font='800 19px Arial';ctx.fillText(p2Fmt(total),(area.left+area.right)/2,(area.top+area.bottom)/2+11);ctx.restore();}};
+function p2Chart(id,type,data,options){if(p2Charts[id])p2Charts[id].destroy();const ctx=p2$(id);const defaults={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type!=='doughnut',position:'bottom',labels:{boxWidth:10,font:{size:9}}}},scales:type==='doughnut'?{}:{y:{beginAtZero:true,grid:{display:false,drawBorder:false},ticks:{font:{size:9}}},x:{grid:{display:false,drawBorder:false},ticks:{font:{size:9},maxRotation:0,minRotation:0}}}};p2Charts[id]=new Chart(ctx,{type,data,options:Object.assign(defaults,options||{}),plugins:type==='doughnut'?[p2CenterText]:[]});}
+function p2RenderDonut(key,canvasId,legendId){
+ const arr=(p2Data.donut[key]||[]).filter(x=>Number(x.ao)>0).sort((a,b)=>b.ao-a.ao).slice();
+ const total=arr.reduce((s,x)=>s+Number(x.ao||0),0);
+ const colors=arr.map((x,i)=>p2Palette[i%p2Palette.length]);
+ p2Chart(canvasId,'doughnut',{labels:arr.map(x=>x.name),datasets:[{data:arr.map(x=>Number(x.ao||0)),backgroundColor:colors,borderColor:'#d9c8ad',borderWidth:1.5,hoverOffset:4}]},{cutout:'56%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${p2Fmt(c.raw)} AO (${total?(c.raw/total*100).toFixed(1):0}%)`}}}});
+ const legend=p2$(legendId);if(!arr.length){legend.innerHTML='<div class="p2-empty">Tidak ada data pada filter terpilih.</div>';return;}
+ legend.innerHTML=arr.map((x,i)=>{const share=total?Number(x.ao)/total*100:0;const growth=x.growth;const cls=growth===null||growth===undefined?'neu':growth>0?'pos':growth<0?'neg':'neu';return `<div class="p2-donut-row"><div class="p2-donut-name" style="color:${colors[i]}">${p2Esc(x.name)}</div><div class="p2-donut-meta"><span class="p2-donut-share">${share.toFixed(1)}% • ${p2Fmt(x.ao)} AO</span><span class="p2-donut-growth ${cls}">${p2Growth(growth)}</span></div></div>`;}).join('');
+}
+function page2DrawCharts(){const d=p2Data;
+ const monthly=d.monthly.filter(x=>d.kpi.months.includes(x.month));const metric=p2Metric.month;
+ p2Chart('p2MonthlyChart','bar',{labels:monthly.map(x=>x.month),datasets:[{label:String(d.kpi.year),data:monthly.map(x=>x[metric]),backgroundColor:'#2563eb',borderRadius:5},{label:String(d.kpi.ly),data:monthly.map(x=>x[metric==='ao'?'aoLy':'ecLy']),backgroundColor:'#a5afbd',borderRadius:5}]},{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9}}}}});
+ const daily=d.daily.filter(x=>x.date.slice(0,4)===String(d.kpi.year));const dm=p2Metric.day;
+ p2Chart('p2DailyChart','line',{labels:Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0')),datasets:[{label:dm.toUpperCase(),data:Array.from({length:31},(_,i)=>{const day=String(i+1).padStart(2,'0');const row=daily.find(x=>x.date.slice(8,10)===day);return row?row[dm]:0;}),tension:.25,fill:false,borderColor:'#2563eb',backgroundColor:'#2563eb',pointRadius:2}]},{scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,callback:(v,i)=>String(i+1).padStart(2,'0')}},y:{beginAtZero:true,grid:{display:false},ticks:{font:{size:9}}}}});
+ p2RenderDonut('subdist','p2SubdistChart','p2SubdistLegend');
+ p2RenderDonut('account','p2AccountChart','p2AccountLegend');
+ p2RenderDonut('category','p2CategoryChart','p2CategoryLegend');
+}
+function page2SetMetric(group,metric){p2Metric[group]=metric;const prefix={month:'p2Month',day:'p2Day'}[group];if(prefix)['ao','ec'].forEach(m=>{const el=p2$(prefix+(m==='ao'?'AO':'EC'));if(el)el.classList.toggle('active',m===metric);});if(p2Data)page2DrawCharts();}
+function page2Show(){
+  document.body.classList.add('page2-active');
+  const view=p2$('page2View');
+  document.querySelectorAll('main.wrap > *').forEach(el=>{
+   if(el===view)return;
+   el.hidden=true;
+   el.style.setProperty('display','none','important');
+  });
+  if(view){
+   view.hidden=false;
+   view.style.setProperty('display','block','important');
+  }
+  document.querySelector('.p2-nav')?.classList.add('active');
+  document.querySelector('.p1-nav')?.classList.remove('active');
+  window.scrollTo(0,0);
+  if(!p2Meta)page2Init();
+}
+function page1Show(){
+  const view=p2$('page2View');
+  if(view){
+   view.hidden=true;
+   view.style.setProperty('display','none','important');
+  }
+  document.querySelectorAll('main.wrap > *').forEach(el=>{
+   if(el===view)return;
+   el.hidden=false;
+   el.style.removeProperty('display');
+  });
+  document.body.classList.remove('page2-active');
+  document.querySelector('.p2-nav')?.classList.remove('active');
+  document.querySelector('.p1-nav')?.classList.add('active');
+  window.scrollTo(0,0);
+}
+
+</script>

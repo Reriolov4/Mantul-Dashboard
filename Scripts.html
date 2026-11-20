@@ -1,0 +1,927 @@
+<script>
+
+let rows=[];
+let targetRows=[];
+
+const months=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'], labels=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const $=id=>document.getElementById(id), n=v=>Number(v)||0, sum=a=>a.reduce((s,r)=>s+n(r.v),0);
+const fmt=v=>new Intl.NumberFormat('id-ID',{notation:'compact',maximumFractionDigits:2}).format(v||0);
+const pct=v=>v===null||!Number.isFinite(v)?'N/A':(v>=0?'+':'')+v.toFixed(1)+'%';
+const achClass=v=>v===null||!Number.isFinite(v)?'neutral':v>=110?'ach-blue':v>=95?'ach-darkgreen':v>=85?'ach-lightgreen':v>=75?'ach-orange':'ach-red';
+const ctrClass=v=>!Number.isFinite(v)?'neutral':v>=25?'ctr-blue':v>=10?'ctr-darkgreen':v>=5?'ctr-lightgreen':v>=3?'ctr-orange':'ctr-red';
+
+let charts={};
+let renderFilterCache = null;
+let dashboardOutsideClickBound = false;
+function opts(id,values){let el=$(id),old=el.value;el.innerHTML='<option value="ALL">Semua</option>'+values.map(v=>`<option value="${String(v).replaceAll('"','&quot;')}">${v}</option>`).join('');if([...el.options].some(o=>o.value===old))el.value=old;}
+function selectedMonths(){return [...document.querySelectorAll('#monthChecks input:checked')].map(x=>x.value).sort((a,b)=>months.indexOf(a)-months.indexOf(b));}
+function updateMonthLabel(){const chosen=selectedMonths(),btn=$('monthTrigger');btn.textContent='Pilih Bulan';btn.title=chosen.length?chosen.map(m=>labels[months.indexOf(m)]).join(', '):'Belum ada bulan dipilih';}
+function setMonths(list, shouldRender=true){document.querySelectorAll('#monthChecks input').forEach(x=>x.checked=list.includes(x.value));updateMonthLabel();if(shouldRender)render();}
+function selectedSubdists(){return [...document.querySelectorAll('#subdistChecks input:checked')].map(x=>x.value);}
+function isSubdistSelected(value){
+ return renderFilterCache ? renderFilterCache.subdists.has(String(value)) : selectedSubdists().includes(String(value));
+}
+function updateSubdistLabel(){const chosen=selectedSubdists(),all=[...document.querySelectorAll('#subdistChecks input')].map(x=>x.value);const btn=$('subdistTrigger');btn.textContent=chosen.length===all.length?'Semua Subdist':chosen.length===0?'Tidak ada Subdist':chosen.length===1?chosen[0]:chosen.length+' Subdist dipilih';btn.title=chosen.join(', ');}
+function setSubdists(list){document.querySelectorAll('#subdistChecks input').forEach(x=>x.checked=list.includes(x.value));updateSubdistLabel();}
+const productFilterDefs={brand:{field:'b',label:'Brand',values:'brandChecks',trigger:'brandTrigger',filter:'brandFilter',all:'selectAllBrands',clear:'clearBrands',prefix:'Semua Brand'},subbrand:{field:'s',label:'Subbrand',values:'subbrandChecks',trigger:'subbrandTrigger',filter:'subbrandFilter',all:'selectAllSubbrands',clear:'clearSubbrands',prefix:'Semua Subbrand'},category:{field:'c',label:'Category',values:'categoryChecks',trigger:'categoryTrigger',filter:'categoryFilter',all:'selectAllCategories',clear:'clearCategories',prefix:'Semua Category'}};
+function selectedProductValues(key){return [...document.querySelectorAll('#'+productFilterDefs[key].values+' input:checked')].map(x=>x.value);}
+function refreshRenderFilterCache(){
+ const productSets={};
+ Object.keys(productFilterDefs).forEach(key=>{
+  productSets[key]=new Set(selectedProductValues(key).map(String));
+ });
+ renderFilterCache={
+  subdists:new Set(selectedSubdists().map(String)),
+  productSets:productSets
+ };
+}
+function isProductFilterSelected(r){
+ if(!renderFilterCache){
+  return Object.keys(productFilterDefs).every(key=>selectedProductValues(key).includes(String(r[productFilterDefs[key].field]||'')));
+ }
+ return Object.keys(productFilterDefs).every(key=>{
+  const field=productFilterDefs[key].field;
+  return renderFilterCache.productSets[key].has(String(r[field]||''));
+ });
+}
+function updateProductFilterLabel(key){const d=productFilterDefs[key],chosen=selectedProductValues(key),all=[...document.querySelectorAll('#'+d.values+' input')].map(x=>x.value),btn=$(d.trigger);btn.textContent=chosen.length===all.length?d.prefix:chosen.length===0?'Tidak ada '+d.label:chosen.length===1?chosen[0]:chosen.length+' '+d.label+' dipilih';btn.title=chosen.join(', ');}
+function setProductFilter(key,list){const d=productFilterDefs[key];document.querySelectorAll('#'+d.values+' input').forEach(x=>x.checked=list.includes(x.value));updateProductFilterLabel(key);}
+function initProductFilters(){Object.keys(productFilterDefs).forEach(key=>{const d=productFilterDefs[key],field=d.field,values=[...new Set([...rows,...targetRows].map(r=>r[field]).filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));$(d.values).innerHTML=values.map(v=>`<label><input type="checkbox" value="${v.replaceAll('&','&amp;').replaceAll('\"','&quot;').replaceAll('<','&lt;')}" checked><span>${v.replaceAll('&','&amp;').replaceAll('<','&lt;')}</span></label>`).join('');document.querySelectorAll('#'+d.values+' input').forEach(x=>x.addEventListener('change',()=>updateProductFilterLabel(key)));$(d.trigger).onclick=()=>{const f=$(d.filter);f.classList.toggle('open');$(d.trigger).setAttribute('aria-expanded',f.classList.contains('open')?'true':'false');};$(d.all).onclick=()=>setProductFilter(key,values);$(d.clear).onclick=()=>setProductFilter(key,[]);$((key==='category'?'applyCategories':'apply'+key.charAt(0).toUpperCase()+key.slice(1)+'s')).onclick=()=>{render();$(d.filter).classList.remove('open');$(d.trigger).setAttribute('aria-expanded','false');};updateProductFilterLabel(key);});}
+
+function init(){
+ $('monthChecks').innerHTML=months.map((m,i)=>`<label><input type="checkbox" value="${m}"><span>${labels[i]}</span></label>`).join('');
+ opts('subdist',[...new Set(rows.map(r=>r.d).filter(Boolean))].sort());
+ $('subdistChecks').innerHTML=[...new Set(rows.map(r=>r.d).filter(Boolean))].sort().map(d=>`<label><input type="checkbox" value="${d.replaceAll('&','&amp;').replaceAll('\"','&quot;')}"><span>${d}</span></label>`).join('');
+ initProductFilters();
+ opts('pic',[...new Set(rows.map(r=>r.p).filter(Boolean))].sort());
+ $('year').value='2026'; $('sales').value='SOO';
+  document.querySelectorAll('#subdistChecks input').forEach(x=>{x.checked=true;x.addEventListener('change',updateSubdistLabel);});
+  $('subdistTrigger').onclick=()=>{const f=$('subdistFilter');f.classList.toggle('open');$('subdistTrigger').setAttribute('aria-expanded',f.classList.contains('open')?'true':'false');};
+  $('selectAllSubdists').onclick=()=>setSubdists([...document.querySelectorAll('#subdistChecks input')].map(x=>x.value));
+  $('clearSubdists').onclick=()=>setSubdists([]);$('applySubdists').onclick=()=>{render();$('subdistFilter').classList.remove('open');$('subdistTrigger').setAttribute('aria-expanded','false');};
+  updateSubdistLabel();
+ document.querySelectorAll('#monthChecks input').forEach(x=>x.addEventListener('change',updateMonthLabel));
+ $('monthTrigger').onclick=()=>{const f=$('monthFilter');f.classList.toggle('open');$('monthTrigger').setAttribute('aria-expanded',f.classList.contains('open')?'true':'false');};
+ if(!dashboardOutsideClickBound){
+  document.addEventListener('click',e=>{['month','subdist','brand','subbrand','category'].forEach(k=>{const f=$(k+'Filter'),t=$(k+'Trigger');if(f&&!f.contains(e.target)){f.classList.remove('open');t.setAttribute('aria-expanded','false');}});});
+  dashboardOutsideClickBound=true;
+ }
+ $('selectAllMonths').onclick=()=>{document.querySelectorAll('#monthChecks input').forEach(x=>x.checked=true);updateMonthLabel();};
+ $('clearMonths').onclick=()=>{document.querySelectorAll('#monthChecks input').forEach(x=>x.checked=false);updateMonthLabel();};
+ $('resetYtd').onclick=()=>{let last=-1;months.forEach((m,i)=>{if(rows.some(r=>r.y===Number($('year').value)&&r.m===m&&r.t===$('sales').value&&($('pic').value==='ALL'||r.p===$('pic').value)&&n(r.v)!==0))last=i;});document.querySelectorAll('#monthChecks input').forEach(x=>x.checked=months.slice(0,last+1).includes(x.value));updateMonthLabel();};
+ $('applyMonths').onclick=()=>{render();$('monthFilter').classList.remove('open');$('monthTrigger').setAttribute('aria-expanded','false');};
+ ['year','sales','subdist','pic'].forEach(id=>$(id).addEventListener('change',render));
+ setMonths(months.slice(0,months.findIndex(m=>m==='DEC')), false); // default YTD through November; caller renders once after init
+}
+function filtered(year,month,dimValue=null,dim=null){
+ return rows.filter(r=>r.y===Number(year)&&r.t===$('sales').value&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&(!dim||r[dim]===dimValue)&&($('pic').value==='ALL'||r.p===$('pic').value)&&
+ (month==='ALL'||r.m===month));
+}
+function targetVal(r,typ,month){return n(r[typ+'_'+month]);}
+function targetTotal(dim, key, typ, monthList, scopeCategory=null){
+ if(Number($('year').value)!==2026)return 0;
+ return targetRows.filter(r=>(r.u==='B7'||r.u==='SAKA')&&(!scopeCategory||r.c===scopeCategory)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)&&(!dim||r[dim]===key))
+ .reduce((s,r)=>s+monthList.reduce((a,m)=>a+targetVal(r,typ,m),0),0);
+}
+function sumByDim(data,dim){let o={};data.forEach(r=>{let k=r[dim]||'(Kosong)';o[k]=(o[k]||0)+n(r.v)});return o}
+function chart(id,type,data,options={}){if(typeof Chart==='undefined'||!$(id))return;if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),{type,data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:type==='doughnut'?'bottom':'top',labels:{boxWidth:10,font:{size:10}}}},...options}})}
+const donutLegend={id:'donutLegend',afterDatasetsDraw(ch){if(ch.config.type!=='doughnut'||!ch.data.datasets?.[0])return;const ctx=ch.ctx,ds=ch.data.datasets[0],vals=ds.data||[],labels=ch.data.labels||[],colors=ds.backgroundColor||[],growth=ds.growth||[],total=vals.reduce((a,b)=>a+(Number(b)||0),0);if(!total)return;const area=ch.chartArea,x=area.right+8,w=Math.max(54,ch.width-x-8),count=labels.length,rowH=Math.min(25,area.height/Math.max(count,1)),totalH=rowH*count,startY=area.top+(area.height-totalH)/2;const ctrColor=v=>v>=25?'#2563eb':v>=10?'#166534':v>=5?'#65a30d':v>=3?'#ea580c':'#991b1b';ctx.save();ctx.textBaseline='middle';labels.forEach((label,i)=>{const y=startY+i*rowH,con=Number(vals[i])/total*100,g=growth[i];ctx.fillStyle=colors[i]||'#64748b';ctx.font='700 8px Inter,Segoe UI,Arial';ctx.textAlign='left';ctx.fillText(String(label).slice(0,17),x,y+rowH*.30,w);ctx.fillStyle=ctrColor(con);ctx.font='700 8px Inter,Segoe UI,Arial';ctx.fillText(con.toFixed(1)+'%',x,y+rowH*.70,Math.max(26,w*.42));ctx.fillStyle=g==null?'#64748b':g>=0?'#65a30d':'#dc2626';ctx.textAlign='right';ctx.fillText(g==null?'N/A':(g>0?'+':'')+Number(g).toFixed(1)+'%',x+w,y+rowH*.70,Math.max(28,w*.48));if(i<count-1){ctx.strokeStyle='#edf1f6';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,y+rowH-1);ctx.lineTo(x+w,y+rowH-1);ctx.stroke();}});ctx.restore();}};if(typeof Chart!=='undefined')Chart.register(donutLegend);
+function monthListForPeriod(){return selectedMonths();}
+function ytdMonths(){const sel=selectedMonths();if(!sel.length)return [];const last=Math.max(...sel.map(m=>months.indexOf(m)));return months.slice(0,last+1);}
+function previousMonthKey(m,y){let i=months.indexOf(m);return i===0?{m:'DEC',y:y-1}:{m:months[i-1],y};}
+function monthActual(y,m,dim,key,scopeCategory=null){return sum(rows.filter(r=>r.y===y&&r.m===m&&r.t===$('sales').value&&(!dim||r[dim]===key)&&(scopeCategory===null||r.c===scopeCategory)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));}
+function mtdMonth(){const chosen=selectedMonths();return chosen.length?chosen[chosen.length-1]:null;}
+function mtdMetrics(dim,key,scopeData=null){
+ const y=Number($('year').value),m=mtdMonth(),typ=$('sales').value,scopeCategory=null;
+ if(!m)return {actual:0,target:0,ach:null,be:0,beAch:null};
+ const match=r=>r.y===y&&r.m===m&&r.t===typ&&(!dim||r[dim]===key)&&(scopeCategory===null||r.c===scopeCategory)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value);
+ const actual=sum(rows.filter(match));
+ const target=y===2026?sumTargetForMonth(dim,key,typ,m,scopeCategory):0;
+ const be=sum(rows.filter(r=>r.y===y&&r.m===m&&r.t===typ&&(!dim||r[dim]===key)&&(scopeCategory===null||r.c===scopeCategory)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)).map(r=>({v:r.be||0})));
+ return {actual,target,ach:target?actual/target*100:null,be,beVsTarget:target?be/target*100:null};
+}
+function sumTargetForMonth(dim,key,typ,m,scopeCategory=null){return targetRows.filter(r=>(r.u==='B7'||r.u==='SAKA')&&(!scopeCategory||r.c===scopeCategory)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)&&(!dim||r[dim]===key)).reduce((a,r)=>a+targetVal(r,typ,m),0);}
+function metricsFor(dim,key,periodMonths,grand){
+ const typ=$('sales').value,y=Number($('year').value);
+ const actual=sum(filtered(y,'ALL',key,dim).filter(r=>periodMonths.includes(r.m)));
+ const target=targetTotal(dim,key,typ,periodMonths);
+ const ly=sum(rows.filter(r=>r.y===y-1&&r.t===typ&&(!dim||r[dim]===key)&&periodMonths.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
+ // GRW vs LM dan L3M selalu memakai bulan terakhir yang dipilih (bulan berjalan), bukan akumulasi YTD.
+ const currentMonth=mtdMonth();
+ let lm=null,last3=null;
+ if(currentMonth){
+  const currentValue=monthActual(y,currentMonth,dim,key);
+  const prev=previousMonthKey(currentMonth,y);
+  const prevValue=monthActual(prev.y,prev.m,dim,key);
+  lm=prevValue?((currentValue-prevValue)/Math.abs(prevValue))*100:null;
+  const idx=months.indexOf(currentMonth),priorKeys=[];
+  for(let j=1;j<=3;j++){
+   let mi=idx-j,yy=y;
+   while(mi<0){mi+=12;yy--;}
+   priorKeys.push({m:months[mi],y:yy});
+  }
+  const prior3Avg=priorKeys.reduce((v,k)=>v+monthActual(k.y,k.m,dim,key),0)/3;
+  last3=prior3Avg?((currentValue-prior3Avg)/Math.abs(prior3Avg))*100:null;
+ }
+ const avg=periodMonths.length?actual/periodMonths.length:0;
+ return {actual,target,ach:target?actual/target*100:null,ly:ly?((actual-ly)/Math.abs(ly))*100:null,lm,last3,contrib:grand?actual/grand*100:0,avg};
+}
+function renderMatrix(dim,bodyId,periodMonths,grand){
+ const y=Number($('year').value), typ=$('sales').value, ytd=periodMonths;
+ const data=filtered(y,'ALL'), sums=sumByDim(data,dim);
+ let keys=Object.keys(sums).sort((a,b)=>sums[b]-sums[a]);
+ targetRows.forEach(r=>{let k=r[dim];if(k&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)&&!keys.includes(k))keys.push(k)});
+ const cls=v=>v===null||!Number.isFinite(v)?'neutral':v>=0?'positive':'negative';
+
+ // BY SUBDIST: Subdist menjadi baris induk; B7/SAKA menjadi baris subordinat SBU.
+ // Kelas baris dibuat berbeda agar hierarki terbaca seperti Category dan Brand.
+ if(dim==='d' && bodyId==='matrixSubdist'){
+  const sbuMetrics=(d,u)=>{
+   const match=(r,yy,mm)=>r.y===yy&&r.m===mm&&r.t===typ&&r.d===d&&r.u===u&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value);
+   const actual=sum(rows.filter(r=>r.y===y&&r.t===typ&&r.d===d&&r.u===u&&ytd.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
+   // CTR baris SBU memakai total SBU yang sama sebagai denominator.
+   // Baris induk Subdist dan Grand Total tetap memakai denominator Grand Total.
+   const sbuGrandTotal=sum(rows.filter(r=>r.y===y&&r.t===typ&&r.u===u&&ytd.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
+   const sbuContribution=sbuGrandTotal?actual/sbuGrandTotal*100:0;
+   const target=y===2026?targetRows.filter(r=>r.d===d&&r.u===u&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)).reduce((a,r)=>a+ytd.reduce((v,m)=>v+targetVal(r,typ,m),0),0):0;
+   const ly=sum(rows.filter(r=>r.y===y-1&&r.t===typ&&r.d===d&&r.u===u&&ytd.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
+   // Growth SBU memakai Actual bulan berjalan vs bulan sebelumnya / rata-rata 3 bulan sebelumnya.
+   const m=mtdMonth();
+   let lm=null,last3=null;
+   if(m){
+    const currentValue=sum(rows.filter(r=>r.y===y&&r.m===m&&r.t===typ&&r.d===d&&r.u===u&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
+    const prev=previousMonthKey(m,y);
+    const prevValue=sum(rows.filter(r=>r.y===prev.y&&r.m===prev.m&&r.t===typ&&r.d===d&&r.u===u&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
+    lm=prevValue?((currentValue-prevValue)/Math.abs(prevValue))*100:null;
+    const idx=months.indexOf(m),priorKeys=[];
+    for(let j=1;j<=3;j++){let mi=idx-j,yy=y;while(mi<0){mi+=12;yy--;}priorKeys.push({m:months[mi],y:yy});}
+    const prior3Avg=priorKeys.reduce((v,p)=>v+sum(rows.filter(r=>r.y===p.y&&r.m===p.m&&r.t===typ&&r.d===d&&r.u===u&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value))),0)/3;
+    last3=prior3Avg?((currentValue-prior3Avg)/Math.abs(prior3Avg))*100:null;
+   }
+   const avg=ytd.length?actual/ytd.length:0;
+   const mtdRows=m?rows.filter(r=>match(r,y,m)):[];
+   const mtdActual=sum(mtdRows);
+   const mtdTarget=(y===2026&&m)?targetRows.filter(r=>r.d===d&&r.u===u&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)).reduce((a,r)=>a+targetVal(r,typ,m),0):0;
+   const be=sum(mtdRows.map(r=>({v:r.be||0})));
+   return {actual,target,ach:target?actual/target*100:null,ly:ly?((actual-ly)/Math.abs(ly))*100:null,lm,last3,contrib:sbuContribution,avg,mtdActual,mtdTarget,mtdAch:mtdTarget?mtdActual/mtdTarget*100:null,be,beVsTarget:mtdTarget?be/mtdTarget*100:null};
+  };
+  const makeRow=(label,m,extraClass='')=>`<tr class="${extraClass}"><td>${label}</td><td>${fmt(m.mtdActual)}</td><td>${fmt(m.mtdTarget)}</td><td class="${achClass(m.mtdAch)}">${m.mtdAch===null?'N/A':m.mtdAch.toFixed(1)+'%'}</td><td>${fmt(m.actual)}</td><td>${fmt(m.target)}</td><td class="${achClass(m.ach)}">${m.ach===null?'N/A':m.ach.toFixed(1)+'%'}</td><td class="${cls(m.ly)}">${pct(m.ly)}</td><td class="${cls(m.lm)}">${pct(m.lm)}</td><td class="${cls(m.last3)}">${pct(m.last3)}</td><td class="${ctrClass(m.contrib)}">${m.contrib.toFixed(1)}%</td><td>${fmt(m.avg)}</td><td>${fmt(m.be)}</td><td class="${achClass(m.beVsTarget)}">${m.beVsTarget===null?'N/A':m.beVsTarget.toFixed(1)+'%'}</td></tr>`;
+  const rowsHtml=keys.map(k=>{
+   const totalM=metricsFor('d',k,ytd,grand), totalQ=mtdMetrics('d',k,data);
+   const parent={mtdActual:totalQ.actual,mtdTarget:totalQ.target,mtdAch:totalQ.ach,actual:totalM.actual,target:totalM.target,ach:totalM.ach,ly:totalM.ly,lm:totalM.lm,last3:totalM.last3,contrib:totalM.contrib,avg:totalM.avg,be:totalQ.be,beVsTarget:totalQ.beVsTarget};
+   const children=['B7','SAKA'].filter(u=>!(u==='SAKA'&&String(k).trim().toUpperCase()==='DB BAC')).map(u=>makeRow('↳ '+u,sbuMetrics(k,u),'subdist-sbu-row')).join('');
+   return makeRow(k,parent,'subdist-total-row')+children;
+  }).join('');
+  const gt=metricsFor(null,null,ytd,grand),gq=mtdMetrics(null,null,data);
+  const totalRow=`<tr class="grand-total"><td><b>GRAND TOTAL</b></td><td><b>${fmt(gq.actual)}</b></td><td><b>${fmt(gq.target)}</b></td><td class="${achClass(gq.ach)}"><b>${gq.ach===null?'N/A':gq.ach.toFixed(1)+'%'}</b></td><td><b>${fmt(gt.actual)}</b></td><td><b>${fmt(gt.target)}</b></td><td class="${achClass(gt.ach)}"><b>${gt.ach===null?'N/A':gt.ach.toFixed(1)+'%'}</b></td><td class="${cls(gt.ly)}"><b>${pct(gt.ly)}</b></td><td class="${cls(gt.lm)}"><b>${pct(gt.lm)}</b></td><td class="${cls(gt.last3)}"><b>${pct(gt.last3)}</b></td><td class="${ctrClass(100)}"><b>100.0%</b></td><td><b>${fmt(gt.avg)}</b></td><td><b>${fmt(gq.be)}</b></td><td class="${achClass(gq.beVsTarget)}"><b>${gq.beVsTarget===null?'N/A':gq.beVsTarget.toFixed(1)+'%'}</b></td></tr>`;
+  $(bodyId).innerHTML=(rowsHtml||'<tr><td colspan="14">Tidak ada data</td></tr>')+totalRow;
+  return;
+ }
+ const rowsHtml=keys.map(k=>{
+  const m=metricsFor(dim,k,ytd,grand), q=mtdMetrics(dim,k,data);
+  return `<tr><td>${k}</td><td>${fmt(q.actual)}</td><td>${fmt(q.target)}</td><td class="${achClass(q.ach)}">${q.ach===null?'N/A':q.ach.toFixed(1)+'%'}</td><td>${fmt(m.actual)}</td><td>${fmt(m.target)}</td><td class="${achClass(m.ach)}">${m.ach===null?'N/A':m.ach.toFixed(1)+'%'}</td><td class="${cls(m.ly)}">${pct(m.ly)}</td><td class="${cls(m.lm)}">${pct(m.lm)}</td><td class="${cls(m.last3)}">${pct(m.last3)}</td><td class="${ctrClass(m.contrib)}">${m.contrib.toFixed(1)}%</td><td>${fmt(m.avg)}</td><td>${fmt(q.be)}</td><td class="${achClass(q.beVsTarget)}">${q.beVsTarget===null?'N/A':q.beVsTarget.toFixed(1)+'%'}</td></tr>`;
+ }).join('');
+ const gt=metricsFor(null,null,ytd,grand),gq=mtdMetrics(null,null,data);
+ const totalRow=`<tr class="grand-total"><td><b>GRAND TOTAL</b></td><td><b>${fmt(gq.actual)}</b></td><td><b>${fmt(gq.target)}</b></td><td class="${achClass(gq.ach)}"><b>${gq.ach===null?'N/A':gq.ach.toFixed(1)+'%'}</b></td><td><b>${fmt(gt.actual)}</b></td><td><b>${fmt(gt.target)}</b></td><td class="${achClass(gt.ach)}"><b>${gt.ach===null?'N/A':gt.ach.toFixed(1)+'%'}</b></td><td class="${cls(gt.ly)}"><b>${pct(gt.ly)}</b></td><td class="${cls(gt.lm)}"><b>${pct(gt.lm)}</b></td><td class="${cls(gt.last3)}"><b>${pct(gt.last3)}</b></td><td class="${ctrClass(100)}"><b>100.0%</b></td><td><b>${fmt(gt.avg)}</b></td><td><b>${fmt(gq.be)}</b></td><td class="${achClass(gq.beVsTarget)}"><b>${gq.beVsTarget===null?'N/A':gq.beVsTarget.toFixed(1)+'%'}</b></td></tr>`;
+ $(bodyId).innerHTML=(rowsHtml||'<tr><td colspan="14">Tidak ada data</td></tr>')+totalRow;
+}
+function productFocusMetric(field,focus,periodMonths,typ){
+ const y=Number($('year').value);
+ const actual=sum(rows.filter(r=>r.y===y&&r.t===typ&&r[field]===focus&&periodMonths.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
+ const target=y===2026?targetRows.filter(r=>r[field]===focus&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)).reduce((a,r)=>a+periodMonths.reduce((v,m)=>v+targetVal(r,typ,m),0),0):0;
+ const ach=target>0?actual/target*100:null;
+ return {actual,target,ach};
+}
+function renderProductFocus(title,field,focuses,periodMonths,typ){
+ const items=focuses.map(f=>{const m=productFocusMetric(field,f,periodMonths,typ);return `<div class="pf-item"><div><div class="pf-item-name">${f}</div><div class="pf-item-meta">Actual ${fmt(m.actual)} · Target ${fmt(m.target)}</div></div><div class="pf-ach ${achClass(m.ach)}">${m.ach===null?'N/A':m.ach.toFixed(1)+'%' }<div class="pf-item-meta">% ACH</div></div></div>`;}).join('');
+ return `<div class="pf-card"><div class="pf-title">${title}</div>${items}</div>`;
+}
+function renderSbu(periodMonths,total){
+ const y=Number($('year').value),typ=$('sales').value;
+ const sbus=['B7','SAKA'];
+ const sbuHtml=sbus.map(u=>{
+  const actual=sum(filtered(y,'ALL',u,'u').filter(r=>periodMonths.includes(r.m)));
+  const target=targetTotal('u',u,typ,periodMonths);
+  const ly=sum(rows.filter(r=>r.y===y-1&&r.t===typ&&r.u===u&&periodMonths.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
+  const ach=target?actual/target*100:null,growth=ly?(actual-ly)/Math.abs(ly)*100:null,contrib=total?actual/total*100:0;
+  return `<div class="sbu-card"><div class="sbu-name">${u==='B7'?'BINTANG TOEDJOE':'SAKAFARMA'}</div><div class="sbu-actual">${fmt(actual)}</div><div class="sbu-stats"><div class="sbu-stat"><small>% ACH</small><b class="${achClass(ach)}">${ach===null?'N/A':ach.toFixed(1)+'%'}</b></div><div class="sbu-stat"><small>GRW vs LY</small><b class="${growth===null?'neutral':growth>=0?'positive':'negative'}">${pct(growth)}</b></div><div class="sbu-stat"><small>CTR</small><b class="${ctrClass(contrib)}">${contrib.toFixed(1)}%</b></div><div class="sbu-stat"><small>TARGET</small><b>${fmt(target)}</b></div></div></div>`;
+ }).join('');
+ $('sbuCards').innerHTML=sbuHtml;
+ $('pfCards').innerHTML=renderProductFocus('PRODUCT FOCUS MONTHLY','fm',['PF 1','PF 2'],periodMonths,typ)+renderProductFocus('PRODUCT FOCUS QUARTERLY','fq',['PF 1','PF 2','PF 3'],periodMonths,typ);
+}
+function monthlyValue(data,month){return sum(data.filter(r=>r.m===month));}
+function monthlyMetrics(data,dim,key,grandTotal){
+ const y=Number($('year').value),typ=$('sales').value,sel=selectedMonths();
+ const current=data.filter(r=>r.y===y&&r.t===typ&&(!dim||r[dim]===key));
+ const brandCategory=dim==='b'&&data.length?data[0].c:null;
+ // Semua nilai matrix, termasuk CTR, memakai himpunan bulan yang sama persis
+ // dengan filter pengguna. Jangan campur YTD Jan-s.d.-bulan-terakhir dengan
+ // denominator yang hanya menjumlahkan bulan terpilih.
+ const actual=sel.reduce((a,m)=>a+monthlyValue(current,m),0), target=targetTotal(dim,key,typ,sel,brandCategory);
+ const ly=sum(rows.filter(r=>r.y===y-1&&r.t===typ&&(!dim||r[dim]===key)&&sel.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
+ const currentMonth=sel.length?sel[sel.length-1]:null;
+ let lm=null,priorAvg=0,l3=null;
+ if(currentMonth){
+  const currentValue=monthActual(y,currentMonth,dim,key,brandCategory);
+  const prev=previousMonthKey(currentMonth,y);
+  const prevValue=monthActual(prev.y,prev.m,dim,key,brandCategory);
+  lm=prevValue?((currentValue-prevValue)/Math.abs(prevValue))*100:null;
+  const idx=months.indexOf(currentMonth),prior=[];
+  for(let j=1;j<=3;j++){let mi=idx-j,yy=y;while(mi<0){mi+=12;yy--;}prior.push({m:months[mi],y:yy});}
+  priorAvg=prior.reduce((a,k)=>a+monthActual(k.y,k.m,dim,key,brandCategory),0)/3;
+  l3=priorAvg?((currentValue-priorAvg)/Math.abs(priorAvg))*100:null;
+ }
+ const avg=sel.length?actual/sel.length:0;
+ const mm=mtdMetrics(dim,key,data);return {actual,target,ach:target?actual/target*100:null,ly:ly?((actual-ly)/Math.abs(ly))*100:null,lm,l3,contrib:grandTotal?actual/grandTotal*100:0,avg,l3avg:priorAvg,be:mm.be,beVsTarget:mm.beVsTarget};
+}
+function monthlyRow(label,data,dim,key,grandTotal,cls=''){
+ const vals=months.map(m=>({month:m,value:fmt(monthlyValue(data.filter(r=>r.y===Number($('year').value)&&r.t===$('sales').value&&(!dim||r[dim]===key)),m))}));
+ const m=monthlyMetrics(data,dim,key,grandTotal);const mm=mtdMetrics(dim,key,data);const pctv=v=>v===null?'N/A':pct(v);const grwClass=v=>v===null||!Number.isFinite(v)?'neutral':v>0?'positive':v<0?'negative':'neutral';
+ return `<tr class="${cls}"><td>${label}</td>${vals.map(v=>`<td data-month="${v.month}">${v.value}</td>`).join('')}<td>${fmt(mm.target)}</td><td class="${achClass(mm.ach)}">${mm.ach===null?'N/A':mm.ach.toFixed(1)+'%'}</td><td>${fmt(m.target)}</td><td class="${achClass(m.ach)}">${m.ach===null?'N/A':m.ach.toFixed(1)+'%'}</td><td class="${grwClass(m.ly)}">${pctv(m.ly)}</td><td class="${grwClass(m.lm)}">${pctv(m.lm)}</td><td class="${grwClass(m.l3)}">${pctv(m.l3)}</td><td class="${ctrClass(m.contrib)}">${m.contrib.toFixed(1)}%</td><td>${fmt(m.avg)}</td><td>${fmt(m.l3avg)}</td><td>${fmt(m.be)}</td><td class="${achClass(m.beVsTarget)}">${m.beVsTarget===null?'N/A':m.beVsTarget.toFixed(1)+'%'}</td></tr>`;
+}
+function renderMonthlyMatrices(){
+ const y=Number($('year').value),typ=$('sales').value;
+ const selected=selectedMonths(),lastVisible=selected.length?Math.max(...selected.map(m=>months.indexOf(m))):months.length-1;
+ const data=rows.filter(r=>r.y===y&&r.t===typ&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value));
+ const total=selectedMonths().reduce((a,m)=>a+monthlyValue(data,m),0);
+ const subd=[...new Set([...data.map(r=>r.d),...targetRows.filter(r=>isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)).map(r=>r.d)].filter(Boolean))].sort();
+ let html=subd.map(d=>monthlyRow(d,data,'d',d,total)).join('');html+=monthlyRow('GRAND TOTAL',data,null,null,total,'grand-total');$('matrixMonthlySubdist').innerHTML=html||'<tr><td colspan="22">Tidak ada data</td></tr>';
+ const cats=[...new Set(data.map(r=>r.c).filter(Boolean))].sort();let out='';
+ cats.forEach(c=>{const cd=data.filter(r=>r.c===c);out+=monthlyRow(c, data,'c',c,total,'category-row');const hiddenDetailBrands=new Set(['MIXADIN','WAISAN','FEMMY','H2','H2 OMEGA-3','CEREBROVIT','D3 1000 KAPLET']);
+  const brands=[...new Set(cd.map(r=>r.b).filter(Boolean))].sort();
+  brands.filter(b=>!hiddenDetailBrands.has(String(b).trim().toUpperCase())).forEach(b=>{const bd=cd.filter(r=>r.b===b);out+=monthlyRow('↳ '+b,bd,'b',b,total,'brand-row');});});
+ out+=monthlyRow('GRAND TOTAL',data,null,null,total,'grand-total');$('matrixMonthlyCategoryBrand').innerHTML=out||'<tr><td colspan="22">Tidak ada data</td></tr>';
+ document.querySelectorAll('.monthly-matrix [data-month]').forEach(cell=>{cell.hidden=months.indexOf(cell.dataset.month)>lastVisible;});
+}
+function donutSeries(dim,periodMonths,limit=8){
+ const y=Number($('year').value),typ=$('sales').value,filterOk=r=>isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value);
+ const cur=rows.filter(r=>r.y===y&&r.t===typ&&periodMonths.includes(r.m)&&filterOk(r)),prior=rows.filter(r=>r.y===y-1&&r.t===typ&&periodMonths.includes(r.m)&&filterOk(r));
+ const sumDim=arr=>{const o={};arr.forEach(r=>{const k=r[dim]||'(Kosong)';o[k]=(o[k]||0)+n(r.v)});return o;};
+ const c=sumDim(cur),p=sumDim(prior),all=Object.entries(c).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);let picked=all.slice(0,limit);if(all.length>limit){const rest=all.slice(limit);picked.push(['LAINNYA',rest.reduce((a,x)=>a+x[1],0)]);p['LAINNYA']=rest.reduce((a,x)=>a+(p[x[0]]||0),0);}
+ const total=picked.reduce((a,x)=>a+x[1],0);return {labels:picked.map(x=>x[0]),values:picked.map(x=>x[1]),growth:picked.map(([k,v])=>{const ly=p[k]||0;return ly?(v-ly)/Math.abs(ly)*100:null;}),total};
+}
+function setProductMatrixViewports(){
+ // Show the requested number of complete product rows, plus the sticky header
+ // and Grand Total row. The height is measured from rendered rows so it stays
+ // accurate across desktop/mobile font and line wrapping differences.
+ const setRows=(wrapId,bodyId,count)=>{
+  const wrap=$(wrapId),body=$(bodyId);if(!wrap||!body)return;
+  const table=wrap.querySelector('table'),head=table?.querySelector('thead'),all=[...body.querySelectorAll('tr')];
+  if(!table||!head||!all.length)return;
+  const dataRows=all.filter(r=>!r.classList.contains('grand-total'));
+  const total=all.find(r=>r.classList.contains('grand-total'));
+  const visible=dataRows.slice(0,count);
+  const height=head.getBoundingClientRect().height+visible.reduce((sum,row)=>sum+row.getBoundingClientRect().height,0)+(total?total.getBoundingClientRect().height:0)+2;
+  wrap.style.setProperty('height',Math.ceil(height)+'px','important');
+  wrap.style.setProperty('max-height',Math.ceil(height)+'px','important');
+  wrap.style.setProperty('min-height','0','important');
+ };
+ setRows('subbrandTableWrap','matrixSubbrand',39);
+ setRows('brandTableWrap','matrixBrand',20);
+}
+
+function render(){
+ refreshRenderFilterCache();
+ const y=Number($('year').value),periodMonths=monthListForPeriod(),typ=$('sales').value;
+ const d=filtered(y,'ALL').filter(r=>periodMonths.includes(r.m)),total=sum(d),target=targetTotal(null,null,typ,periodMonths);
+ const ly=sum(rows.filter(r=>r.y===y-1&&r.t===typ&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)&&periodMonths.includes(r.m)));
+ $('total').textContent=fmt(total);$('targetKpi').textContent=fmt(target);$('ach').textContent=target?(total/target*100).toFixed(1)+'%':'N/A';$('ach').className='kvalue '+achClass(target?total/target*100:null);
+ const totalGrowth=ly?(total-ly)/Math.abs(ly)*100:null;
+ const mtd=mtdMetrics(null,null,d),mtdMonthKey=mtdMonth(),mtdLy=mtdMonthKey?sum(rows.filter(r=>r.y===y-1&&r.m===mtdMonthKey&&r.t===typ&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value))):0;
+ const mtdGrowth=mtdLy?(mtd.actual-mtdLy)/Math.abs(mtdLy)*100:null;
+ $('actualMtd').textContent=fmt(mtd.actual);$('targetMtd').textContent=fmt(mtd.target);$('achMtd').textContent=mtd.ach===null?'N/A':mtd.ach.toFixed(1)+'%';$('achMtd').className='kvalue '+achClass(mtd.ach);
+ $('growthMtd').textContent=pct(mtdGrowth);$('growthMtd').className='kvalue '+(mtdGrowth===null?'neutral':mtdGrowth>0?'positive':mtdGrowth<0?'negative':'neutral');
+ $('mtdPeriod').textContent=mtdMonthKey?labels[months.indexOf(mtdMonthKey)]+' '+y:'Bulan berjalan';
+ $('growth').textContent=pct(totalGrowth);$('growth').className='kvalue '+(totalGrowth===null?'neutral':totalGrowth>0?'positive':totalGrowth<0?'negative':'neutral');
+ renderSbu(periodMonths,total);
+ const periodLabel=periodMonths.length?periodMonths.map(m=>labels[months.indexOf(m)]).join(', '):'Tidak ada bulan';
+ $('period').textContent=periodLabel+' '+y+' • '+d.length.toLocaleString('id-ID')+' baris';
+ $('matrixPeriod').textContent=periodMonths.length===12?'Semua Bulan':periodLabel+' '+y;
+ const chartMonths=periodMonths;
+ const actual25=chartMonths.map(m=>monthActual(2025,m,null,null));
+ const actual26=chartMonths.map(m=>monthActual(y,m,null,null));
+ const target26=chartMonths.map(m=>targetTotal(null,null,typ,[m]));
+ chart('trend','bar',{labels:chartMonths.map(m=>labels[months.indexOf(m)]),datasets:[
+ {label:'Omset 2025',data:actual25,backgroundColor:'#94a3b8',borderRadius:4},
+ {label:'Omset 2026',data:actual26,backgroundColor:'#2563eb',borderRadius:4},
+ {type:'line',label:'Target 2026',data:target26,borderColor:'#f59e0b',backgroundColor:'#f59e0b',borderWidth:3,pointRadius:4,pointHoverRadius:6,tension:0.25,fill:false}
+ ]},{scales:{x:{grid:{display:false}},y:{grid:{display:false},ticks:{callback:v=>fmt(v)}}}});
+ const donutColors=['#2563eb','#06b6d4','#16a34a','#f59e0b','#8b5cf6','#f43f5e','#0f766e','#94a3b8','#64748b','#c084fc'];
+ const categorySeries=donutSeries('c',periodMonths,7),subdistSeries=donutSeries('d',periodMonths,7),brandSeries=donutSeries('b',periodMonths,9);
+ const donutOptions={cutout:'54%',layout:{padding:{top:8,bottom:8,left:4,right:125}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const i=c.dataIndex,g=c.dataset.growth?.[i];return `${c.label}: ${(c.parsed/(c.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)}% kontribusi • Growth ${g==null?'N/A':(g>0?'+':'')+g.toFixed(1)+'%'}`;}}}}};
+function sortedDonutData(series){const items=series.labels.map((label,i)=>({label,value:Number(series.values[i])||0,growth:series.growth?.[i]??null,color:donutColors[i%donutColors.length]})).sort((a,b)=>{const aOther=String(a.label).toUpperCase()==='LAINNYA',bOther=String(b.label).toUpperCase()==='LAINNYA';if(aOther!==bOther)return aOther?1:-1;return b.value-a.value;});return {labels:items.map(x=>x.label),datasets:[{data:items.map(x=>x.value),growth:items.map(x=>x.growth),backgroundColor:items.map(x=>x.color),borderWidth:2,borderColor:'#fff'}]};}
+ chart('categories','doughnut',sortedDonutData(categorySeries),donutOptions);
+ chart('subdists','doughnut',sortedDonutData(subdistSeries),donutOptions);
+ chart('brands','doughnut',sortedDonutData(brandSeries),donutOptions);
+ renderMatrix('c','matrixCategory',periodMonths,total);
+ renderMatrix('d','matrixSubdist',periodMonths,total);
+ renderMatrix('s','matrixSubbrand',periodMonths,total);
+ renderMatrix('b','matrixBrand',periodMonths,total);
+ renderMonthlyMatrices();
+ requestAnimationFrame(setProductMatrixViewports);
+}
+
+
+function downloadPptPdf(){
+ const w=window.open('','_blank'); if(!w){alert('Izinkan pop-up untuk membuat PDF.');return;}
+ const year=Number($('year').value), selected=selectedMonths(), period=selected.length?ytdMonths():months.slice(0,months.indexOf('NOV')+1);
+ const labelsMap={JAN:'Jan',FEB:'Feb',MAR:'Mar',APR:'Apr',MAY:'Mei',JUN:'Jun',JUL:'Jul',AUG:'Agu',SEP:'Sep',OCT:'Okt',NOV:'Nov',DEC:'Des'};
+ const end=period[period.length-1]||'';
+ const money=v=>'Rp '+Math.round(v||0).toLocaleString('id-ID');
+ const pct=v=>v===null||!Number.isFinite(v)?'N/A':(v>0?'+':'')+v.toFixed(1)+'%';
+ const esc=v=>String(v??'-').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const base=rows.filter(r=>r.y===year&&period.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value));
+ const prior=rows.filter(r=>r.y===year-1&&period.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value));
+ const targetFor=(type,pic)=>targetRows.filter(r=>(r.u==='B7'||r.u==='SAKA')&&(!pic||r.p===pic)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)).reduce((s,r)=>s+period.reduce((a,m)=>a+(Number(r[type+'_'+m])||0),0),0);
+ const sum=(arr)=>arr.reduce((s,r)=>s+(Number(r.v)||0),0);
+ const fmtGrowth=(a,b)=>b?((a-b)/Math.abs(b))*100:null;
+ const group=(arr,key)=>{const o={};arr.forEach(r=>{const k=r[key]||'(Kosong)';o[k]=(o[k]||0)+(Number(r.v)||0)});return Object.entries(o).map(([name,value])=>({name,value,contrib:0,growth:null}));};
+ const byDim=(type,dim)=>{
+   const a=group(base.filter(r=>r.t===type),dim), b=group(prior.filter(r=>r.t===type),dim), total=sum(base.filter(r=>r.t===type));
+   a.forEach(x=>{x.contrib=total?x.value/total*100:0;x.growth=fmtGrowth(x.value,b.find(y=>y.name===x.name)?.value||0)});return a.sort((x,y)=>y.value-x.value);
+ };
+ const chartBars=(items)=>`<div class="bars">${items.slice(0,7).map(x=>`<div class="barrow"><span>${esc(x.name)}</span><div class="track"><i style="width:${Math.max(0,Math.min(100,x.contrib))}%"></i></div><b>${x.contrib.toFixed(1)}%</b></div>`).join('')}</div>`;
+ const table=(items)=>`<table><thead><tr><th>Nama</th><th>Actual</th><th>Kontribusi</th><th>Growth vs LY</th></tr></thead><tbody>${items.slice(0,12).map(x=>`<tr><td>${esc(x.name)}</td><td>${money(x.value)}</td><td>${x.contrib.toFixed(1)}%</td><td class="${x.growth!==null&&x.growth<0?'neg':'pos'}">${pct(x.growth)}</td></tr>`).join('')}</tbody></table>`;
+ const analysis=(arr,label)=>{const weak=arr.filter(x=>x.contrib>=5&&x.growth!==null&&x.growth<0).sort((a,b)=>b.contrib-a.contrib);return weak.length?`Perhatian: ${weak.slice(0,3).map(x=>`${esc(x.name)} (kontribusi ${x.contrib.toFixed(1)}%, growth ${pct(x.growth)})`).join('; ')} menjadi penyumbang besar yang sedang turun. Prioritaskan pengecekan subdist/outlet, ketersediaan stok, distribusi, dan aktivitas kompetitor.`:`Belum terlihat ${label.toLowerCase()} dengan kontribusi minimal 5% sekaligus growth negatif. Tetap pantau kontributor terbesar agar pertumbuhan terjaga.`};
+ const slides=[];
+ const periodText=period.map(m=>labelsMap[m]).join('–');
+ slides.push(`<section class="slide cover"><small>COMMERCIAL PERFORMANCE • SALES REVIEW</small><h1>Sales Performance<br>SO & SOO</h1><h2>Area Banda Aceh</h2><div class="line"></div><p>Periode ${year}: Jan–${labelsMap[end]||end}</p><p class="muted">Laporan otomatis berdasarkan data aktual yang diunggah. November 2026 merupakan data berjalan (parsial).</p></section>`);
+ for(const type of ['SO','SOO']){
+  const cur=base.filter(r=>r.t===type), prev=prior.filter(r=>r.t===type), actual=sum(cur), ly=sum(prev), target=targetFor(type,null), ach=target?actual/target*100:null, growth=fmtGrowth(actual,ly);
+  const brands=byDim(type,'b'), subd=byDim(type,'d');
+  const monthVals=period.map(m=>({name:labelsMap[m],value:sum(cur.filter(r=>r.m===m))}));
+  const max=Math.max(1,...monthVals.map(x=>x.value));
+  slides.push(`<section class="slide"><small>01 • PERFORMANCE ${type}</small><h1>Performance ${type}</h1><p class="sub">Periode ${periodText} ${year}</p><div class="kpis"><div><label>ACTUAL</label><b>${money(actual)}</b></div><div><label>GROWTH VS LY</label><b>${pct(growth)}</b></div><div><label>TARGET</label><b>${target?money(target):'N/A'}</b></div><div><label>ACHIEVEMENT</label><b>${ach===null?'N/A':ach.toFixed(1)+'%'}</b></div></div><h2>Tren penjualan bulanan</h2><div class="monthbars">${monthVals.map(x=>`<div><i style="height:${Math.max(3,x.value/max*100)}%"></i><span>${x.name}</span></div>`).join('')}</div><h2>Kontribusi Brand</h2>${chartBars(brands)}${analysis(brands,'Brand')}<h2>Kontribusi Subdist</h2>${chartBars(subd)}${analysis(subd,'Subdist')}<p class="foot">Growth dihitung terhadap periode sama tahun sebelumnya. Kontribusi dihitung dari total actual ${type} pada periode laporan.</p></section>`);
+  const picNames=[...new Set(cur.map(r=>r.p).filter(Boolean))].sort();
+  const pics=picNames.map(pic=>{const v=sum(cur.filter(r=>r.p===pic)), old=sum(prev.filter(r=>r.p===pic)), tg=targetFor(type,pic);return {name:pic,value:v,contrib:actual?v/actual*100:0,growth:fmtGrowth(v,old),target:tg,ach:tg?v/tg*100:null};}).sort((a,b)=>b.value-a.value);
+  slides.push(`<section class="slide"><small>02 • PENCAPAIAN PIC ${type}</small><h1>Pencapaian masing-masing PIC – ${type}</h1><p class="sub">Periode ${periodText} ${year}</p><table><thead><tr><th>PIC</th><th>Actual</th><th>Target</th><th>Ach</th><th>Growth vs LY</th><th>Kontribusi</th></tr></thead><tbody>${pics.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td>${money(p.value)}</td><td>${p.target?money(p.target):'N/A'}</td><td>${p.ach===null?'N/A':p.ach.toFixed(1)+'%'}</td><td class="${p.growth!==null&&p.growth<0?'neg':'pos'}">${pct(p.growth)}</td><td>${p.contrib.toFixed(1)}%</td></tr>`).join('')}</tbody></table><h2>Catatan kinerja</h2><p>${pics.length?`PIC dengan actual terbesar adalah ${esc(pics[0].name)} (${money(pics[0].value)}, kontribusi ${pics[0].contrib.toFixed(1)}%). `:''}${pics.filter(p=>p.ach!==null&&p.ach<100).length?`PIC di bawah target: ${pics.filter(p=>p.ach!==null&&p.ach<100).map(p=>esc(p.name)).join(', ')}. Fokuskan coaching pada gap target dan area dengan potensi penjualan.`:'Seluruh PIC yang memiliki target telah mencapai target pada periode laporan.'}</p></section>`);
+ }
+ const attention=[];
+ for(const type of ['SO','SOO']){
+  for(const [dim,label] of [['c','Category'],['b','Brand'],['s','Subbrand / Produk']]){
+   const list=byDim(type,dim).filter(x=>x.contrib>=3&&x.growth!==null&&x.growth<0).sort((a,b)=>b.contrib-a.contrib).slice(0,8);
+   list.forEach(x=>attention.push({...x,type,label}));
+  }
+ }
+ slides.push(`<section class="slide"><small>03 • PORTFOLIO WATCHLIST</small><h1>Category, Brand & Produk Perlu Perhatian</h1><p class="sub">Disaring berdasarkan kontribusi minimal 3% dan growth negatif vs LY.</p>${attention.length?`<table><thead><tr><th>Sales</th><th>Level</th><th>Category / Brand / Produk</th><th>Actual</th><th>Kontribusi</th><th>Growth</th></tr></thead><tbody>${attention.sort((a,b)=>b.contrib-a.contrib).slice(0,18).map(x=>`<tr><td>${x.type}</td><td>${x.label}</td><td>${esc(x.name)}</td><td>${money(x.value)}</td><td>${x.contrib.toFixed(1)}%</td><td class="neg">${pct(x.growth)}</td></tr>`).join('')}</tbody></table><p>Prioritas utama adalah item dengan kontribusi terbesar dan penurunan terdalam. Lakukan breakdown lanjutan per subdist dan outlet untuk menemukan sumber penurunan.</p>`:'<p>Tidak ditemukan item dengan kontribusi ≥3% dan growth negatif pada periode ini.</p>'}<h2>Langkah tindak lanjut</h2><ul><li>Validasi penurunan pada outlet dan subdist penyumbang terbesar.</li><li>Periksa ketersediaan stok, distribusi, repeat order, harga, dan aktivitas kompetitor.</li><li>Tetapkan PIC, target recovery mingguan, serta evaluasi pada review berikutnya.</li></ul></section>`);
+ const pages=slides.join('');
+ w.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><title>Sales Review ${year}</title><style>
+ @page{size:A4 landscape;margin:0}*{box-sizing:border-box}body{margin:0;background:#e5e7eb;font-family:Arial,sans-serif;color:#172033}.toolbar{position:sticky;top:0;background:#172554;color:white;padding:12px 20px;display:flex;justify-content:space-between;z-index:5}.toolbar button{padding:9px 15px;border:0;border-radius:7px;font-weight:bold;cursor:pointer}.slide{width:297mm;height:210mm;margin:12px auto;background:white;padding:14mm 17mm;overflow:hidden;page-break-after:always;position:relative}.slide:last-child{page-break-after:auto}.cover{background:linear-gradient(120deg,#172554,#1d4ed8 70%,#0891b2);color:white;display:flex;flex-direction:column;justify-content:center}.cover h1{font-size:42pt;line-height:1.1;margin:16px 0}.cover h2{color:#dbeafe;font-size:22pt}.cover p{font-size:15pt}.cover small{color:#bfdbfe;letter-spacing:2px}.line{height:4px;width:90px;background:#67e8f9;margin:15px 0}.muted,.sub{color:#64748b}.slide>small{color:#0891b2;font-weight:bold;letter-spacing:1.5px}.slide h1{font-size:27pt;color:#172554;margin:9px 0}.slide h2{font-size:15pt;color:#1d4ed8;margin:14px 0 7px}.sub{font-size:10pt;margin:0 0 10px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.kpis>div{background:#eff6ff;border-left:4px solid #2563eb;padding:10px;border-radius:6px}.kpis label{display:block;font-size:8pt;color:#64748b}.kpis b{display:block;font-size:16pt;margin-top:5px}.monthbars{height:95px;display:flex;gap:10px;align-items:end;border-bottom:1px solid #cbd5e1;padding:0 8px}.monthbars>div{flex:1;height:100%;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:4px}.monthbars i{display:block;width:65%;background:#2563eb;border-radius:4px 4px 0 0}.monthbars span{font-size:8pt}.bars{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}.barrow{display:grid;grid-template-columns:115px 1fr 42px;gap:7px;align-items:center;font-size:8pt}.track{height:9px;background:#e2e8f0;border-radius:8px;overflow:hidden}.track i{display:block;height:100%;background:#0891b2}.barrow b{text-align:right}table{width:100%;border-collapse:collapse;font-size:8.5pt;margin:8px 0}th{background:#172554;color:white;text-align:left;padding:7px}td{border-bottom:1px solid #dbe3ee;padding:6px}.neg{color:#b91c1c;font-weight:bold}.pos{color:#15803d}.foot{font-size:8pt;color:#64748b;margin-top:10px}ul{font-size:10pt;line-height:1.6}@media print{body{background:white}.toolbar{display:none}.slide{margin:0;box-shadow:none}}
+ </style>
+<style id="grand-total-sticky-all-kpi-matrices">
+/* Keep GRAND TOTAL pinned at the bottom during vertical scrolling in all four KPI matrices. */
+#matrixSubdist tr.grand-total > td,
+#matrixCategory tr.grand-total > td,
+#matrixSubbrand tr.grand-total > td,
+#matrixBrand tr.grand-total > td {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 7 !important;
+  background: #e8eef8 !important;
+  border-top: 2px solid #64748b !important;
+  font-weight: 800 !important;
+}
+/* The frozen first cell stays above the other total cells and remains attached to the left edge. */
+#matrixSubdist tr.grand-total > td:first-child,
+#matrixCategory tr.grand-total > td:first-child,
+#matrixSubbrand tr.grand-total > td:first-child,
+#matrixBrand tr.grand-total > td:first-child {
+  position: sticky !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  z-index: 10 !important;
+  background: #e8eef8 !important;
+}
+</style>
+
+
+<style id="responsive-shared-freeze-column-final">
+/* One responsive frozen-column width shared by KPI matrices and their Trend matrices. */
+:root { --shared-freeze-width: clamp(118px, 16vw, 220px); }
+
+/* KPI matrices: keep the label column at the shared width; let remaining columns
+   divide the available panel width automatically as the viewport changes. */
+.panel.matrix:not(.monthly-matrix) table {
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+.panel.matrix:not(.monthly-matrix) table colgroup.locked-columns col:first-child {
+  width: var(--shared-freeze-width) !important;
+  min-width: var(--shared-freeze-width) !important;
+}
+.panel.matrix:not(.monthly-matrix) table colgroup.locked-columns col:not(:first-child) {
+  width: auto !important;
+}
+.panel.matrix:not(.monthly-matrix) table thead th:not(:first-child),
+.panel.matrix:not(.monthly-matrix) table tbody td:not(:first-child) {
+  width: auto !important;
+}
+.panel.matrix:not(.monthly-matrix) table thead th:first-child,
+.panel.matrix:not(.monthly-matrix) table tbody td:first-child {
+  box-sizing: border-box !important;
+  width: var(--shared-freeze-width) !important;
+  min-width: var(--shared-freeze-width) !important;
+  max-width: var(--shared-freeze-width) !important;
+}
+
+/* Trend matrices use the exact same first-column width while their month/data
+   columns retain their natural horizontal-scroll width. */
+.panel.monthly-matrix table colgroup.locked-columns col:first-child {
+  width: var(--shared-freeze-width) !important;
+  min-width: var(--shared-freeze-width) !important;
+}
+.panel.monthly-matrix table thead th:first-child,
+.panel.monthly-matrix table tbody td:first-child {
+  box-sizing: border-box !important;
+  width: var(--shared-freeze-width) !important;
+  min-width: var(--shared-freeze-width) !important;
+  max-width: var(--shared-freeze-width) !important;
+}
+@media (max-width: 700px) {
+  :root { --shared-freeze-width: 118px; }
+}
+</style>
+
+</head><body><div class="toolbar"><b>Sales Performance Report • ${esc(year)}</b><button onclick="window.print()">Cetak / Simpan PDF</button></div>${pages}
+<script id="robust-monthly-freeze-width">
+(function(){
+ const FIRST_COL=220, OTHER_COL=78;
+ function lockMonthlyFreeze(){
+  document.querySelectorAll('.monthly-matrix table').forEach(function(table){
+   const count=table.querySelectorAll('thead th').length;
+   if(!count)return;
+   let cg=table.querySelector(':scope > colgroup');
+   if(!cg){cg=document.createElement('colgroup');table.insertBefore(cg,table.firstChild);}
+   while(cg.children.length<count)cg.appendChild(document.createElement('col'));
+   while(cg.children.length>count)cg.removeChild(cg.lastChild);
+   Array.from(cg.children).forEach(function(col,i){
+    const w=i===0?FIRST_COL:OTHER_COL;
+    col.style.width=w+'px';col.style.minWidth=w+'px';col.style.maxWidth=w+'px';
+   });
+   table.style.setProperty('table-layout','fixed','important');
+   table.style.setProperty('width',(FIRST_COL+(count-1)*OTHER_COL)+'px','important');
+   table.style.setProperty('min-width',(FIRST_COL+(count-1)*OTHER_COL)+'px','important');
+   table.querySelectorAll('tr').forEach(function(row){
+    const cell=row.cells&&row.cells[0];if(!cell)return;
+    ['width','min-width','max-width'].forEach(function(prop){cell.style.setProperty(prop,FIRST_COL+'px','important');});
+    cell.style.setProperty('box-sizing','border-box','important');
+    cell.style.setProperty('position','sticky','important');
+    cell.style.setProperty('left','0px','important');
+    cell.style.setProperty('z-index',row.parentElement.tagName==='THEAD'?'12':'6','important');
+   });
+  });
+ }
+ function start(){
+  lockMonthlyFreeze();
+  const root=document.querySelector('body');
+  if(root){
+   new MutationObserver(function(){lockMonthlyFreeze();}).observe(root,{subtree:true,childList:true});
+  }
+  window.addEventListener('resize',lockMonthlyFreeze);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
+<\/script>
+
+</body></html>`);
+ w.document.close();
+}
+
+function attachUploadHandler(){
+ $('fileInput').addEventListener('change', async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const status=$('status');
+  try{
+   status.textContent='Membaca workbook '+file.name+'...';
+   const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+   const dataSheet=wb.Sheets['DATA_SALES']||wb.Sheets['RAW DATA BY SUBRAND']||wb.Sheets[wb.SheetNames[0]];
+   const rawSourceSheet=wb.Sheets['RAW_DATA_SALES'];
+   if(!dataSheet) throw new Error('Sheet DATA_SALES tidak ditemukan.');
+   if(!rawSourceSheet) throw new Error('Sheet RAW_DATA_SALES tidak ditemukan. File harus memuat kedua sheet database.');
+   const json=XLSX.utils.sheet_to_json(dataSheet,{defval:null});
+   if(!json.length||!('YEAR' in json[0])||!('VAL' in json[0])) throw new Error('Kolom YEAR dan VAL pada DATA_SALES tidak ditemukan.');
+   const rawMatrix=XLSX.utils.sheet_to_json(rawSourceSheet,{header:1,defval:null,raw:true});
+   const expectedRawHeaders=['TAHUN','BULAN','DATE','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND','ENTITAS','JENIS FAKTUR','KARTON','DISTRIBUTORS','KODE CUSTOMER','CUSTOMER NAME','ALAMAT','SALESMAN','KODE SALUR','VAL','QTY','CLASS PRODUCT','DOT','CATEGORY','JENIS SALES','OUTLET SALUR','CABANG','SUBDIST','SISO','TIM','NAMA AKUN','CATEGORY','DOT','SBU','PF Bulanan','PF Triwulan','PRODUCT_DESC'];
+   const actualRawHeaders=(rawMatrix[0]||[]).slice(0,34).map(v=>String(v==null?'':v).trim().toUpperCase());
+   if(actualRawHeaders.length!==34||!expectedRawHeaders.every((v,i)=>actualRawHeaders[i]===v.toUpperCase())) throw new Error('Header RAW_DATA_SALES tidak sesuai format A:AH.');
+   const rawImported=rawMatrix.slice(1).filter(r=>r&&r.slice(0,34).some(v=>v!==null&&v!==''));
+   if(!rawImported.length) throw new Error('RAW_DATA_SALES tidak memiliki baris data.');
+   const imported=json.map((r,i)=>{
+    const amount=Number(r.VAL);
+    const row={
+     y:Number(r.YEAR),m:String(r.MONTH||'').trim().toUpperCase(),d:String(r.SUBDIST||''),
+     s:String(r.Subbrand||r.SUBBRAND||''),b:String(r.Brand||r.BRAND||''),
+     c:String(r.CATEGORY||''),u:String(r.SBU||''),p:String(r.PIC||''),
+     fm:String(r['PF Bulanan']||''),fq:String(r['PF Triwulan']||''),
+     v:amount,t:String(r['JENIS SALES']||r.JENIS_SALES||'').trim().toUpperCase(),
+     tg:r.TARGET==null||r.TARGET===''?null:Number(r.TARGET),
+     be:r.BE==null||r.BE===''?null:Number(r.BE)
+    };
+    if(!Number.isInteger(row.y)||!months.includes(row.m)||!Number.isFinite(row.v)||(row.t!=='SO'&&row.t!=='SOO')){
+     throw new Error('Data tidak valid pada baris Excel ke-'+(i+2)+'. Periksa YEAR, MONTH, VAL, dan JENIS SALES. Tidak ada data yang disimpan.');
+    }
+    if(row.tg!==null&&!Number.isFinite(row.tg)) throw new Error('TARGET tidak valid pada baris Excel ke-'+(i+2)+'.');
+    if(row.be!==null&&!Number.isFinite(row.be)) throw new Error('BE tidak valid pada baris Excel ke-'+(i+2)+'.');
+    return row;
+   });
+   if(!imported.length) throw new Error('Tidak ada baris data untuk diimpor.');
+   status.textContent='Menyiapkan dua database: '+imported.length.toLocaleString('id-ID')+' DATA_SALES dan '+rawImported.length.toLocaleString('id-ID')+' RAW_DATA_SALES...';
+   const session=await gasCall('beginSalesImport',{total:imported.length,rawTotal:rawImported.length,filename:file.name});
+   const chunkSize=500;
+   const totalChunks=Math.max(Math.ceil(imported.length/chunkSize),Math.ceil(rawImported.length/chunkSize));
+   for(let i=0;i<totalChunks;i++){
+    const chunk=imported.slice(i*chunkSize,(i+1)*chunkSize);
+    const rawChunk=rawImported.slice(i*chunkSize,(i+1)*chunkSize);
+    await gasCall('appendSalesImportChunk',{token:session.token,chunk:chunk,rawChunk:rawChunk});
+    const dataDone=Math.min((i+1)*chunkSize,imported.length);
+    const rawDone=Math.min((i+1)*chunkSize,rawImported.length);
+    status.textContent='Mengunggah dua database • DATA_SALES '+dataDone.toLocaleString('id-ID')+'/'+imported.length.toLocaleString('id-ID')+' • RAW_DATA_SALES '+rawDone.toLocaleString('id-ID')+'/'+rawImported.length.toLocaleString('id-ID');
+   }
+   const result=await gasCall('finishSalesImport',{token:session.token});
+   rows=result.rows||[]; targetRows=buildTargets(rows); init(); render();
+   status.textContent='Kedua database diperbarui • '+file.name+' • DATA_SALES '+imported.length.toLocaleString('id-ID')+' baris • RAW_DATA_SALES '+rawImported.length.toLocaleString('id-ID')+' baris';
+   alert('Import berhasil. DATA_SALES ('+imported.length.toLocaleString('id-ID')+' baris) dan RAW_DATA_SALES ('+rawImported.length.toLocaleString('id-ID')+' baris) telah diperbarui.');
+  }catch(err){
+   status.textContent='Import gagal: '+err.message;
+   alert('Gagal mengimpor data: '+err.message);
+  }finally{e.target.value='';}
+ });
+}
+function gasCall(fn,arg){
+ return new Promise((resolve,reject)=>{
+  const runner=google.script.run.withSuccessHandler(resolve).withFailureHandler(err=>reject(new Error(err&&err.message?err.message:String(err))));
+  if(arg===undefined) runner[fn](); else runner[fn](arg);
+ });
+}
+async function loadDashboardData(){
+ const status=$('status');
+ try{
+  status.textContent='Memuat data dari Google Sheets...';
+  const result=await gasCall('getDashboardData');
+  rows=result.rows||[]; targetRows=buildTargets(rows);
+  if(!rows.length){status.textContent='Database masih kosong • Upload Excel pertama untuk memulai';return;}
+  init(); render();
+  status.textContent='Database aktif • '+rows.length.toLocaleString('id-ID')+' baris • Update: '+(result.updatedAt||'');
+ }catch(err){status.textContent='Gagal memuat database: '+err.message;}
+}
+function buildTargets(sourceRows){
+ const grouped=new Map();
+ sourceRows.forEach(r=>{
+  if(Number(r.y)!==2026||r.tg===null||r.tg===undefined||!Number.isFinite(Number(r.tg)))return;
+  const key=[r.d,r.s,r.b,r.c,r.u,r.p,r.fm,r.fq].join('|');
+  if(!grouped.has(key)){
+   const o={d:r.d,s:r.s,b:r.b,c:r.c,u:r.u,p:r.p,fm:r.fm,fq:r.fq};
+   grouped.set(key,o);
+  }
+  const o=grouped.get(key),field=r.t+'_'+r.m;
+  o[field]=(o[field]||0)+Number(r.tg||0);
+ });
+ return [...grouped.values()];
+}
+attachUploadHandler();
+loadDashboardData();
+
+
+</script>
+<script>
+
+(function(){
+  function resetMonthlyMatrixScroll(){
+    document.querySelectorAll('.monthly-matrix .tablewrap').forEach(function(el){
+      el.scrollLeft = 0;
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    resetMonthlyMatrixScroll();
+    setTimeout(resetMonthlyMatrixScroll, 250);
+    setTimeout(resetMonthlyMatrixScroll, 900);
+  });
+  document.addEventListener('change', function(e){
+    if(e.target && (e.target.matches('select') || e.target.matches('input[type="checkbox"]'))){
+      setTimeout(resetMonthlyMatrixScroll, 80);
+    }
+  });
+})();
+
+function exportTrendExcel(kind){
+ if(typeof XLSX==='undefined'){alert('Library Excel belum tersedia.');return;}
+ const typ=$('sales').value;
+ const filterOk=r=>isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value);
+ const salesRows=rows.filter(r=>(r.y===2025||r.y===2026)&&r.t===typ&&filterOk(r));
+ const targetData=targetRows.filter(r=>(r.u==='B7'||r.u==='SAKA')&&filterOk(r));
+ const monthNames=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+ const keyOf=(r,dim)=>String(r[dim]||'(Kosong)');
+ const amount=(arr,year,month)=>arr.filter(r=>r.y===year&&r.m===month).reduce((a,r)=>a+n(r.v),0);
+ const targetAmount=(arr,month)=>arr.reduce((a,r)=>a+targetVal(r,typ,month),0);
+ const header=['Distributor','Category / Subdist / Brand','Jenis Baris'];
+ monthNames.forEach(m=>header.push('Sales 2025 '+m,'Sales 2026 '+m,'Target 2026 '+m));
+ header.push('Total Sales 2025','Total Sales 2026','Total Target 2026');
+ const makeSheet=(dist,scope)=>{
+  const aoa=[['SALES PERFORMANCE DASHBOARD 2026'],['Jenis Sales',typ],['Distributor',dist||'SEMUA DISTRIBUTOR'],['Keterangan','Sales 2025, Sales 2026, dan Target 2026 per bulan; seluruh 12 bulan disertakan.'],[],header];
+  const addLine=(label,rowType,filterFn,targetFn)=>{
+   const sr=scope.sales.filter(filterFn),tr=scope.targets.filter(targetFn);
+   const line=[dist||'SEMUA',label,rowType];let t25=0,t26=0,tg=0;
+   monthNames.forEach(m=>{const a25=amount(sr,2025,m),a26=amount(sr,2026,m),at=targetAmount(tr,m);line.push(a25,a26,at);t25+=a25;t26+=a26;tg+=at;});
+   line.push(t25,t26,tg);aoa.push(line);
+  };
+  if(kind==='subdist'){
+   addLine(dist,'SUBDIST',r=>keyOf(r,'d')===dist,r=>keyOf(r,'d')===dist);
+  }else{
+   const cats=[...new Set([...scope.sales.map(r=>keyOf(r,'c')),...scope.targets.map(r=>keyOf(r,'c'))])].sort();
+   cats.forEach(c=>{
+    addLine(c,'CATEGORY',r=>keyOf(r,'c')===c,r=>keyOf(r,'c')===c);
+    const brands=[...new Set([...scope.sales.filter(r=>keyOf(r,'c')===c).map(r=>keyOf(r,'b')),...scope.targets.filter(r=>keyOf(r,'c')===c).map(r=>keyOf(r,'b'))])].sort();
+    brands.forEach(b=>addLine('   ↳ '+b,'BRAND',r=>keyOf(r,'c')===c&&keyOf(r,'b')===b,r=>keyOf(r,'c')===c&&keyOf(r,'b')===b));
+   });
+  }
+  addLine('GRAND TOTAL','TOTAL',()=>true,()=>true);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:22},{wch:30},{wch:14},...Array(36).fill({wch:16}),{wch:19},{wch:19},{wch:19}];
+  ws['!freeze']={xSplit:3,ySplit:6};
+  return ws;
+ };
+ const wb=XLSX.utils.book_new();
+ const allScope={sales:salesRows,targets:targetData};
+ XLSX.utils.book_append_sheet(wb,makeSheet(null,allScope),'Ringkasan');
+ const distributors=[...new Set([...salesRows.map(r=>keyOf(r,'d')),...targetData.map(r=>keyOf(r,'d'))])].sort();
+ const used=new Set(['RINGKASAN']);
+ distributors.forEach(dist=>{
+  const safe=(dist.replace(/[\\/?*[\]:]/g,' ').trim()||'Distributor').slice(0,31);
+  let name=safe,ix=2;while(used.has(name.toUpperCase())){const suffix=' '+ix++;name=safe.slice(0,31-suffix.length)+suffix;}
+  used.add(name.toUpperCase());
+  const scope={sales:salesRows.filter(r=>keyOf(r,'d')===dist),targets:targetData.filter(r=>keyOf(r,'d')===dist)};
+  XLSX.utils.book_append_sheet(wb,makeSheet(dist,scope),name);
+ });
+ XLSX.writeFile(wb,kind==='subdist'?'Trend_by_Subdist_Per_Distributor_Sales_2025_2026_Target.xlsx':'Trend_by_Category_Brand_Per_Distributor_Sales_2025_2026_Target.xlsx');
+}
+
+
+
+
+(function () {
+  'use strict';
+  const root = document.documentElement;
+  let rafPending = false;
+
+  function cssPx(name, fallback) {
+    const value = parseFloat(getComputedStyle(root).getPropertyValue(name));
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  function syncMatrixGeometry() {
+    const freezeWidth = cssPx('--matrix-freeze-col', 220);
+    const trendWidth = cssPx('--matrix-trend-col', 78);
+
+    document.querySelectorAll('.panel.matrix').forEach(function (panel) {
+      const wrap = panel.querySelector('.tablewrap');
+      const table = wrap && wrap.querySelector('table');
+      if (!wrap || !table) return;
+
+      wrap.style.minWidth = '0';
+      wrap.style.maxWidth = '100%';
+      wrap.style.overflowX = 'auto';
+
+      const headerCells = Array.from(table.querySelectorAll('thead th'));
+      const colgroup = table.querySelector('colgroup.locked-columns');
+      if (colgroup) {
+        Array.from(colgroup.children).forEach(function (col, index) {
+          const hidden = !!(headerCells[index] && headerCells[index].hidden);
+          col.style.display = hidden ? 'none' : '';
+          if (index === 0) {
+            col.style.width = freezeWidth + 'px';
+            col.style.minWidth = freezeWidth + 'px';
+            col.style.maxWidth = freezeWidth + 'px';
+          } else if (panel.classList.contains('monthly-matrix')) {
+            col.style.width = trendWidth + 'px';
+            col.style.minWidth = trendWidth + 'px';
+            col.style.maxWidth = trendWidth + 'px';
+          }
+        });
+      }
+
+      table.style.borderCollapse = 'separate';
+      table.style.borderSpacing = '0';
+      table.style.tableLayout = 'fixed';
+
+      if (panel.classList.contains('monthly-matrix')) {
+        const visibleCount = headerCells.filter(function (cell) {
+          return !cell.hidden && getComputedStyle(cell).display !== 'none';
+        }).length;
+        const exactWidth = freezeWidth + Math.max(0, visibleCount - 1) * trendWidth;
+        table.style.width = exactWidth + 'px';
+        table.style.minWidth = exactWidth + 'px';
+        table.style.maxWidth = 'none';
+      } else {
+        const mobileKpi = window.matchMedia('(max-width: 700px)').matches;
+        const metricWidth = mobileKpi ? 82 : null;
+        const exactKpiWidth = freezeWidth + Math.max(0, headerCells.length - 1) * (metricWidth || 0);
+        table.style.width = mobileKpi ? exactKpiWidth + 'px' : '100%';
+        table.style.minWidth = mobileKpi ? exactKpiWidth + 'px' : '0';
+        table.style.maxWidth = mobileKpi ? 'none' : '100%';
+        Array.from(table.rows).forEach(function (row) {
+          Array.from(row.cells || []).forEach(function (cell, index) {
+            if (index === 0) return;
+            if (mobileKpi) {
+              cell.style.width = metricWidth + 'px';
+              cell.style.minWidth = metricWidth + 'px';
+              cell.style.maxWidth = metricWidth + 'px';
+              cell.style.whiteSpace = 'nowrap';
+            } else {
+              cell.style.removeProperty('width');
+              cell.style.removeProperty('min-width');
+              cell.style.removeProperty('max-width');
+            }
+          });
+        });
+      }
+
+      Array.from(table.rows).forEach(function (row) {
+        const firstCell = row.cells && row.cells[0];
+        if (!firstCell) return;
+        firstCell.style.boxSizing = 'border-box';
+        firstCell.style.width = freezeWidth + 'px';
+        firstCell.style.minWidth = freezeWidth + 'px';
+        firstCell.style.maxWidth = freezeWidth + 'px';
+        firstCell.style.position = 'sticky';
+        firstCell.style.left = '0';
+      });
+    });
+  }
+
+  function scheduleSync() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(function () {
+      rafPending = false;
+      syncMatrixGeometry();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scheduleSync, { once: true });
+  } else {
+    scheduleSync();
+  }
+  window.addEventListener('load', scheduleSync, { once: true });
+  window.addEventListener('resize', scheduleSync, { passive: true });
+  document.addEventListener('change', scheduleSync, true);
+  document.addEventListener('click', function (event) {
+    if (event.target && event.target.closest('.month-filter, .month-actions, .month-checks')) {
+      scheduleSync();
+    }
+  }, true);
+
+  const observer = new MutationObserver(function (records) {
+    if (records.some(function (record) {
+      return record.type === 'childList' ||
+        (record.type === 'attributes' && record.attributeName === 'hidden');
+    })) scheduleSync();
+  });
+  if (document.body) {
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['hidden']
+    });
+  } else {
+    document.addEventListener('DOMContentLoaded', function () {
+      observer.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['hidden']
+      });
+    }, { once: true });
+  }
+})();
+
+
+async function downloadCanvasAsPng(canvas, fileName){
+  return new Promise((resolve,reject)=>{
+    canvas.toBlob(blob=>{
+      if(!blob){reject(new Error('PNG tidak dapat dibuat.')) ;return;}
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download=fileName;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),2000);
+      resolve();
+    },'image/png');
+  });
+}
+
+function screenshotScale(width,height){
+  const maxSide=12000;
+  const maxPixels=80000000;
+  return Math.max(0.55,Math.min(2,maxSide/Math.max(width,1),maxSide/Math.max(height,1),Math.sqrt(maxPixels/Math.max(width*height,1))));
+}
+
+async function captureMatrixPng(button){
+  const panel=button&&button.closest('.panel.matrix');
+  let clone=null;
+  if(!panel){alert('Kotak matrix tidak ditemukan.');return;}
+  if(typeof html2canvas!=='function'){alert('Fitur screenshot belum termuat. Periksa koneksi internet lalu refresh dashboard.');return;}
+  const oldText=button.innerHTML;
+  button.disabled=true;button.setAttribute('aria-busy','true');
+  try{
+    const sourceTables=Array.from(panel.querySelectorAll('.tablewrap table'));
+    const sourceWidth=Math.max(panel.scrollWidth,panel.getBoundingClientRect().width,...sourceTables.map(t=>t.scrollWidth||t.getBoundingClientRect().width));
+    clone=panel.cloneNode(true);
+    clone.querySelectorAll('.matrix-actions').forEach(el=>el.remove());
+    clone.style.cssText += ';position:fixed!important;left:-20000px!important;top:0!important;width:'+Math.ceil(sourceWidth+40)+'px!important;max-width:none!important;height:auto!important;max-height:none!important;overflow:visible!important;z-index:-1!important;background:#fff!important;contain:none!important;';
+    const wraps=Array.from(clone.querySelectorAll('.tablewrap'));
+    wraps.forEach((wrap,i)=>{
+      const src=panel.querySelectorAll('.tablewrap')[i];
+      const fullWidth=Math.max(src?src.scrollWidth:0,src?src.querySelector('table')?.scrollWidth||0:0,sourceWidth);
+      wrap.style.cssText += ';display:block!important;position:static!important;width:'+Math.ceil(fullWidth)+'px!important;min-width:'+Math.ceil(fullWidth)+'px!important;max-width:none!important;height:auto!important;max-height:none!important;overflow:visible!important;contain:none!important;';
+    });
+    const tables=Array.from(clone.querySelectorAll('.tablewrap table'));
+    tables.forEach((table,i)=>{
+      const src=sourceTables[i];
+      const w=Math.max(src?src.scrollWidth:0,src?src.getBoundingClientRect().width:0,table.scrollWidth||0);
+      table.style.cssText += ';display:table!important;position:static!important;width:'+Math.ceil(w)+'px!important;min-width:'+Math.ceil(w)+'px!important;max-width:none!important;height:auto!important;max-height:none!important;table-layout:auto!important;border-collapse:separate!important;';
+      table.querySelectorAll('th,td').forEach(cell=>{
+        cell.style.setProperty('position','static','important');
+        ['left','right','top','bottom'].forEach(p=>cell.style.removeProperty(p));
+      });
+    });
+    document.body.appendChild(clone);
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const width=Math.ceil(Math.max(clone.scrollWidth,clone.getBoundingClientRect().width));
+    const height=Math.ceil(Math.max(clone.scrollHeight,clone.getBoundingClientRect().height));
+    const scale=screenshotScale(width,height);
+    const canvas=await html2canvas(clone,{scale,backgroundColor:'#ffffff',useCORS:true,logging:false,width,height,windowWidth:Math.max(document.documentElement.clientWidth,width),windowHeight:Math.max(document.documentElement.clientHeight,height),scrollX:0,scrollY:0});
+    clone.remove();clone=null;
+    const heading=panel.querySelector('h3')?.textContent||'Matrix';
+    const safeName=heading.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+    const stamp=new Date().toISOString().slice(0,10);
+    await downloadCanvasAsPng(canvas,(safeName||'matrix')+'_'+stamp+'.png');
+  }catch(err){
+    if(clone&&clone.isConnected)clone.remove();
+    console.error('Screenshot matrix gagal:',err);
+    alert('Screenshot matrix gagal dibuat: '+(err&&err.message?err.message:String(err)));
+  }finally{
+    button.disabled=false;button.removeAttribute('aria-busy');button.innerHTML=oldText;
+  }
+}
+
+async function captureDashboardSummaryPng(button){
+  const source=document.querySelector('main.wrap');
+  let clone=null;
+  if(!source){alert('Area ringkasan dashboard tidak ditemukan.');return;}
+  if(typeof html2canvas!=='function'){alert('Fitur screenshot belum termuat. Periksa koneksi internet lalu refresh dashboard.');return;}
+  const oldText=button.innerHTML;
+  button.disabled=true;button.setAttribute('aria-busy','true');
+  try{
+    clone=source.cloneNode(true);
+    clone.querySelectorAll('.panel.matrix,.section-title,.footer,.lower').forEach(el=>el.remove());
+    clone.querySelectorAll('.month-menu').forEach(el=>el.remove());
+    /* Preserve the selected filter labels and copy live Chart.js canvas pixels. */
+    const sourceCanvases=Array.from(source.querySelectorAll('canvas'));
+    const cloneCanvases=Array.from(clone.querySelectorAll('canvas'));
+    sourceCanvases.forEach((src,i)=>{
+      const dst=cloneCanvases[i];
+      if(!dst)return;
+      dst.width=src.width;dst.height=src.height;
+      try{dst.getContext('2d').drawImage(src,0,0);}catch(e){}
+    });
+    const width=Math.ceil(source.getBoundingClientRect().width);
+    clone.style.cssText += ';position:fixed!important;left:-20000px!important;top:0!important;width:'+width+'px!important;max-width:none!important;height:auto!important;max-height:none!important;overflow:visible!important;z-index:-1!important;background:#f4f7fb!important;';
+    clone.querySelectorAll('.chartbox,.chartbox canvas').forEach(el=>{el.style.setProperty('overflow','visible','important');el.style.setProperty('max-height','none','important');});
+    document.body.appendChild(clone);
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const w=Math.ceil(Math.max(clone.scrollWidth,clone.getBoundingClientRect().width));
+    const h=Math.ceil(Math.max(clone.scrollHeight,clone.getBoundingClientRect().height));
+    const scale=screenshotScale(w,h);
+    const canvas=await html2canvas(clone,{scale,backgroundColor:'#f4f7fb',useCORS:true,logging:false,width:w,height:h,windowWidth:Math.max(document.documentElement.clientWidth,w),windowHeight:Math.max(document.documentElement.clientHeight,h),scrollX:0,scrollY:0});
+    clone.remove();clone=null;
+    const stamp=new Date().toISOString().slice(0,10);
+    await downloadCanvasAsPng(canvas,'sales_performance_dashboard_'+stamp+'.png');
+  }catch(err){
+    if(clone&&clone.isConnected)clone.remove();
+    console.error('Screenshot dashboard gagal:',err);
+    alert('Screenshot dashboard gagal dibuat: '+(err&&err.message?err.message:String(err)));
+  }finally{
+    button.disabled=false;button.removeAttribute('aria-busy');button.innerHTML=oldText;
+  }
+}
+
+</script>
+
+<style id="mobile-kpi-matrix-horizontal-scroll">
+@media (max-width:700px) {
+  .panel.matrix:not(.monthly-matrix) table {
+    width:max-content !important;
+    min-width:max-content !important;
+    max-width:none !important;
+    table-layout:fixed !important;
+  }
+  #matrixSubdistTable,
+  #matrixCategoryTable {
+    width:max-content !important;
+    min-width:max-content !important;
+    max-width:none !important;
+  }
+}
+</style>
