@@ -103,8 +103,8 @@ function p2RenderDonut(key,canvasId,legendId){
 function page2DrawCharts(){const d=p2Data;
  const monthly=d.monthly.filter(x=>d.kpi.months.includes(x.month));const metric=p2Metric.month;
  p2Chart('p2MonthlyChart','bar',{labels:monthly.map(x=>x.month),datasets:[{label:String(d.kpi.year),data:monthly.map(x=>x[metric]),backgroundColor:'#2563eb',borderRadius:5},{label:String(d.kpi.ly),data:monthly.map(x=>x[metric==='ao'?'aoLy':'ecLy']),backgroundColor:'#a5afbd',borderRadius:5}]},{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9}}}}});
- const daily=d.daily.filter(x=>x.date.slice(0,4)===String(d.kpi.year));const dm=p2Metric.day;
- p2Chart('p2DailyChart','line',{labels:Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0')),datasets:[{label:dm.toUpperCase(),data:Array.from({length:31},(_,i)=>{const day=String(i+1).padStart(2,'0');const row=daily.find(x=>x.date.slice(8,10)===day);return row?row[dm]:0;}),tension:.25,fill:false,borderColor:'#2563eb',backgroundColor:'#2563eb',pointRadius:2}]},{scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,callback:(v,i)=>String(i+1).padStart(2,'0')}},y:{beginAtZero:true,grid:{display:false},ticks:{font:{size:9}}}}});
+ const daily=d.daily||[];const dm=p2Metric.day;
+ p2Chart('p2DailyChart','line',{labels:Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0')),datasets:[{label:dm.toUpperCase()+' • AKUMULASI BULAN TERPILIH',data:Array.from({length:31},(_,i)=>{const day=String(i+1).padStart(2,'0');const row=daily.find(x=>x.day===day);return row?row[dm]:0;}),tension:.25,fill:false,borderColor:'#2563eb',backgroundColor:'#2563eb',pointRadius:2}]},{scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,callback:(v,i)=>String(i+1).padStart(2,'0')}},y:{beginAtZero:true,grid:{display:false},ticks:{font:{size:9}}}}});
  p2RenderDonut('subdist','p2SubdistChart','p2SubdistLegend');
  p2RenderDonut('account','p2AccountChart','p2AccountLegend');
  p2RenderDonut('category','p2CategoryChart','p2CategoryLegend');
