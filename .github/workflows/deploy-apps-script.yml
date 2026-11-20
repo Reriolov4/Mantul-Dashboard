@@ -1,0 +1,45 @@
+name: Deploy Mantul Dashboard to Apps Script
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: perf/page2-single-pass
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install clasp
+        run: npm install --global @google/clasp
+
+      - name: Configure clasp credentials
+        env:
+          CLASP_CREDENTIALS: ${{ secrets.CLASP_CREDENTIALS }}
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+        run: |
+          test -n "$CLASP_CREDENTIALS" || (echo "Missing repository secret: CLASP_CREDENTIALS" && exit 1)
+          test -n "$SCRIPT_ID" || (echo "Missing repository secret: SCRIPT_ID" && exit 1)
+          mkdir -p "$HOME"
+          printf '%s' "$CLASP_CREDENTIALS" > "$HOME/.clasprc.json"
+          printf '{"scriptId":"%s","rootDir":"."}\n' "$SCRIPT_ID" > .clasp.json
+
+      - name: Push source to Apps Script
+        run: clasp push --force
+
+      - name: Update existing Web App deployment
+        env:
+          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+        run: |
+          test -n "$DEPLOYMENT_ID" || (echo "Missing repository secret: DEPLOYMENT_ID" && exit 1)
+          clasp deploy --deploymentId "$DEPLOYMENT_ID" --description "Mantul Dashboard deployment from GitHub"
