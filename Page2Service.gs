@@ -4,7 +4,7 @@
  * Kolom mengikuti struktur A:AH:
  * A tahun, B bulan, C tanggal, F subbrand, G brand, M customer name,
  * K distributors (sumber pengelompokan SOO), O PIC (label/filter), V jenis sales,
- * AA tim, AB nama akun, AC category, AE SBU. Page 2 hanya mengambil SOO.
+ * AA tim, AB nama akun, AC category, AE SBU. Page 2 hanya mengambil SOO. Final synchronized deploy.
  */
 function page2Source_() {
   const ss = getDatabase_();
