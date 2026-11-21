@@ -111,7 +111,7 @@ function page2BuildMeta_(sourceRows) {
     monthsByYear: Object.fromEntries(Object.keys(monthsByYear).map(y => [y, monthOrder.filter(m => monthsByYear[y].has(m))])),
     dateKeys: Array.from(dateSet).sort(),
     pics: sorted('pics'),
-    salesmen: ['Salesman DB BAC','Salesman DB MBO','Salesman EPM BAC','Salesman EPM LSE','Salesman GMP LGS','Salesman GMP LSE'],
+    salesmen: sorted('accounts'),
     subdists: sorted('subdists'),
     brands: sorted('brands'),
     subbrands: sorted('subbrands'),
@@ -173,7 +173,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   all.forEach(r => {
     if (!matches(r)) return;
     rows.push(r);
-    if (page2Key_(r[9]).indexOf('SALESMAN') >= 0 && (!salesmen.length || salesmen.includes(page2Key_(r[9])))) chartRows.push(r);
+    if (!salesmen.length || salesmen.includes(page2Key_(r[10]))) chartRows.push(r);
   });
   const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const periodMonths = Array.isArray(filters.months) ? selectedMonths : monthNames;
@@ -211,15 +211,19 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const outletKey = outlet(r);
     const ecKey = page2EcKey_(outletKey, date);
     const b = y === year ? CY : LY;
+    const cb = y === year ? CHART_CY : CHART_LY;
     b.ao.add(outletKey); b.ec.add(ecKey);
     addGroup(b,'sbu',page2Text_(r[12]),outletKey,date);
+    addGroup(cb,'subdist',page2Text_(r[8]),outletKey,date);
+    addGroup(cb,'account',page2Text_(r[10]),outletKey,date);
+    addGroup(cb,'category',page2Text_(r[11]),outletKey,date);
     if (m === mtdMonth) {
       (y === year ? mtdAO.cy : mtdAO.ly).add(outletKey);
       (y === year ? mtdAO.cyEC : mtdAO.lyEC).add(ecKey);
     }
   });
-  // Grafik bulanan, harian, dan komposisi hanya membaca baris Salesman (AA).
-  // Filter PIC memakai kolom O; Nama Akun tetap berasal dari kolom AB.
+  // Filter SALESMAN (Nama Akun/AB) hanya memengaruhi Trend Bulanan dan Harian.
+  // KPI dan komposisi tetap memakai seluruh populasi yang lolos filter utama.
   chartRows.forEach(r => {
     const y = Number(r[0]), m = page2Month_(r[1]);
     if ((y !== year && y !== ly) || !periodMonths.includes(m)) return;
@@ -227,18 +231,13 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const date = page2Date_(y,m,r[2]);
     if (!cust || !date) return;
     const outletKey = outlet(r);
-    const b = y === year ? CHART_CY : CHART_LY;
     const ecKey = page2EcKey_(outletKey, date);
-    b.ao.add(outletKey); b.ec.add(ecKey);
     const monthIndex = monthNames.indexOf(m);
     if (monthIndex >= 0) {
       const ms = monthlySets[monthIndex];
       (y === year ? ms.cyAO : ms.lyAO).add(outletKey);
       (y === year ? ms.cyEC : ms.lyEC).add(ecKey);
     }
-    addGroup(b,'subdist',page2Text_(r[8]),outletKey,date);
-    addGroup(b,'account',page2Text_(r[10]),outletKey,date);
-    addGroup(b,'category',page2Text_(r[11]),outletKey,date);
     const dayKey = date.slice(8,10);
     if (y === year && (!hasDateFilter || selectedDates.includes(dayKey))) {
       if (!dailyMap[date]) dailyMap[date] = {date:date,ao:new Set(),ec:new Set()};
@@ -331,7 +330,7 @@ function page2GetMeta() {
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v8', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v9', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 180);
@@ -343,8 +342,8 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const metaKey = page2CacheKey_('p2meta', 'v9-soo-account-ab-distributor-k');
-  const dataKey = page2CacheKey_('p2initialdata', 'v9-soo-account-ab-distributor-k');
+  const metaKey = page2CacheKey_('p2meta', 'v10-salesman-account-ab-trend-only');
+  const dataKey = page2CacheKey_('p2initialdata', 'v10-salesman-account-ab-trend-only');
   const cache = CacheService.getScriptCache();
   const cachedMeta = cache.get(metaKey);
   const cachedData = cache.get(dataKey);
