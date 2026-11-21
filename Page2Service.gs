@@ -22,28 +22,37 @@ function page2Text_(v) { return String(v == null ? '' : v).trim(); }
 function page2Key_(v) { return page2Text_(v).toUpperCase(); }
 function page2Read_() {
   const sh = page2Source_();
-  const rowCount = sh.getLastRow() - 1;
-  if (rowCount <= 0) return [];
+  const lastRow = sh.getLastRow();
+  if (lastRow <= 1) return [];
 
-  // Page 2 memakai A:C, F:G, K:M, O (PIC), dan V:AE.
-  // Kolom N dan P:U tidak dibaca; kolom O dibaca khusus untuk filter PIC.
-  const left = sh.getRange(2, 1, rowCount, 13).getValues();   // A:M
-  const pic = sh.getRange(2, 15, rowCount, 1).getValues();    // O
-  const right = sh.getRange(2, 22, rowCount, 10).getValues(); // V:AE
-  return left.map((row, i) => {
-    const compact = new Array(31);
-    for (let c = 0; c < 13; c++) compact[c] = row[c];
-    compact[14] = pic[i][0];
-    for (let c = 0; c < 10; c++) compact[21 + c] = right[i][c];
-    return compact;
-  });
+  // Baca struktur RAW_DATA_SALES utuh sesuai skema resmi A:AH (34 kolom).
+  // Ini menghindari indeks kolom yang bergeser akibat pembentukan array compact.
+  return sh.getRange(2, 1, lastRow - 1, 34).getValues();
 }
 function page2Date_(year, month, day) {
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  const mi = months.indexOf(page2Month_(month));
-  let d = day;
-  if (Object.prototype.toString.call(d) === '[object Date]' && !isNaN(d)) d = d.getDate();
-  d = Number(String(d).replace(/[^0-9]/g,''));
+  let mi = months.indexOf(page2Month_(month));
+  if (mi < 0 && /^\\d{1,2}$/.test(String(month).trim())) mi = Number(month) - 1;
+  let d = null;
+  if (Object.prototype.toString.call(day) === '[object Date]' && !isNaN(day)) {
+    d = day.getDate();
+  } else if (typeof day === 'number' && Number.isFinite(day)) {
+    // Numeric values above 31 may be Google Sheets date serials.
+    d = day > 31 ? new Date(Date.UTC(1899, 11, 30) + day * 86400000).getUTCDate() : day;
+  } else {
+    const raw = String(day == null ? '' : day).trim();
+    let m = raw.match(/^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})/);
+    if (m) d = Number(m[3]);
+    else {
+      m = raw.match(/^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})$/);
+      if (m) d = Number(m[1]);
+      else if (/^\\d{1,2}$/.test(raw)) d = Number(raw);
+      else {
+        const parsed = Date.parse(raw);
+        if (!isNaN(parsed)) d = new Date(parsed).getDate();
+      }
+    }
+  }
   if (!Number(year) || mi < 0 || !d || d > 31) return '';
   return String(Number(year)) + '-' + String(mi + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
 }
@@ -60,8 +69,13 @@ function page2BuildMeta_(sourceRows) {
   const sets = {};
   Object.keys(fields).forEach(k => sets[k] = new Set());
   const dateSet = new Set(), monthsByYear = {};
+  const salesTypeCounts = {};
+  let sooRowCount = 0;
   values.forEach(r => {
-    if (page2Key_(r[21]) !== 'SOO') return;
+    const salesType = page2Key_(r[21]);
+    if (salesType) salesTypeCounts[salesType] = (salesTypeCounts[salesType] || 0) + 1;
+    if (salesType !== 'SOO') return;
+    sooRowCount++;
     Object.keys(fields).forEach(k => {
       const value = page2Text_(r[fields[k]]);
       if (value) sets[k].add(k === 'months' ? page2Month_(value) : value);
@@ -90,6 +104,9 @@ function page2BuildMeta_(sourceRows) {
     categories: sorted('categories'),
     salesTypes: ['SOO'],
     distributors: ['ALL'],
+    sourceRowCount: values.length,
+    sooRowCount: sooRowCount,
+    salesTypeCounts: salesTypeCounts,
     updatedAt: PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED') || 'Live dari Google Sheets'
   };
 }
@@ -266,7 +283,7 @@ function page2Cached_(key, builder, ttlSeconds) {
 }
 
 function page2GetMeta() {
-  const key = page2CacheKey_('p2meta', 'v3');
+  const key = page2CacheKey_('p2meta', 'v4');
   return page2Cached_(key, page2BuildMeta_, 300);
 }
 
@@ -284,7 +301,7 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const key = page2CacheKey_('p2initial', 'v2');
+  const key = page2CacheKey_('p2initial', 'v3');
   return page2Cached_(key, function() {
     const sourceRows = page2Read_();
     const meta = page2BuildMeta_(sourceRows);
