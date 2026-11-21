@@ -134,14 +134,18 @@ function renderMatrix(dim,bodyId,periodMonths,grand){
  const cls=v=>v===null||!Number.isFinite(v)?'neutral':v>=0?'positive':'negative';
 
  // BY SUBDIST: Subdist menjadi baris induk; B7/SAKA menjadi baris subordinat SBU.
- // Kelas baris dibuat berbeda agar hierarki terbaca seperti Category dan Brand.
+ // CTR baris subordinat dihitung terhadap Grand Total SBU masing-masing.
  if(dim==='d' && bodyId==='matrixSubdist'){
+  const sbuGrandTotals={
+   B7:sum(data.filter(r=>r.u==='B7'&&ytd.includes(r.m))),
+   SAKA:sum(data.filter(r=>r.u==='SAKA'&&ytd.includes(r.m)))
+  };
   const sbuMetrics=(d,u)=>{
    const match=(r,yy,mm)=>r.y===yy&&r.m===mm&&r.t===typ&&r.d===d&&r.u===u&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value);
    const actual=sum(rows.filter(r=>r.y===y&&r.t===typ&&r.d===d&&r.u===u&&ytd.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
-   // CTR seluruh baris, termasuk B7 dan SAKA, memakai Grand Total
-   // pada periode dan filter yang sama persis.
-   const sbuContribution=grand?actual/grand*100:0;
+   // Denominator mengikuti SBU yang sama dan seluruh Subdist terpilih.
+   const sbuGrand=sbuGrandTotals[u]||0;
+   const sbuContribution=sbuGrand?actual/sbuGrand*100:0;
    const target=y===2026?targetRows.filter(r=>r.d===d&&r.u===u&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)).reduce((a,r)=>a+ytd.reduce((v,m)=>v+targetVal(r,typ,m),0),0):0;
    const ly=sum(rows.filter(r=>r.y===y-1&&r.t===typ&&r.d===d&&r.u===u&&ytd.includes(r.m)&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&($('pic').value==='ALL'||r.p===$('pic').value)));
    // Growth SBU memakai Actual bulan berjalan vs bulan sebelumnya / rata-rata 3 bulan sebelumnya.
