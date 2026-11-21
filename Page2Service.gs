@@ -331,7 +331,7 @@ function page2GetMeta() {
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v5', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v6', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 180);
@@ -343,7 +343,7 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const key = page2CacheKey_('p2initial', 'v6-salesman-ab');
+  const key = page2CacheKey_('p2initial', 'v7-salesman-ab-distributor-keys');
   return page2Cached_(key, function() {
     const sourceRows = page2Read_();
     const meta = page2BuildMeta_(sourceRows);
