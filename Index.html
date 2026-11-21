@@ -12,7 +12,7 @@
 
 <style>
 .header-utilities{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.page-switch{position:relative!important;top:auto!important;margin:0;padding:10px 2.5vw!important}
+.page-switch{position:sticky!important;top:0!important;z-index:1000!important;margin:0;padding:10px 2.5vw!important}
 .page-switch-inner{max-width:1600px;margin:0 auto}
 @media(max-width:700px){.header-utilities{width:100%;justify-content:flex-start}.page-switch-inner{border-radius:18px}}
 </style>
@@ -31,19 +31,22 @@
 
 <header><div class="head"><div><div class="eyebrow">COMMERCIAL PERFORMANCE • 2026 FOCUS</div><div class="title">Bismillahirohmanirohim,</div><div class="sub">Sales Performance Dashboard • Area Banda Aceh</div><div class="status" id="status">Menghubungkan ke database...</div></div><div class="header-utilities"><input accept=".xlsx,.xls,.csv" hidden="" id="fileInput" type="file"/><button class="report-pdf" type="button" onclick="downloadPptPdf()">▤ Download Laporan PDF</button><button class="dashboard-screenshot-btn" type="button" onclick="captureDashboardSummaryPng(this)" title="Screenshot seluruh ringkasan dashboard">▧ Screenshot Dashboard</button></div></div></header>
 
-<nav class="page-switch" aria-label="Navigasi halaman">
-  <div class="page-switch-inner">
-    <div class="page-switch-mark" aria-hidden="true">✦</div>
-    <div class="page-switch-buttons">
-      <button type="button" class="p1-nav active" onclick="page1Show()">▦ Sales Performance</button>
-      <button type="button" class="p2-nav" onclick="page2Show()">◉ Outlets | Sales Force</button>
-    </div>
-  </div>
-</nav>
-
-
-
-
+<div class="app-layout">
+  <aside class="app-sidebar" aria-label="Navigasi utama">
+    <div class="sidebar-brand"><span class="sidebar-brand-mark">✦</span><span class="sidebar-brand-text">MANTUL<br><small>DASHBOARD</small></span></div>
+    <button class="sidebar-toggle" type="button" aria-label="Perkecil atau lebarkan menu" title="Perkecil atau lebarkan menu" onclick="document.body.classList.toggle('sidebar-collapsed')">⇔</button>
+    <div class="sidebar-section-label">WORKSPACE</div>
+    <nav class="page-switch" aria-label="Navigasi halaman">
+      <div class="page-switch-inner">
+        <div class="page-switch-buttons">
+          <button type="button" class="p1-nav active" onclick="page1Show()"><span class="sidebar-icon">▦</span><span class="sidebar-link-text">Sales Performance</span></button>
+          <button type="button" class="p2-nav" onclick="page2Show()"><span class="sidebar-icon">◉</span><span class="sidebar-link-text">Outlets | Sales Force</span></button>
+        </div>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Bintang Toedjoe<br><small>Commercial Analytics</small></div>
+  </aside>
+  <div class="app-main">
 <main class="wrap">
 <section class="filters">
 <div><label>TAHUN ANALISIS</label><select id="year"><option>2025</option><option selected="">2026</option></select></div><div class="month-filter" id="monthFilter"><label>BULAN</label><button class="month-trigger" id="monthTrigger" type="button" aria-expanded="false">Pilih bulan</button><div class="month-menu"><div class="month-actions"><button id="selectAllMonths" type="button">Pilih Semua</button><button id="clearMonths" type="button">Kosongkan</button><button id="resetYtd" type="button">Reset ke YTD</button></div><div class="month-actions" style="margin-top:7px"><button id="applyMonths" type="button" style="background:#2563eb;color:#fff;border-color:#2563eb;width:100%">Terapkan Pilihan</button></div><div class="month-checks" id="monthChecks"></div></div></div><div><label>JENIS SALES</label><select id="sales"><option value="SOO">SOO</option><option value="SO">SO</option></select></div><div><label>PIC</label><select id="pic"><option value="ALL">Semua PIC</option></select></div><div class="month-filter subdist-filter" id="subdistFilter"><label>SUBDIST</label><button class="month-trigger" id="subdistTrigger" type="button" aria-expanded="false">Semua Subdist</button><div class="month-menu"><div class="month-actions"><button id="selectAllSubdists" type="button">Pilih Semua</button><button id="clearSubdists" type="button">Reset</button><button id="applySubdists" type="button" style="background:#2563eb;color:#fff;border-color:#2563eb;width:100%">Terapkan Pilihan</button></div><div class="month-checks" id="subdistChecks"></div></div><select id="subdist" hidden><option value="ALL">Semua</option></select></div>
@@ -111,6 +114,8 @@
 </section>
 <?!= include('Page2'); ?>
 <div class="footer">Dashboard interaktif • Data tersimpan terpusat di Google Sheets dan dapat diakses oleh tim internal.</div></main>
+  </div>
+</div>
 
 <?!= include('Scripts'); ?>
 <?!= include('Page2Scripts'); ?>

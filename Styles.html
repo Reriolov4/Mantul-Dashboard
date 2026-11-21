@@ -1414,4 +1414,50 @@ header .upload { box-shadow:0 3px 12px rgba(0,0,0,.28); }
 body.page2-active main.wrap > :not(#page2View){display:none!important}
 body.page2-active main.wrap > #page2View{display:block!important}
 #page2View[hidden]{display:none!important}
+
+/* MANTUL APP SHELL — shared layout for all dashboard pages */
+:root{--mantul-header-height:184px;--mantul-sidebar-width:244px}
+header{position:sticky;top:0;z-index:1100;min-height:var(--mantul-header-height)!important;height:var(--mantul-header-height);padding:10px 3vw!important;overflow:hidden}
+header .head{min-height:112px!important;height:100%;align-items:flex-end!important}
+header .head>div:first-child{visibility:hidden}
+header .head>div:last-child{margin-left:auto;align-self:flex-end}
+.app-layout{display:grid;grid-template-columns:var(--mantul-sidebar-width) minmax(0,1fr);align-items:start;min-height:calc(100vh - var(--mantul-header-height))}
+.app-sidebar{position:sticky;top:var(--mantul-header-height);height:calc(100vh - var(--mantul-header-height));min-height:420px;overflow-y:auto;background:#fff;border-right:1px solid #e5eaf1;padding:18px 12px 14px;display:flex;flex-direction:column;gap:10px;z-index:900}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:4px 9px 15px;border-bottom:1px solid #edf1f6;color:#18345f;font-size:13px;font-weight:850;letter-spacing:.5px;line-height:1.05}
+.sidebar-brand small{font-size:9px;letter-spacing:1.5px;color:#8290a4}
+.sidebar-brand-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:#e8f0ff;color:#2563eb;font-size:19px}
+.sidebar-section-label{padding:9px 10px 2px;color:#94a3b8;font-size:9px;font-weight:800;letter-spacing:1.2px}
+.page-switch{display:block!important;position:static!important;inset:auto!important;z-index:auto!important;margin:0!important;padding:0!important;background:transparent!important}
+.page-switch-inner{display:block!important;width:100%!important;min-height:0!important;max-width:none!important;padding:0!important;background:transparent!important;border-radius:0!important;box-shadow:none!important}
+.page-switch-buttons{display:flex!important;flex-direction:column;align-items:stretch!important;gap:5px!important}
+.page-switch button{display:flex;align-items:center;gap:11px;width:100%;min-height:43px;padding:10px 12px!important;border-radius:10px!important;text-align:left;font-size:12px!important;font-weight:650;white-space:normal;transition:background .18s,color .18s,transform .18s}
+.page-switch button:hover{background:#f1f5fb;color:#1d4ed8;transform:translateX(2px)}
+.page-switch button.active{background:#eaf1ff!important;color:#1d4ed8!important;box-shadow:inset 3px 0 #2563eb!important}
+.sidebar-icon{width:22px;flex:0 0 22px;text-align:center;font-size:16px}
+.sidebar-link-text{min-width:0}
+.sidebar-toggle{align-self:flex-end;border:1px solid #e5eaf1;background:#fff;color:#64748b;border-radius:8px;width:30px;height:28px;cursor:pointer}
+.sidebar-footer{margin-top:auto;padding:12px 10px 4px;border-top:1px solid #edf1f6;color:#64748b;font-size:10px;line-height:1.6}
+.sidebar-footer small{color:#94a3b8}
+.app-main{min-width:0;width:100%}
+.wrap{max-width:1600px;width:100%;margin:0 auto;padding:18px clamp(14px,2vw,30px) 36px}
+body.sidebar-collapsed{--mantul-sidebar-width:76px}
+body.sidebar-collapsed .sidebar-brand-text,body.sidebar-collapsed .sidebar-section-label,body.sidebar-collapsed .sidebar-link-text,body.sidebar-collapsed .sidebar-footer{display:none}
+body.sidebar-collapsed .app-sidebar{padding-left:10px;padding-right:10px}
+body.sidebar-collapsed .sidebar-brand{justify-content:center;padding-left:0;padding-right:0}
+body.sidebar-collapsed .page-switch button{justify-content:center;padding:10px 5px!important}
+body.sidebar-collapsed .sidebar-toggle{align-self:center}
+@media(max-width:760px){
+ :root{--mantul-header-height:136px;--mantul-sidebar-width:64px}
+ header{background-size:auto 100%!important;background-position:left center!important;padding:8px 12px!important}
+ header .head{min-height:105px!important}
+ .app-layout{grid-template-columns:var(--mantul-sidebar-width) minmax(0,1fr)}
+ .app-sidebar{padding:12px 6px;gap:7px}
+ .sidebar-brand{justify-content:center;padding:2px 0 10px}
+ .sidebar-brand-text,.sidebar-section-label,.sidebar-link-text,.sidebar-footer,.sidebar-toggle{display:none!important}
+ .page-switch button{justify-content:center;padding:10px 4px!important}
+ .sidebar-icon{width:auto;flex:0 0 auto}
+ .wrap{padding:12px 10px 26px}
+}
+@media(prefers-reduced-motion:reduce){.page-switch button{transition:none!important}}
+
 </style>
