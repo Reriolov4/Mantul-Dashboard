@@ -130,6 +130,17 @@ function page2FilterList_(v) {
   return (Array.isArray(v) ? v : [v]).map(page2Key_).filter(Boolean);
 }
 function page2Growth_(cy,ly) { return ly ? (cy / ly - 1) * 100 : (cy ? null : 0); }
+// Kunci outlet dan aktivitas menggunakan identitas outlet lintas distributor.
+// Length-prefix mencegah benturan jika nama mengandung karakter pemisah.
+function page2CompositeKey_(parts) {
+  return parts.map(v => { const s = page2Key_(v); return s.length + ':' + s; }).join('|');
+}
+function page2OutletKey_(customer, distributor) {
+  return page2CompositeKey_([customer, distributor]);
+}
+function page2EcKey_(outletKey, dateKey) {
+  return page2CompositeKey_([dateKey, outletKey]);
+}
 function page2BuildDashboardData_(filters, sourceRows) {
   filters = filters || {};
   const all = sourceRows || page2Read_();
@@ -184,11 +195,12 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const mtdMonth = periodMonths.length ? (selectedMtdMonth || (latestAvailableMonth >= 0 ? monthNames[latestAvailableMonth] : monthNames[new Date().getMonth()])) : null;
   const mtdAO = {cy:new Set(),ly:new Set(),cyEC:new Set(),lyEC:new Set()};
   const customer = r => page2Key_(r[5]);
-  const addGroup = (bucket, dim, label, cust, date) => {
+  const outlet = r => page2OutletKey_(r[5], r[8]);
+  const addGroup = (bucket, dim, label, outletKey, date) => {
     if (!label) return;
     if (!bucket.groups[dim][label]) bucket.groups[dim][label] = {name:label,ao:new Set(),ec:new Set()};
-    bucket.groups[dim][label].ao.add(cust);
-    bucket.groups[dim][label].ec.add(cust+'|'+date);
+    bucket.groups[dim][label].ao.add(outletKey);
+    bucket.groups[dim][label].ec.add(page2EcKey_(outletKey, date));
   };
   rows.forEach(r => {
     const y = Number(r[0]), m = page2Month_(r[1]);
@@ -196,12 +208,13 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const cust = customer(r);
     const date = page2Date_(y,m,r[2]);
     if (!cust || !date) return;
+    const outletKey = outlet(r);
+    const ecKey = page2EcKey_(outletKey, date);
     const b = y === year ? CY : LY;
-    const ecKey = cust + '|' + date;
-    b.ao.add(cust); b.ec.add(ecKey);
-    addGroup(b,'sbu',page2Text_(r[12]),cust,date);
+    b.ao.add(outletKey); b.ec.add(ecKey);
+    addGroup(b,'sbu',page2Text_(r[12]),outletKey,date);
     if (m === mtdMonth) {
-      (y === year ? mtdAO.cy : mtdAO.ly).add(cust);
+      (y === year ? mtdAO.cy : mtdAO.ly).add(outletKey);
       (y === year ? mtdAO.cyEC : mtdAO.lyEC).add(ecKey);
     }
   });
@@ -213,22 +226,23 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const cust = customer(r);
     const date = page2Date_(y,m,r[2]);
     if (!cust || !date) return;
+    const outletKey = outlet(r);
     const b = y === year ? CHART_CY : CHART_LY;
-    const ecKey = cust + '|' + date;
-    b.ao.add(cust); b.ec.add(ecKey);
+    const ecKey = page2EcKey_(outletKey, date);
+    b.ao.add(outletKey); b.ec.add(ecKey);
     const monthIndex = monthNames.indexOf(m);
     if (monthIndex >= 0) {
       const ms = monthlySets[monthIndex];
-      (y === year ? ms.cyAO : ms.lyAO).add(cust);
+      (y === year ? ms.cyAO : ms.lyAO).add(outletKey);
       (y === year ? ms.cyEC : ms.lyEC).add(ecKey);
     }
-    addGroup(b,'subdist',page2Text_(r[8]),cust,date);
-    addGroup(b,'account',page2Text_(r[10]),cust,date);
-    addGroup(b,'category',page2Text_(r[11]),cust,date);
+    addGroup(b,'subdist',page2Text_(r[8]),outletKey,date);
+    addGroup(b,'account',page2Text_(r[10]),outletKey,date);
+    addGroup(b,'category',page2Text_(r[11]),outletKey,date);
     const dayKey = date.slice(8,10);
     if (y === year && (!hasDateFilter || selectedDates.includes(dayKey))) {
       if (!dailyMap[date]) dailyMap[date] = {date:date,ao:new Set(),ec:new Set()};
-      dailyMap[date].ao.add(cust); dailyMap[date].ec.add(ecKey);
+      dailyMap[date].ao.add(outletKey); dailyMap[date].ec.add(ecKey);
     }
   });
   // Monthly AO/EC grafik dihitung terpisah dari KPI.
