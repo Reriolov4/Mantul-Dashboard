@@ -1,10 +1,9 @@
 // ID Spreadsheet utama. Script Property SPREADSHEET_ID boleh override nilai ini.
+// Jika Script Properties kosong, Web App otomatis memakai ID cadangan ini.
 const DEFAULT_SPREADSHEET_ID = '1I8gESqZUkgpn-9yvQpWOmTFGWkW-3E06SG94a7UiZjI';
 
-// Konfigurasi sensitif disimpan di Apps Script > Project Settings > Script Properties.
-// Keys: SPREADSHEET_ID dan UPLOAD_ALLOWED_EMAILS (email dipisahkan koma).
-// ID utama disediakan sebagai fallback agar Web App tetap terhubung saat Script Properties kosong.
-const DEFAULT_SPREADSHEET_ID = '1I8gESqZUkgpn-9yvQpWOmTFGWkW-3E06SG94a7UiZjI';
+// Konfigurasi sensitif lain disimpan di Apps Script > Project Settings > Script Properties.
+// Key opsional: SPREADSHEET_ID (override) dan UPLOAD_ALLOWED_EMAILS (email dipisahkan koma).
 
 const DATA_SHEET_NAME = 'DATA_SALES';
 const STAGING_SHEET_NAME = 'IMPORT_STAGING';
