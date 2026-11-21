@@ -30,7 +30,10 @@
 #page2View .p2-guide-item{display:inline-flex;align-items:center;gap:4px}
 #page2View .p2-dot{width:7px;height:7px;border-radius:50%;display:inline-block}
 #page2View .p2-dot.blue{background:#2563eb}#page2View .p2-dot.darkgreen{background:#166534}#page2View .p2-dot.lightgreen{background:#65a30d}#page2View .p2-dot.orange{background:#d97706}#page2View .p2-dot.red{background:#dc2626}#page2View .p2-dot.gray{background:#94a3b8}
-#page2View .p2-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-bottom:12px}
+#page2View .p2-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-bottom:10px}
+#page2View .p2-control-row{display:grid;grid-template-columns:220px minmax(220px,300px);gap:9px;align-items:end;background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:10px 12px;margin:0 0 12px;box-shadow:0 2px 9px #0f172a08}
+#page2View .p2-control-row select{height:36px;border:1px solid #dbe3ee;border-radius:8px;background:#fff;padding:0 10px;width:100%;font-size:11px;color:#172033}
+@media(max-width:760px){#page2View .p2-control-row{grid-template-columns:1fr 1fr}}
 #page2View .p2-kpi{background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:12px;min-width:0;box-shadow:0 2px 9px #0f172a08;border-left:3px solid #2563eb}
 #page2View .p2-kpi:nth-child(2n){border-left-color:#0ea5b7}
 #page2View .p2-kpi .k-label{font-size:9px;font-weight:850;letter-spacing:.35px;color:#718096}
@@ -38,7 +41,7 @@
 #page2View .p2-kpi .k-sub{font-size:9px;color:#77869a;line-height:1.45}
 #page2View .p2-kpi .k-growth{font-size:10px;font-weight:800;margin-top:6px}
 #page2View .p2-positive{color:#16834a!important}#page2View .p2-negative{color:#dc4242!important}#page2View .p2-neutral{color:#718096!important}
-#page2View .p2-sbu-values{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px}
+/* SBU cards now use the same compact KPI hierarchy as Total AO/EC. */
 #page2View .p2-sbu-values div{background:#f6f8fc;border-radius:6px;padding:5px}
 #page2View .p2-sbu-values small{display:block;font-size:8px;color:#718096}
 #page2View .p2-sbu-values b{font-size:11px;color:#173b70}
@@ -68,7 +71,6 @@
  <div class="p2-filters">
   <div class="p2-filter"><label>TAHUN ANALISIS</label><select id="p2Year" aria-label="Tahun Analisis"></select></div>
   <div class="p2-filter" id="p2MonthFilter"><label>BULAN</label><button class="p2-trigger" id="p2MonthsTrigger" type="button">Pilih Bulan</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" onclick="p2SelectAll('p2Months')">Pilih Semua</button><button type="button" onclick="p2ResetFilter('p2Months')">Reset</button><button type="button" onclick="p2SetYtdMonths()">Reset ke YTD</button><button type="button" class="p2-apply-menu" onclick="p2CloseMenus();page2Apply()">Terapkan Pilihan</button></div><div id="p2Months" class="p2-checklist"></div></div></div>
-  <div class="p2-filter" id="p2DateFilter"><label>DATE</label><button class="p2-trigger" id="p2DatesTrigger" type="button">Semua Tanggal</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" onclick="p2SelectAll('p2Dates')">Pilih Semua</button><button type="button" onclick="p2ResetFilter('p2Dates')">Reset</button><button type="button" class="p2-apply-menu" onclick="p2CloseMenus();page2Apply()">Terapkan Pilihan</button></div><div id="p2Dates" class="p2-checklist p2-day-grid"></div></div></div>
   <div class="p2-filter"><label>JENIS SALES</label><select class="p2-locked" disabled><option>SOO</option></select></div>
   <div class="p2-filter" id="p2PicFilter"><label>PIC</label><button class="p2-trigger" id="p2PicsTrigger" type="button">Semua PIC</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" onclick="p2SelectAll('p2Pics')">Pilih Semua</button><button type="button" onclick="p2ResetFilter('p2Pics')">Reset</button><button type="button" class="p2-apply-menu" onclick="p2CloseMenus();page2Apply()">Terapkan Pilihan</button></div><div id="p2Pics" class="p2-checklist"></div></div></div>
   <div class="p2-filter" id="p2SubdistFilter"><label>SUBDIST</label><button class="p2-trigger" id="p2SubdistsTrigger" type="button">Semua Subdist</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" onclick="p2SelectAll('p2Subdists')">Pilih Semua</button><button type="button" onclick="p2ResetFilter('p2Subdists')">Reset</button><button type="button" class="p2-apply-menu" onclick="p2CloseMenus();page2Apply()">Terapkan Pilihan</button></div><div id="p2Subdists" class="p2-checklist"></div></div></div>
@@ -78,11 +80,8 @@
   
  </div>
  <h1 class="p2-title">Outlets | Sales Force</h1>
- <p class="p2-subtitle">Monitoring Active Outlet (AO), Effective Call (EC), dan komposisi outlet berdasarkan data SOO.</p>
-
- 
- <div id="p2Status" class="p2-status">Menghubungkan ke RAW_DATA_SALES...</div>
- <div class="p2-color-guide" aria-label="Panduan warna indikator">
+ <div id="p2Status" class="p2-status" aria-live="polite" style="display:none"></div>
+ <div class="p2-color-guide" aria-label="Panduan warna indikator" style="display:none">
   <strong>PANDUAN WARNA</strong>
   <span class="p2-guide-item"><i class="p2-dot blue"></i>CTR ≥25%</span>
   <span class="p2-guide-item"><i class="p2-dot darkgreen"></i>CTR 10–24,9%</span>
@@ -96,14 +95,18 @@
  <div class="p2-kpis">
   <article class="p2-kpi"><div class="k-label">TOTAL AO • CURRENT YEAR</div><div class="k-main" id="p2AO">—</div><div class="k-sub" id="p2AOdesc">Outlet unik YTD</div><div class="k-growth" id="p2AOgrowth">Growth vs LY —</div><div class="k-sub" id="p2AOly">AO LY: —</div></article>
   <article class="p2-kpi"><div class="k-label">TOTAL EC • CURRENT YEAR</div><div class="k-main" id="p2EC">—</div><div class="k-sub" id="p2ECdesc">Customer unik per tanggal YTD</div><div class="k-growth" id="p2ECgrowth">Growth vs LY —</div><div class="k-sub" id="p2ECly">EC LY: —</div></article>
-  <article class="p2-kpi"><div class="k-label">AO MTD</div><div class="k-main" id="p2AOMTD">—</div><div class="k-sub" id="p2AOMTDdesc">AO bulan terpilih</div><div class="k-growth" id="p2AOMTDgrowth">vs LY —</div></article>
-  <article class="p2-kpi"><div class="k-label">EC MTD</div><div class="k-main" id="p2ECMTD">—</div><div class="k-sub" id="p2ECMTDdesc">EC bulan terpilih</div><div class="k-growth" id="p2ECMTDgrowth">vs LY —</div></article>
   <article class="p2-kpi"><div class="k-label">SBU B7</div><div class="k-main" id="p2B7">—</div><div class="p2-sbu-values"><div><small>ACH AO CY</small><b id="p2B7CY">—</b></div><div><small>ACH AO LY</small><b id="p2B7LY">—</b></div><div><small>GRW vs LY</small><b id="p2B7GRW">—</b></div><div><small>CTR</small><b id="p2B7CTR">—</b></div></div></article>
   <article class="p2-kpi"><div class="k-label">SBU SAKA</div><div class="k-main" id="p2SAKA">—</div><div class="p2-sbu-values"><div><small>ACH AO CY</small><b id="p2SAKACY">—</b></div><div><small>ACH AO LY</small><b id="p2SAKALY">—</b></div><div><small>GRW vs LY</small><b id="p2SAKAGRW">—</b></div><div><small>CTR</small><b id="p2SAKACTR">—</b></div></div></article>
+  <article class="p2-kpi"><div class="k-label">AO MTD</div><div class="k-main" id="p2AOMTD">—</div><div class="k-sub" id="p2AOMTDdesc">AO bulan terpilih</div><div class="k-growth" id="p2AOMTDgrowth">vs LY —</div></article>
+  <article class="p2-kpi"><div class="k-label">EC MTD</div><div class="k-main" id="p2ECMTD">—</div><div class="k-sub" id="p2ECMTDdesc">EC bulan terpilih</div><div class="k-growth" id="p2ECMTDgrowth">vs LY —</div></article>
+ </div>
+ <div class="p2-control-row">
+  <div class="p2-filter"><label>METRIK GRAFIK & DONUT</label><select id="p2MetricSelect"><option value="ao">Aktif Outlet (AO)</option><option value="ec">Effective Call (EC)</option></select></div>
+  <div class="p2-filter"><label>SALESMAN</label><select id="p2TeamSelect"><option value="">Semua Salesman</option><option>DB BAC</option><option>DB MBO</option><option>EPM BAC</option><option>EPM LSE</option><option>GMP LGS</option><option>GMP LSE</option></select></div>
  </div>
  <div class="p2-panel-grid">
-  <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND BULANAN AO / EC</h2><p>Perbandingan bulanan tahun berjalan dan tahun lalu.</p></div><div class="p2-switch"><button id="p2MonthAO" class="active" onclick="page2SetMetric('month','ao')">AO</button><button id="p2MonthEC" onclick="page2SetMetric('month','ec')">EC</button></div></div><div class="p2-chartbox"><canvas id="p2MonthlyChart"></canvas></div></article>
-  <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND HARIAN AO / EC</h2><p>Pergerakan outlet aktif dan transaksi outlet per tanggal.</p></div><div class="p2-switch"><button id="p2DayAO" class="active" onclick="page2SetMetric('day','ao')">AO</button><button id="p2DayEC" onclick="page2SetMetric('day','ec')">EC</button></div></div><div class="p2-chartbox"><canvas id="p2DailyChart"></canvas></div></article>
+  <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND BULANAN</h2><p>Perbandingan tahun berjalan dan tahun lalu.</p></div></div><div class="p2-chartbox"><canvas id="p2MonthlyChart"></canvas></div></article>
+  <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND HARIAN</h2><p>Pergerakan berdasarkan tanggal dalam bulan.</p></div></div><div class="p2-chartbox"><canvas id="p2DailyChart"></canvas></div></article>
  </div>
  <div class="p2-donuts">
   <article class="p2-card"><div class="p2-chart-head"><div><h2>KOMPOSISI PER SUBDIST</h2><p>Kontribusi AO dan Growth vs LY pada periode terpilih.</p></div></div><div class="p2-donut-layout"><div class="p2-donutbox"><canvas id="p2SubdistChart"></canvas></div><div class="p2-donut-legend" id="p2SubdistLegend"></div></div></article>
