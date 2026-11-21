@@ -272,8 +272,12 @@ function page2BuildDashboardData_(filters, sourceRows) {
  * starts a fresh cache namespace without attempting to enumerate cache keys.
  */
 function page2CacheKey_(prefix, payload) {
-  const version = PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED') || 'initial';
-  const raw = String(version) + '|' + String(payload || '');
+  const props = PropertiesService.getScriptProperties();
+  const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
+  const version = props.getProperty('PAGE2_RAW_UPDATED') || 'initial';
+  // Cache dipisahkan per Spreadsheet agar hasil database lama tidak terbaca
+  // setelah konfigurasi sumber data berubah.
+  const raw = spreadsheetId + '|' + String(version) + '|' + String(payload || '');
   const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, raw, Utilities.Charset.UTF_8);
   return prefix + '_' + Utilities.base64EncodeWebSafe(digest).replace(/=+$/g, '');
 }
