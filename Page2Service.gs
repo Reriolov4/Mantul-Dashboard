@@ -3,7 +3,7 @@
  * Sumber: RAW_DATA_SALES pada spreadsheet utama.
  * Kolom mengikuti struktur A:AH:
  * A tahun, B bulan, C tanggal, F subbrand, G brand, M customer name,
- * O PIC/salesman, V jenis sales, Y subdist, AA tim, AB nama akun,
+ * K distributors (label filter SUBDIST), V jenis sales, AA tim, AB nama akun (label filter PIC),
  * AC category, AE SBU. K adalah DISTRIBUTORS, bukan SUBDIST.
  */
 function page2Source_() {
@@ -30,15 +30,16 @@ function page2Read_() {
   const count = lastRow - 1;
   const abc = sh.getRange(2, 1, count, 3).getValues();    // A:C tahun, bulan, tanggal
   const fg = sh.getRange(2, 6, count, 2).getValues();     // F:G subbrand, brand
-  const mno = sh.getRange(2, 13, count, 3).getValues();   // M:O customer, alamat, PIC
-  const vy = sh.getRange(2, 22, count, 4).getValues();    // V:Y jenis sales ... subdist
-  const aaAe = sh.getRange(2, 27, count, 5).getValues();  // AA:AE tim, akun, category, DOT, SBU
+  const k = sh.getRange(2, 11, count, 1).getValues();      // K distributors
+  const mno = sh.getRange(2, 13, count, 1).getValues();   // M customer name
+  const vy = sh.getRange(2, 22, count, 1).getValues();    // V jenis sales
+  const aaAe = sh.getRange(2, 27, count, 5).getValues();  // AA:AE tim, nama akun, category, DOT, SBU
 
   return abc.map((row, i) => [
     row[0], row[1], row[2],
     fg[i][0], fg[i][1],
-    mno[i][0], mno[i][2],
-    vy[i][0], vy[i][3],
+    mno[i][0], aaAe[i][1],
+    vy[i][0], k[i][0],
     aaAe[i][0], aaAe[i][1], aaAe[i][2], aaAe[i][4]
   ]);
 }
