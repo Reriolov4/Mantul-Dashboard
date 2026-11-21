@@ -6,9 +6,10 @@ const p2Esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':
 function p2Selected(id){const el=p2$(id);if(!el)return [];if(el.tagName==='SELECT')return [...el.selectedOptions].map(o=>o.value);return [...el.querySelectorAll('input[type="checkbox"]:checked')].map(o=>o.value);}
 function p2Fill(id,values,selectAll=true){const el=p2$(id);if(!el)return;const old=new Set(p2Selected(id));el.innerHTML='';(values||[]).forEach(v=>{const label=document.createElement('label');label.className='p2-checkitem';const cb=document.createElement('input');cb.type='checkbox';cb.value=String(v);cb.checked=selectAll||old.has(String(v));const text=document.createElement('span');text.textContent=String(v);label.append(cb,text);el.appendChild(label);});}
 function p2DateOptions(){p2Fill('p2Dates',Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0')),true);}
-function p2FilterValues(){return {year:p2$('p2Year').value,months:p2Selected('p2Months'),dates:p2Selected('p2Dates'),teams:p2Selected('p2Teams'),subdists:p2Selected('p2Subdists'),categories:p2Selected('p2Categories')};}
+function p2FilterValues(){return {year:p2$('p2Year').value,months:p2Selected('p2Months'),dates:p2Selected('p2Dates'),pics:p2Selected('p2Pics'),subdists:p2Selected('p2Subdists'),brands:p2Selected('p2Brands'),subbrands:p2Selected('p2Subbrands'),categories:p2Selected('p2Categories')};}
 function p2UpdateTrigger(id,triggerId,allText){const selected=p2Selected(id),el=p2$(triggerId);if(!el)return;const total=p2$(id)?.querySelectorAll('input[type="checkbox"]').length||0;el.textContent=selected.length===total||selected.length===0?allText:selected.length===1?selected[0]:selected.length+' dipilih';}
-function p2UpdateTriggers(){p2UpdateTrigger('p2Months','p2MonthsTrigger','Pilih Semua Bulan');p2UpdateTrigger('p2Dates','p2DatesTrigger','Semua Tanggal');p2UpdateTrigger('p2Subdists','p2SubdistsTrigger','Semua Subdist');p2UpdateTrigger('p2Teams','p2TeamsTrigger','Semua Tim');p2UpdateTrigger('p2Categories','p2CategoriesTrigger','Semua Category');}
+function p2UpdateTriggers(){p2UpdateTrigger('p2Months','p2MonthsTrigger','Semua Bulan');p2UpdateTrigger('p2Dates','p2DatesTrigger','Semua Tanggal');p2UpdateTrigger('p2Pics','p2PicsTrigger','Semua PIC');p2UpdateTrigger('p2Subdists','p2SubdistsTrigger','Semua Subdist');p2UpdateTrigger('p2Brands','p2BrandsTrigger','Semua Brand');p2UpdateTrigger('p2Subbrands','p2SubbrandsTrigger','Semua Subbrand');p2UpdateTrigger('p2Categories','p2CategoriesTrigger','Semua Category');const months=p2Selected('p2Months'),total=p2$('p2Months')?.querySelectorAll('input[type="checkbox"]').length||0;p2$('p2MonthsTrigger').textContent=!months.length?'Tidak ada bulan dipilih':months.length===total?'Semua Bulan':months.length===1?months[0]:months.length+' bulan dipilih';}
+function p2SetYtdMonths(){const year=p2$('p2Year')?.value,available=(p2Meta?.monthsByYear||{})[String(year)]||[];const order=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];let last=-1;available.forEach(m=>{const i=order.indexOf(m);if(i>last)last=i;});const selected=new Set(order.slice(0,last+1));p2$('p2Months')?.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=selected.has(x.value));p2UpdateTriggers();}
 function p2SelectAll(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=true);p2UpdateTriggers();}
 function p2Clear(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);p2UpdateTriggers();}
 function p2CloseMenus(){document.querySelectorAll('#page2View .p2-filter.open').forEach(x=>x.classList.remove('open'));p2UpdateTriggers();}
@@ -33,11 +34,14 @@ function page2Init(){
   year.innerHTML='';
   years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;year.appendChild(o);});
   year.value=years.includes('2026')?'2026':(years[years.length-1]||'');
-  p2Fill('p2Months',meta.months||[]);
-  p2Fill('p2Teams',meta.teams||[]);
+  p2Fill('p2Months',meta.months||[],false);
+  p2Fill('p2Pics',meta.pics||[]);
   p2Fill('p2Subdists',meta.subdists||[]);
+  p2Fill('p2Brands',meta.brands||[]);
+  p2Fill('p2Subbrands',meta.subbrands||[]);
   p2Fill('p2Categories',meta.categories||[]);
   p2DateOptions();
+  p2SetYtdMonths();
   p2UpdateTriggers();
   if(!data){if(view)view.removeAttribute('aria-busy');p2$('p2Status').textContent='Respons awal Page 2 tidak berisi data dashboard.';p2SetLoadingState_('Gagal memuat');return;}
   p2Data=data;
@@ -51,7 +55,7 @@ function page2Init(){
  }).getPage2InitialPayload();
 }
 document.addEventListener('click',e=>{const trigger=e.target.closest('#page2View .p2-trigger');if(trigger){const filter=trigger.closest('.p2-filter');const wasOpen=filter.classList.contains('open');p2CloseMenus();if(!wasOpen)filter.classList.add('open');return;}if(!e.target.closest('#page2View .p2-menu'))p2CloseMenus();});
-document.addEventListener('change',e=>{if(e.target.closest('#page2View .p2-checklist'))p2UpdateTriggers();if(e.target&&e.target.id==='p2Year')p2DateOptions();});
+document.addEventListener('change',e=>{if(e.target.closest('#page2View .p2-checklist'))p2UpdateTriggers();if(e.target&&e.target.id==='p2Year'){p2DateOptions();p2SetYtdMonths();}});
 function page2Apply(){
  if(!p2Meta)return;
  const requestId=++p2RequestSeq;
@@ -73,7 +77,7 @@ function page2Apply(){
   if(!p2Data)p2SetLoadingState_('Gagal memuat');
  }).getPage2DashboardData(f);
 }
-function page2Reset(){if(!p2Meta)return;p2$('p2Year').value=(p2Meta.years||[]).includes('2026')?'2026':(p2Meta.years||[]).slice(-1)[0];['p2Months','p2Dates','p2Teams','p2Subdists','p2Categories'].forEach(p2SelectAll);p2CloseMenus();page2Apply();}
+function page2Reset(){if(!p2Meta)return;p2$('p2Year').value=(p2Meta.years||[]).includes('2026')?'2026':(p2Meta.years||[]).slice(-1)[0];p2SetYtdMonths();['p2Dates','p2Pics','p2Subdists','p2Brands','p2Subbrands','p2Categories'].forEach(p2SelectAll);p2CloseMenus();page2Apply();}
 function p2Growth(v){if(v===null||v===undefined)return '—';return (v>0?'+':'')+Number(v).toFixed(1)+'%';}
 function p2SetGrowth(id,v){const el=p2$(id);el.textContent=p2Growth(v);el.className='k-growth '+(v===null||!Number.isFinite(Number(v))?'p2-neutral':v>0?'p2-positive':v<0?'p2-negative':'p2-neutral');}
 function p2IndicatorClass(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return 'p2-neutral';return v>0?'p2-positive':v<0?'p2-negative':'p2-neutral';}
