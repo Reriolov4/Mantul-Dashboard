@@ -12,7 +12,7 @@
 
 <style>
 .header-utilities{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.page-switch{position:relative!important;top:auto!important;margin:0;padding:10px 2.5vw!important}
+.page-switch{position:sticky!important;top:0!important;z-index:1000!important;margin:0;padding:10px 2.5vw!important}
 .page-switch-inner{max-width:1600px;margin:0 auto}
 @media(max-width:700px){.header-utilities{width:100%;justify-content:flex-start}.page-switch-inner{border-radius:18px}}
 </style>
@@ -40,10 +40,6 @@
     </div>
   </div>
 </nav>
-
-
-
-
 <main class="wrap">
 <section class="filters">
 <div><label>TAHUN ANALISIS</label><select id="year"><option>2025</option><option selected="">2026</option></select></div><div class="month-filter" id="monthFilter"><label>BULAN</label><button class="month-trigger" id="monthTrigger" type="button" aria-expanded="false">Pilih bulan</button><div class="month-menu"><div class="month-actions"><button id="selectAllMonths" type="button">Pilih Semua</button><button id="clearMonths" type="button">Kosongkan</button><button id="resetYtd" type="button">Reset ke YTD</button></div><div class="month-actions" style="margin-top:7px"><button id="applyMonths" type="button" style="background:#2563eb;color:#fff;border-color:#2563eb;width:100%">Terapkan Pilihan</button></div><div class="month-checks" id="monthChecks"></div></div></div><div><label>JENIS SALES</label><select id="sales"><option value="SOO">SOO</option><option value="SO">SO</option></select></div><div><label>PIC</label><select id="pic"><option value="ALL">Semua PIC</option></select></div><div class="month-filter subdist-filter" id="subdistFilter"><label>SUBDIST</label><button class="month-trigger" id="subdistTrigger" type="button" aria-expanded="false">Semua Subdist</button><div class="month-menu"><div class="month-actions"><button id="selectAllSubdists" type="button">Pilih Semua</button><button id="clearSubdists" type="button">Reset</button><button id="applySubdists" type="button" style="background:#2563eb;color:#fff;border-color:#2563eb;width:100%">Terapkan Pilihan</button></div><div class="month-checks" id="subdistChecks"></div></div><select id="subdist" hidden><option value="ALL">Semua</option></select></div>

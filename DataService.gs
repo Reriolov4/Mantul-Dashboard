@@ -5,10 +5,42 @@
  */
 
 function getDatabase_() {
-  if (!SPREADSHEET_ID || String(SPREADSHEET_ID).indexOf('GANTI_') === 0) {
-    throw new Error('SPREADSHEET_ID belum dikonfigurasi di Config.gs.');
+  const configuredId = String(PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || '').trim();
+  const spreadsheetId = configuredId || String(DEFAULT_SPREADSHEET_ID || '').trim();
+  if (!spreadsheetId) {
+    throw new Error('ID Spreadsheet belum dikonfigurasi. Isi Script Properties SPREADSHEET_ID atau DEFAULT_SPREADSHEET_ID di Config.gs.');
   }
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
+  try {
+    return SpreadsheetApp.openById(spreadsheetId);
+  } catch (err) {
+    throw new Error('Gagal membuka Spreadsheet dengan ID yang dikonfigurasi (' +
+      (configuredId ? 'Script Properties' : 'fallback Config.gs') +
+      '). Pastikan akun pemilik Apps Script memiliki akses ke Spreadsheet. Detail: ' + err.message);
+  }
+}
+
+/**
+ * Jalankan manual dari editor Apps Script untuk memverifikasi koneksi database.
+ * Mengembalikan nama file dan jumlah baris sheet utama tanpa mengubah data.
+ */
+function testMantulDatabaseConnection() {
+  const ss = getDatabase_();
+  const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  const sales = ss.getSheetByName(DATA_SHEET_NAME);
+  const result = {
+    ok: true,
+    spreadsheetName: ss.getName(),
+    spreadsheetId: ss.getId(),
+    spreadsheetUrl: ss.getUrl(),
+    activeSource: PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') ? 'Script Properties' : 'Config.gs fallback',
+    rawDataSheetFound: !!raw,
+    rawDataRows: raw ? Math.max(0, raw.getLastRow() - 1) : 0,
+    rawDataLastColumn: raw ? raw.getLastColumn() : 0,
+    dataSalesSheetFound: !!sales,
+    dataSalesRows: sales ? Math.max(0, sales.getLastRow() - 1) : 0
+  };
+  Logger.log(JSON.stringify(result));
+  return result;
 }
 
 function getOrCreateSheet_(name) {
@@ -18,7 +50,7 @@ function getOrCreateSheet_(name) {
 
 function getDashboardData() {
   const cache = CacheService.getScriptCache();
-  const cacheKey = 'dashboard_rows_v3';
+  const cacheKey = 'dashboard_rows_v4_' + String(PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || 'unconfigured').trim();
   const cached = cache.get(cacheKey);
   if (cached) {
     try { return JSON.parse(cached); } catch (err) { cache.remove(cacheKey); }
@@ -413,9 +445,10 @@ function cacheDashboardData_() {
 }
 
 function assertUploadPermission_() {
-  const email = (Session.getActiveUser().getEmail() || '').toLowerCase();
-  const allowed = (UPLOAD_ALLOWED_EMAILS || []).map(x => String(x).trim().toLowerCase()).filter(Boolean);
+  const email = (Session.getActiveUser().getEmail() || '').trim().toLowerCase();
+  const configured = PropertiesService.getScriptProperties().getProperty('UPLOAD_ALLOWED_EMAILS') || '';
+  const allowed = configured.split(',').map(x => String(x).trim().toLowerCase()).filter(Boolean);
   if (!email || allowed.indexOf(email) === -1) {
-    throw new Error('Akun Anda belum diizinkan mengunggah data. Tambahkan email Google Workspace yang tepat ke UPLOAD_ALLOWED_EMAILS di Config.gs.');
+    throw new Error('Akun Anda belum diizinkan mengunggah data. Atur UPLOAD_ALLOWED_EMAILS pada Apps Script > Project Settings > Script Properties (pisahkan beberapa email dengan koma).');
   }
 }
