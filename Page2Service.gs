@@ -25,20 +25,20 @@ function page2Read_() {
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
 
-  // One Spreadsheet read instead of seven separate getRange/getValues calls.
-  // Project immediately to the 13 fields used by Page 2 to keep the in-memory
-  // representation compact. Column indexes below are zero-based within A:AE.
-  const values = sh.getRange(2, 1, lastRow - 1, 31).getValues();
-  const rows = new Array(values.length);
-  for (let i = 0; i < values.length; i++) {
-    const r = values[i];
+  // Ambil hanya kolom yang dipakai Page 2 (19 kolom, bukan A:AE/31 kolom).
+  const n = lastRow - 1;
+  const a = sh.getRange(2, 1, n, 3).getValues();    // A:C
+  const f = sh.getRange(2, 6, n, 10).getValues();   // F:O
+  const v = sh.getRange(2, 22, n, 1).getValues();   // V
+  const aa = sh.getRange(2, 27, n, 5).getValues();  // AA:AE
+  const rows = new Array(n);
+  for (let i = 0; i < n; i++) {
     rows[i] = [
-      r[0], r[1], r[2],       // A:C year, month, day
-      r[5], r[6],             // F:G subbrand, brand
-      r[12], r[14],           // M customer, O PIC label
-      r[21], r[10],           // V sales type, K distributors
-      r[26], r[27], r[28],    // AA team, AB account, AC category
-      r[30]                   // AE SBU
+      a[i][0], a[i][1], a[i][2],
+      f[i][0], f[i][1],
+      f[i][7], f[i][9],
+      v[i][0], f[i][5],
+      aa[i][0], aa[i][1], aa[i][2], aa[i][4]
     ];
   }
   return rows;
@@ -79,7 +79,7 @@ function page2BuildMeta_(sourceRows) {
   // Bangun seluruh opsi filter dalam satu lintasan; hindari membuat beberapa
   // array perantara besar dari RAW_DATA_SALES.
   const values = sourceRows || page2Read_();
-  const fields = {years:0, months:1, pics:10, subdists:8, brands:4, subbrands:3, accounts:10, categories:11};
+  const fields = {years:0, months:1, pics:10, salesmen:9, subdists:8, brands:4, subbrands:3, accounts:10, categories:11};
   const sets = {};
   Object.keys(fields).forEach(k => sets[k] = new Set());
   const dateSet = new Set(), monthsByYear = {};
@@ -111,7 +111,7 @@ function page2BuildMeta_(sourceRows) {
     monthsByYear: Object.fromEntries(Object.keys(monthsByYear).map(y => [y, monthOrder.filter(m => monthsByYear[y].has(m))])),
     dateKeys: Array.from(dateSet).sort(),
     pics: sorted('pics'),
-    salesmen: sorted('accounts'),
+    salesmen: sorted('salesmen'),
     subdists: sorted('subdists'),
     brands: sorted('brands'),
     subbrands: sorted('subbrands'),
@@ -173,7 +173,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   all.forEach(r => {
     if (!matches(r)) return;
     rows.push(r);
-    if (!salesmen.length || salesmen.includes(page2Key_(r[10]))) chartRows.push(r);
+    if (!salesmen.length || salesmen.includes(page2Key_(r[9]))) chartRows.push(r);
   });
   const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const periodMonths = Array.isArray(filters.months) ? selectedMonths : monthNames;
@@ -239,7 +239,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (y === year ? ms.cyEC : ms.lyEC).add(ecKey);
     }
     const dayKey = date.slice(8,10);
-    if (y === year && (!hasDateFilter || selectedDates.includes(dayKey))) {
+    if (y === year && m === mtdMonth && (!hasDateFilter || selectedDates.includes(dayKey))) {
       if (!dailyMap[date]) dailyMap[date] = {date:date,ao:new Set(),ec:new Set()};
       dailyMap[date].ao.add(outletKey); dailyMap[date].ec.add(ecKey);
     }
@@ -330,7 +330,7 @@ function page2GetMeta() {
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v9', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v10', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 180);
@@ -342,8 +342,8 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const metaKey = page2CacheKey_('p2meta', 'v10-salesman-account-ab-trend-only');
-  const dataKey = page2CacheKey_('p2initialdata', 'v10-salesman-account-ab-trend-only');
+  const metaKey = page2CacheKey_('p2meta', 'v11-team-aa-daily-month-narrow-read');
+  const dataKey = page2CacheKey_('p2initialdata', 'v11-team-aa-daily-month-narrow-read');
   const cache = CacheService.getScriptCache();
   const cachedMeta = cache.get(metaKey);
   const cachedData = cache.get(dataKey);
