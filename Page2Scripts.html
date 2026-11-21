@@ -108,7 +108,7 @@ function p2Growth(v){if(v===null||v===undefined)return '—';return (v>0?'+':'')
 function p2SetGrowth(id,v){const el=p2$(id);el.textContent=p2Growth(v);el.className='k-growth '+(v===null||!Number.isFinite(Number(v))?'p2-neutral':v>0?'p2-positive':v<0?'p2-negative':'p2-neutral');}
 function p2IndicatorClass(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return 'p2-neutral';return v>0?'p2-positive':v<0?'p2-negative':'p2-neutral';}
 function p2CtrClass(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return 'p2-ctr-neutral';return v>=25?'p2-ctr-blue':v>=10?'p2-ctr-darkgreen':v>=5?'p2-ctr-lightgreen':v>=3?'p2-ctr-orange':'p2-ctr-red';}
-function p2SetIndicator(id,v,kind){const el=p2$(id);el.className=kind==='ctr'?p2CtrClass(v):p2IndicatorClass(v);}
+function p2SetIndicator(id,v,kind){const el=p2$(id);el.className=kind==='ctr'?'k-ctr '+p2CtrClass(v):p2IndicatorClass(v);}
 function p2SetText(id,v){p2$(id).textContent=v;}
 function page2Render(){
  if(!p2Data)return;const d=p2Data,k=d.kpi;
