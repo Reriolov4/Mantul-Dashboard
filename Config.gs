@@ -1,3 +1,6 @@
+// ID Spreadsheet utama. Script Property SPREADSHEET_ID boleh override nilai ini.
+const DEFAULT_SPREADSHEET_ID = '1I8gESqZUkgpn-9yvQpWOmTFGWkW-3E06SG94a7UiZjI';
+
 // Konfigurasi sensitif disimpan di Apps Script > Project Settings > Script Properties.
 // Keys: SPREADSHEET_ID dan UPLOAD_ALLOWED_EMAILS (email dipisahkan koma).
 // ID utama disediakan sebagai fallback agar Web App tetap terhubung saat Script Properties kosong.
