@@ -25,24 +25,23 @@ function page2Read_() {
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
 
-  // Ambil hanya 13 field yang benar-benar dipakai Page 2.
-  // Lima rentang dipilih agar tidak menarik kolom transaksi/teks yang tidak relevan.
-  const count = lastRow - 1;
-  const abc = sh.getRange(2, 1, count, 3).getValues();    // A:C tahun, bulan, tanggal
-  const fg = sh.getRange(2, 6, count, 2).getValues();     // F:G subbrand, brand
-  const k = sh.getRange(2, 11, count, 1).getValues();      // K DISTRIBUTORS
-  const o = sh.getRange(2, 15, count, 1).getValues();      // O PIC (label/filter)
-  const mno = sh.getRange(2, 13, count, 1).getValues();   // M customer name
-  const vy = sh.getRange(2, 22, count, 1).getValues();    // V jenis sales
-  const aaAe = sh.getRange(2, 27, count, 5).getValues();  // AA:AE tim, nama akun, category, DOT, SBU
-
-  return abc.map((row, i) => [
-    row[0], row[1], row[2],
-    fg[i][0], fg[i][1],
-    mno[i][0], o[i][0],
-    vy[i][0], k[i][0],
-    aaAe[i][0], aaAe[i][1], aaAe[i][2], aaAe[i][4]
-  ]);
+  // One Spreadsheet read instead of seven separate getRange/getValues calls.
+  // Project immediately to the 13 fields used by Page 2 to keep the in-memory
+  // representation compact. Column indexes below are zero-based within A:AE.
+  const values = sh.getRange(2, 1, lastRow - 1, 31).getValues();
+  const rows = new Array(values.length);
+  for (let i = 0; i < values.length; i++) {
+    const r = values[i];
+    rows[i] = [
+      r[0], r[1], r[2],       // A:C year, month, day
+      r[5], r[6],             // F:G subbrand, brand
+      r[12], r[14],           // M customer, O PIC label
+      r[21], r[10],           // V sales type, K distributors
+      r[26], r[27], r[28],    // AA team, AB account, AC category
+      r[30]                   // AE SBU
+    ];
+  }
+  return rows;
 }
 function page2Date_(year, month, day) {
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
@@ -80,7 +79,7 @@ function page2BuildMeta_(sourceRows) {
   // Bangun seluruh opsi filter dalam satu lintasan; hindari membuat beberapa
   // array perantara besar dari RAW_DATA_SALES.
   const values = sourceRows || page2Read_();
-  const fields = {years:0, months:1, pics:6, subdists:8, brands:4, subbrands:3, accounts:10, categories:11};
+  const fields = {years:0, months:1, pics:10, subdists:8, brands:4, subbrands:3, accounts:10, categories:11};
   const sets = {};
   Object.keys(fields).forEach(k => sets[k] = new Set());
   const dateSet = new Set(), monthsByYear = {};
@@ -160,7 +159,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const hasDateFilter = Array.isArray(filters.dates);
   const matches = r => {
     if (page2Key_(r[7]) !== 'SOO') return false; // Jenis Sales dikunci SOO.
-    if (pics.length && !pics.includes(page2Key_(r[6]))) return false;
+    if (pics.length && !pics.includes(page2Key_(r[10]))) return false;
     if (subdists.length && !subdists.includes(page2Key_(r[8]))) return false;
     if (brands.length && !brands.includes(page2Key_(r[4]))) return false;
     if (subbrands.length && !subbrands.includes(page2Key_(r[3]))) return false;
@@ -332,7 +331,7 @@ function page2GetMeta() {
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v7', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v8', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 180);
@@ -344,23 +343,38 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const key = page2CacheKey_('p2initial', 'v8-soo-distributor-k-ao-ec');
-  return page2Cached_(key, function() {
-    const sourceRows = page2Read_();
-    const meta = page2BuildMeta_(sourceRows);
-    const years = meta.years || [];
-    const year = years.includes('2026')
-      ? 2026
-      : (Number(years[years.length - 1]) || new Date().getFullYear());
-    // Default filter bulan sama dengan bulan yang tersedia untuk tahun awal.
-    // Dengan begitu MTD initial-load konsisten dengan pilihan filter di UI.
-    const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-    const initialMonths = Array.from(new Set(sourceRows
-      .filter(r => Number(r[0]) === year && page2Key_(r[7]) === 'SOO')
-      .map(r => page2Month_(r[1]))
-      .filter(m => monthOrder.includes(m))))
-      .sort((a,b) => monthOrder.indexOf(a)-monthOrder.indexOf(b));
-    const data = page2BuildDashboardData_({ year: year, months: initialMonths }, sourceRows);
-    return { meta: meta, data: data };
-  }, 180);
+  const metaKey = page2CacheKey_('p2meta', 'v9-soo-account-ab-distributor-k');
+  const dataKey = page2CacheKey_('p2initialdata', 'v9-soo-account-ab-distributor-k');
+  const cache = CacheService.getScriptCache();
+  const cachedMeta = cache.get(metaKey);
+  const cachedData = cache.get(dataKey);
+  if (cachedMeta && cachedData) {
+    try { return { meta: JSON.parse(cachedMeta), data: JSON.parse(cachedData) }; }
+    catch (err) { cache.remove(metaKey); cache.remove(dataKey); }
+  }
+
+  // Read the sheet once; build both outputs from the same compact row set.
+  const sourceRows = page2Read_();
+  const meta = page2BuildMeta_(sourceRows);
+  const years = meta.years || [];
+  const year = years.includes('2026')
+    ? 2026
+    : (Number(years[years.length - 1]) || new Date().getFullYear());
+  const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const initialMonths = Array.from(new Set(sourceRows
+    .filter(r => Number(r[0]) === year && page2Key_(r[7]) === 'SOO')
+    .map(r => page2Month_(r[1]))
+    .filter(m => monthOrder.includes(m))))
+    .sort((a,b) => monthOrder.indexOf(a)-monthOrder.indexOf(b));
+  const data = page2BuildDashboardData_({ year: year, months: initialMonths }, sourceRows);
+
+  // The combined payload can exceed CacheService's 100 KB/item limit.
+  // Cache metadata and dashboard data separately so later visits avoid a full
+  // 131k-row Spreadsheet scan while keeping each item within the limit.
+  const metaJson = JSON.stringify(meta), dataJson = JSON.stringify(data);
+  try {
+    if (metaJson.length <= 90000) cache.put(metaKey, metaJson, 300);
+    if (dataJson.length <= 90000) cache.put(dataKey, dataJson, 180);
+  } catch (err) { /* cache remains an optimization, not a dependency */ }
+  return { meta: meta, data: data };
 }
