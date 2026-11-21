@@ -1,6 +1,9 @@
 name: Deploy Mantul Dashboard to Apps Script
 
 on:
+  push:
+    branches:
+      - perf/page2-single-pass
   workflow_dispatch:
 
 permissions:
