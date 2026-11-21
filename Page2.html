@@ -33,6 +33,12 @@
 #page2View .p2-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-bottom:10px}
 #page2View .p2-control-row{display:grid;grid-template-columns:220px minmax(220px,300px);gap:9px;align-items:end;background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:10px 12px;margin:0 0 12px;box-shadow:0 2px 9px #0f172a08}
 #page2View .p2-control-row select{height:36px;border:1px solid #dbe3ee;border-radius:8px;background:#fff;padding:0 10px;width:100%;font-size:11px;color:#172033}
+#page2View .p2-switch{display:flex;gap:3px;background:#f0f4f9;border-radius:9px;padding:3px;height:36px;align-items:center}
+#page2View .p2-switch button{flex:1;height:30px;border:0;background:transparent;color:#53657c;border-radius:7px;padding:4px 9px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
+#page2View .p2-switch button.active{background:#2563eb;color:#fff;box-shadow:0 1px 3px #1e40af30}
+#page2View .p2-kpi-mainline{display:flex;align-items:center;gap:9px;min-width:0}
+#page2View .p2-kpi-mainline .k-main{margin:7px 0 5px}
+#page2View .p2-kpi-mainline .k-ctr{font-size:10px;font-weight:850;white-space:nowrap;border-radius:6px;padding:4px 6px;background:#f1f5f9}
 @media(max-width:760px){#page2View .p2-control-row{grid-template-columns:1fr 1fr}}
 #page2View .p2-kpi{background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:12px;min-width:0;box-shadow:0 2px 9px #0f172a08;border-left:3px solid #2563eb}
 #page2View .p2-kpi:nth-child(2n){border-left-color:#0ea5b7}
@@ -77,21 +83,21 @@
   <div class="p2-filter" id="p2BrandFilter"><label>BRAND</label><button class="p2-trigger" id="p2BrandsTrigger" type="button">Semua Brand</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" onclick="p2SelectAll('p2Brands')">Pilih Semua</button><button type="button" onclick="p2ResetFilter('p2Brands')">Reset</button><button type="button" class="p2-apply-menu" onclick="p2CloseMenus();page2Apply()">Terapkan Pilihan</button></div><div id="p2Brands" class="p2-checklist"></div></div></div>
   <div class="p2-filter" id="p2SubbrandFilter"><label>SUBBRAND</label><button class="p2-trigger" id="p2SubbrandsTrigger" type="button">Semua Subbrand</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" onclick="p2SelectAll('p2Subbrands')">Pilih Semua</button><button type="button" onclick="p2ResetFilter('p2Subbrands')">Reset</button><button type="button" class="p2-apply-menu" onclick="p2CloseMenus();page2Apply()">Terapkan Pilihan</button></div><div id="p2Subbrands" class="p2-checklist"></div></div></div>
   <div class="p2-filter" id="p2CategoryFilter"><label>CATEGORY (AC)</label><button class="p2-trigger" id="p2CategoriesTrigger" type="button">Semua Category</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" onclick="p2SelectAll('p2Categories')">Pilih Semua</button><button type="button" onclick="p2ResetFilter('p2Categories')">Reset</button><button type="button" class="p2-apply-menu" onclick="p2CloseMenus();page2Apply()">Terapkan Pilihan</button></div><div id="p2Categories" class="p2-checklist"></div></div></div>
-  
+  <div class="p2-filter" id="p2DateFilter"><label>TANGGAL (DD) • GRAFIK HARIAN</label><button class="p2-trigger" id="p2DatesTrigger" type="button">Tanggal berjalan</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" onclick="p2ResetFilter('p2Dates')">Reset ke DD berjalan</button><button type="button" class="p2-apply-menu" onclick="p2CloseMenus();page2Apply()">Terapkan Pilihan</button></div><div id="p2Dates" class="p2-checklist p2-day-grid"></div></div></div>
  </div>
  <div id="p2Status" class="p2-status" aria-live="polite" style="display:none"></div>
 
  <div class="p2-kpis">
   <article class="p2-kpi"><div class="k-label">TOTAL AO • CURRENT YEAR</div><div class="k-main" id="p2AO">—</div><div class="k-sub" id="p2AOdesc">Outlet unik YTD</div><div class="k-growth" id="p2AOgrowth">Growth vs LY —</div><div class="k-sub" id="p2AOly">AO LY: —</div></article>
   <article class="p2-kpi"><div class="k-label">TOTAL EC • CURRENT YEAR</div><div class="k-main" id="p2EC">—</div><div class="k-sub" id="p2ECdesc">Customer unik per tanggal YTD</div><div class="k-growth" id="p2ECgrowth">Growth vs LY —</div><div class="k-sub" id="p2ECly">EC LY: —</div></article>
-  <article class="p2-kpi"><div class="k-label">SBU B7 • AO CY</div><div class="k-main" id="p2B7">—</div><div class="k-sub" id="p2B7LY">AO LY: —</div><div class="k-growth" id="p2B7GRW">Growth vs LY —</div><div class="k-sub" id="p2B7CTR">CTR —</div></article>
-  <article class="p2-kpi"><div class="k-label">SBU SAKA • AO CY</div><div class="k-main" id="p2SAKA">—</div><div class="k-sub" id="p2SAKALY">AO LY: —</div><div class="k-growth" id="p2SAKAGRW">Growth vs LY —</div><div class="k-sub" id="p2SAKACTR">CTR —</div></article>
+  <article class="p2-kpi"><div class="k-label">B7 CURRENT YEAR</div><div class="p2-kpi-mainline"><div class="k-main" id="p2B7">—</div><div class="k-ctr" id="p2B7CTR">CTR —</div></div><div class="k-sub" id="p2B7LY">AO LY: —</div><div class="k-growth" id="p2B7GRW">Growth vs LY —</div></article>
+  <article class="p2-kpi"><div class="k-label">SAKA CURRENT YEAR</div><div class="p2-kpi-mainline"><div class="k-main" id="p2SAKA">—</div><div class="k-ctr" id="p2SAKACTR">CTR —</div></div><div class="k-sub" id="p2SAKALY">AO LY: —</div><div class="k-growth" id="p2SAKAGRW">Growth vs LY —</div></article>
   <article class="p2-kpi"><div class="k-label">AO MTD</div><div class="k-main" id="p2AOMTD">—</div><div class="k-sub" id="p2AOMTDdesc">AO bulan terpilih</div><div class="k-growth" id="p2AOMTDgrowth">vs LY —</div></article>
   <article class="p2-kpi"><div class="k-label">EC MTD</div><div class="k-main" id="p2ECMTD">—</div><div class="k-sub" id="p2ECMTDdesc">EC bulan terpilih</div><div class="k-growth" id="p2ECMTDgrowth">vs LY —</div></article>
  </div>
  <div class="p2-control-row">
-  <div class="p2-filter"><label>METRIK GRAFIK & DONUT</label><select id="p2MetricSelect"><option value="ao">Aktif Outlet (AO)</option><option value="ec">Effective Call (EC)</option></select></div>
-  <div class="p2-filter"><label>SALESMAN</label><select id="p2TeamSelect"><option value="">Semua Salesman</option><option>DB BAC</option><option>DB MBO</option><option>EPM BAC</option><option>EPM LSE</option><option>GMP LGS</option><option>GMP LSE</option></select></div>
+  <div class="p2-filter"><label>METRIK GRAFIK & DONUT</label><div class="p2-switch" id="p2MetricSwitch" role="group" aria-label="Pilih metrik grafik"><button type="button" class="active" data-metric="ao" aria-pressed="true">Aktif Outlet (AO)</button><button type="button" data-metric="ec" aria-pressed="false">Effective Call (EC)</button></div></div>
+  <div class="p2-filter"><label>SALESMAN</label><select id="p2TeamSelect"><option value="">Semua Salesman</option><option value="Salesman DB BAC">Salesman DB BAC</option><option value="Salesman DB MBO">Salesman DB MBO</option><option value="Salesman EPM BAC">Salesman EPM BAC</option><option value="Salesman EPM LSE">Salesman EPM LSE</option><option value="Salesman GMP LGS">Salesman GMP LGS</option><option value="Salesman GMP LSE">Salesman GMP LSE</option></select></div>
  </div>
  <div class="p2-panel-grid">
   <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND BULANAN</h2><p>Perbandingan tahun berjalan dan tahun lalu.</p></div></div><div class="p2-chartbox"><canvas id="p2MonthlyChart"></canvas></div></article>
