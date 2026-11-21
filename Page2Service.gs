@@ -79,9 +79,10 @@ function page2BuildMeta_(sourceRows) {
   // Bangun seluruh opsi filter dalam satu lintasan; hindari membuat beberapa
   // array perantara besar dari RAW_DATA_SALES.
   const values = sourceRows || page2Read_();
-  const fields = {years:0, months:1, pics:6, subdists:8, teams:9, brands:4, subbrands:3, accounts:10, categories:11};
+  const fields = {years:0, months:1, pics:6, subdists:8, brands:4, subbrands:3, accounts:10, categories:11};
   const sets = {};
   Object.keys(fields).forEach(k => sets[k] = new Set());
+  const salesmanSet = new Set();
   const dateSet = new Set(), monthsByYear = {};
   const salesTypeCounts = {};
   let sooRowCount = 0;
@@ -94,6 +95,10 @@ function page2BuildMeta_(sourceRows) {
       const value = page2Text_(r[fields[k]]);
       if (value) sets[k].add(k === 'months' ? page2Month_(value) : value);
     });
+    if (page2Key_(r[9]).indexOf('SALESMAN') >= 0) {
+      const accountName = page2Text_(r[10]);
+      if (accountName) salesmanSet.add(accountName);
+    }
     const normalizedMonth = page2Month_(r[1]);
     const yearKey = page2Text_(r[0]);
     if (yearKey && normalizedMonth) {
@@ -111,6 +116,7 @@ function page2BuildMeta_(sourceRows) {
     monthsByYear: Object.fromEntries(Object.keys(monthsByYear).map(y => [y, monthOrder.filter(m => monthsByYear[y].has(m))])),
     dateKeys: Array.from(dateSet).sort(),
     pics: sorted('pics'),
+    salesmen: Array.from(salesmanSet).sort((a,b) => a.localeCompare(b,'id')),
     subdists: sorted('subdists'),
     brands: sorted('brands'),
     subbrands: sorted('subbrands'),
@@ -142,7 +148,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const subbrands = page2FilterList_(filters.subbrands);
   const accounts = page2FilterList_(filters.accounts);
   const categories = page2FilterList_(filters.categories);
-  const teams = page2FilterList_(filters.teams);
+  const salesmen = page2FilterList_(filters.salesmen);
   const matches = r => {
     if (page2Key_(r[7]) !== 'SOO') return false; // Jenis Sales dikunci SOO.
     if (pics.length && !pics.includes(page2Key_(r[6]))) return false;
@@ -151,15 +157,16 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if (subbrands.length && !subbrands.includes(page2Key_(r[3]))) return false;
     if (accounts.length && !accounts.includes(page2Key_(r[10]))) return false;
     if (categories.length && !categories.includes(page2Key_(r[11]))) return false;
-    if (teams.length && !teams.includes(page2Key_(r[9]))) return false;
     return true;
   };
+  // KPI memakai seluruh populasi sesuai filter utama. Salesman hanya memfilter grafik/donut.
   const rows = all.filter(matches);
+  const chartRows = rows.filter(r => page2Key_(r[9]).indexOf('SALESMAN') >= 0 && (!salesmen.length || salesmen.includes(page2Key_(r[10]))));
   const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const periodMonths = Array.isArray(filters.months) ? selectedMonths : monthNames;
   const monthCount = periodMonths.length;
   const makeBucket = () => ({ ao:new Set(), ec:new Set(), groups:{subdist:{},account:{},category:{},sbu:{}} });
-  const CY = makeBucket(), LY = makeBucket();
+  const CY = makeBucket(), LY = makeBucket(), CHART_CY = makeBucket(), CHART_LY = makeBucket();
   const monthly = monthNames.map(m => ({month:m,ao:0,aoLy:0,ec:0,ecLy:0}));
   const monthlySets = monthNames.map(() => ({cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()}));
   const dailyMap = {};
@@ -190,6 +197,23 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const b = y === year ? CY : LY;
     const ecKey = cust + '|' + date;
     b.ao.add(cust); b.ec.add(ecKey);
+    addGroup(b,'sbu',page2Text_(r[12]),cust,date);
+    if (m === mtdMonth) {
+      (y === year ? mtdAO.cy : mtdAO.ly).add(cust);
+      (y === year ? mtdAO.cyEC : mtdAO.lyEC).add(ecKey);
+    }
+  });
+  // Grafik bulanan, harian, dan komposisi hanya membaca baris Salesman (AA)
+  // dan memakai NAMA AKUN (AB) sebagai dimensi/filter Salesman.
+  chartRows.forEach(r => {
+    const y = Number(r[0]), m = page2Month_(r[1]);
+    if ((y !== year && y !== ly) || !periodMonths.includes(m)) return;
+    const cust = customer(r);
+    const date = page2Date_(y,m,r[2]);
+    if (!cust || !date) return;
+    const b = y === year ? CHART_CY : CHART_LY;
+    const ecKey = cust + '|' + date;
+    b.ao.add(cust); b.ec.add(ecKey);
     const monthIndex = monthNames.indexOf(m);
     if (monthIndex >= 0) {
       const ms = monthlySets[monthIndex];
@@ -197,28 +221,22 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (y === year ? ms.cyEC : ms.lyEC).add(ecKey);
     }
     addGroup(b,'subdist',page2Text_(r[8]),cust,date);
-    if (page2Key_(r[9]).indexOf('SALESMAN') >= 0) addGroup(b,'account',page2Text_(r[10]),cust,date);
+    addGroup(b,'account',page2Text_(r[10]),cust,date);
     addGroup(b,'category',page2Text_(r[11]),cust,date);
-    addGroup(b,'sbu',page2Text_(r[12]),cust,date);
-    if (m === mtdMonth) {
-      (y === year ? mtdAO.cy : mtdAO.ly).add(cust);
-      (y === year ? mtdAO.cyEC : mtdAO.lyEC).add(ecKey);
-    }
-    const dk = date;
     if (y === year) {
-      if (!dailyMap[dk]) dailyMap[dk] = {date:dk,ao:new Set(),ec:new Set()};
-      dailyMap[dk].ao.add(cust); dailyMap[dk].ec.add(ecKey);
+      if (!dailyMap[date]) dailyMap[date] = {date:date,ao:new Set(),ec:new Set()};
+      dailyMap[date].ao.add(cust); dailyMap[date].ec.add(ecKey);
     }
   });
-  // Monthly AO/EC sudah dikumpulkan pada lintasan utama di atas.
+  // Monthly AO/EC grafik dihitung terpisah dari KPI.
   monthlySets.forEach((sets,idx) => {
     monthly[idx].ao=sets.cyAO.size; monthly[idx].aoLy=sets.lyAO.size;
     monthly[idx].ec=sets.cyEC.size; monthly[idx].ecLy=sets.lyEC.size;
   });
   const aoMTD = mtdAO.cy.size, aoMTDLY = mtdAO.ly.size;
   const ecMTD = mtdAO.cyEC.size, ecMTDLY = mtdAO.lyEC.size;
-  const groupResult = (dim) => {
-    const a=CY.groups[dim],b=LY.groups[dim],names=Array.from(new Set(Object.keys(a).concat(Object.keys(b))));
+  const groupResult = (dim, cyBucket, lyBucket) => {
+    const a=cyBucket.groups[dim],b=lyBucket.groups[dim],names=Array.from(new Set(Object.keys(a).concat(Object.keys(b))));
     return names.map(name=>{
       const cy=a[name],prev=b[name],ao=cy?cy.ao.size:0,aoLy=prev?prev.ao.size:0,ec=cy?cy.ec.size:0;
       return {name,ao,aoLy,ec,growth:page2Growth_(ao,aoLy)};
@@ -240,7 +258,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   });
   const daily = dailyTotals;
   const ao=CY.ao.size, aoLy=LY.ao.size, ec=CY.ec.size, ecLy=LY.ec.size;
-  const compositionGroups = dim => groupResult(dim);
+  const compositionGroups = dim => groupResult(dim,CHART_CY,CHART_LY);
   return {
     kpi:{year,ly,months:periodMonths,monthCount,ao,aoLy,aoGrowth:page2Growth_(ao,aoLy),ec,ecLy,ecGrowth:page2Growth_(ec,ecLy),aoMTD,aoMTDLY,ecMTD,ecMTDLY,mtdMonth,rows:rows.length},
     monthly,daily,
@@ -250,7 +268,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
       category:compositionGroups('category')
     },
     sbu:{b7:groupSbu('B7'),saka:groupSbu('SAKA')},
-    byTeam:groupResult('sbu'), // data ringkas untuk ekspor; filter TIM tetap di atas.
+    byTeam:groupResult('sbu',CY,LY), // data ringkas KPI; tidak dipengaruhi filter Salesman grafik.
     updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED')||'Live dari Google Sheets'
   };
 }
@@ -290,13 +308,13 @@ function page2Cached_(key, builder, ttlSeconds) {
 }
 
 function page2GetMeta() {
-  const key = page2CacheKey_('p2meta', 'v6-teams');
+  const key = page2CacheKey_('p2meta', 'v7-salesman-ab');
   return page2Cached_(key, page2BuildMeta_, 300);
 }
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v3', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v4', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 180);
@@ -308,7 +326,7 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const key = page2CacheKey_('p2initial', 'v5-teams');
+  const key = page2CacheKey_('p2initial', 'v6-salesman-ab');
   return page2Cached_(key, function() {
     const sourceRows = page2Read_();
     const meta = page2BuildMeta_(sourceRows);
