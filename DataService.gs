@@ -5,11 +5,36 @@
  */
 
 function getDatabase_() {
-  const spreadsheetId = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
-  if (!spreadsheetId || !String(spreadsheetId).trim()) {
-    throw new Error('Konfigurasi SPREADSHEET_ID belum diisi pada Apps Script > Project Settings > Script Properties.');
+  const configuredId = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+  const spreadsheetId = String(configuredId || DEFAULT_SPREADSHEET_ID || '').trim();
+  if (!spreadsheetId) {
+    throw new Error('ID Spreadsheet belum dikonfigurasi. Isi Script Properties SPREADSHEET_ID atau DEFAULT_SPREADSHEET_ID di Config.gs.');
   }
-  return SpreadsheetApp.openById(String(spreadsheetId).trim());
+  try {
+    return SpreadsheetApp.openById(spreadsheetId);
+  } catch (err) {
+    throw new Error('Gagal membuka Spreadsheet dengan ID yang dikonfigurasi (' +
+      (configuredId ? 'Script Properties' : 'fallback Config.gs') +
+      '). Pastikan akun pemilik Apps Script memiliki akses ke Spreadsheet. Detail: ' + err.message);
+  }
+}
+
+/**
+ * Jalankan manual dari editor Apps Script untuk memverifikasi koneksi database.
+ * Mengembalikan nama file dan jumlah baris sheet utama tanpa mengubah data.
+ */
+function testMantulDatabaseConnection() {
+  const ss = getDatabase_();
+  const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  const sales = ss.getSheetByName(DATA_SHEET_NAME);
+  return {
+    spreadsheetName: ss.getName(),
+    spreadsheetId: ss.getId(),
+    rawDataSheetFound: !!raw,
+    rawDataRows: raw ? Math.max(0, raw.getLastRow() - 1) : 0,
+    dataSalesSheetFound: !!sales,
+    dataSalesRows: sales ? Math.max(0, sales.getLastRow() - 1) : 0
+  };
 }
 
 function getOrCreateSheet_(name) {
