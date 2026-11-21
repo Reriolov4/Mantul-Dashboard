@@ -2,8 +2,9 @@
  * HALAMAN 2 — OUTLETS | SALES FORCE
  * Sumber: RAW_DATA_SALES pada spreadsheet utama.
  * Kolom mengikuti struktur A:AH:
- * A tahun, B bulan, C tanggal, F subbrand, G brand, K distributor/subdist,
- * M customer name, AA tim, AB nama akun, AC category, AE SBU.
+ * A tahun, B bulan, C tanggal, F subbrand, G brand, M customer name,
+ * O PIC/salesman, V jenis sales, Y subdist, AA tim, AB nama akun,
+ * AC category, AE SBU. K adalah DISTRIBUTORS, bukan SUBDIST.
  */
 function page2Source_() {
   const ss = getDatabase_();
