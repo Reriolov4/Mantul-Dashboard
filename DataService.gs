@@ -5,8 +5,8 @@
  */
 
 function getDatabase_() {
-  const configuredId = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
-  const spreadsheetId = String(configuredId || DEFAULT_SPREADSHEET_ID || '').trim();
+  const configuredId = String(PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || '').trim();
+  const spreadsheetId = configuredId || String(DEFAULT_SPREADSHEET_ID || '').trim();
   if (!spreadsheetId) {
     throw new Error('ID Spreadsheet belum dikonfigurasi. Isi Script Properties SPREADSHEET_ID atau DEFAULT_SPREADSHEET_ID di Config.gs.');
   }
@@ -27,14 +27,20 @@ function testMantulDatabaseConnection() {
   const ss = getDatabase_();
   const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
   const sales = ss.getSheetByName(DATA_SHEET_NAME);
-  return {
+  const result = {
+    ok: true,
     spreadsheetName: ss.getName(),
     spreadsheetId: ss.getId(),
+    spreadsheetUrl: ss.getUrl(),
+    activeSource: PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') ? 'Script Properties' : 'Config.gs fallback',
     rawDataSheetFound: !!raw,
     rawDataRows: raw ? Math.max(0, raw.getLastRow() - 1) : 0,
+    rawDataLastColumn: raw ? raw.getLastColumn() : 0,
     dataSalesSheetFound: !!sales,
     dataSalesRows: sales ? Math.max(0, sales.getLastRow() - 1) : 0
   };
+  Logger.log(JSON.stringify(result));
+  return result;
 }
 
 function getOrCreateSheet_(name) {
