@@ -25,21 +25,22 @@ function page2Read_() {
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
 
-  // Page 2 hanya memakai A:M, O, dan V:AE.
-  // Susun kembali ke indeks kolom asli agar fungsi agregasi tetap kompatibel,
-  // tetapi jangan membaca kolom N, P:U, dan AF:AH yang tidak dipakai.
+  // Ambil hanya 13 field yang benar-benar dipakai Page 2.
+  // Lima rentang dipilih agar tidak menarik kolom transaksi/teks yang tidak relevan.
   const count = lastRow - 1;
-  const left = sh.getRange(2, 1, count, 13).getValues();   // A:M
-  const pic = sh.getRange(2, 15, count, 1).getValues();   // O: PIC
-  const right = sh.getRange(2, 22, count, 10).getValues(); // V:AE
+  const abc = sh.getRange(2, 1, count, 3).getValues();    // A:C tahun, bulan, tanggal
+  const fg = sh.getRange(2, 6, count, 2).getValues();     // F:G subbrand, brand
+  const mno = sh.getRange(2, 13, count, 3).getValues();   // M:O customer, alamat, PIC
+  const vy = sh.getRange(2, 22, count, 4).getValues();    // V:Y jenis sales ... subdist
+  const aaAe = sh.getRange(2, 27, count, 5).getValues();  // AA:AE tim, akun, category, DOT, SBU
 
-  return left.map((row, i) => {
-    const compact = new Array(34).fill('');
-    for (let c = 0; c < 13; c++) compact[c] = row[c];
-    compact[14] = pic[i][0];
-    for (let c = 0; c < 10; c++) compact[21 + c] = right[i][c];
-    return compact;
-  });
+  return abc.map((row, i) => [
+    row[0], row[1], row[2],
+    fg[i][0], fg[i][1],
+    mno[i][0], mno[i][2],
+    vy[i][0], vy[i][3],
+    aaAe[i][0], aaAe[i][1], aaAe[i][2], aaAe[i][4]
+  ]);
 }
 function page2Date_(year, month, day) {
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
@@ -84,7 +85,7 @@ function page2BuildMeta_(sourceRows) {
   const salesTypeCounts = {};
   let sooRowCount = 0;
   values.forEach(r => {
-    const salesType = page2Key_(r[21]);
+    const salesType = page2Key_(r[7]);
     if (salesType) salesTypeCounts[salesType] = (salesTypeCounts[salesType] || 0) + 1;
     if (salesType !== 'SOO') return;
     sooRowCount++;
@@ -142,13 +143,13 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const accounts = page2FilterList_(filters.accounts);
   const categories = page2FilterList_(filters.categories);
   const matches = r => {
-    if (page2Key_(r[21]) !== 'SOO') return false; // Jenis Sales dikunci SOO.
-    if (pics.length && !pics.includes(page2Key_(r[14]))) return false;
-    if (subdists.length && !subdists.includes(page2Key_(r[24]))) return false;
-    if (brands.length && !brands.includes(page2Key_(r[6]))) return false;
-    if (subbrands.length && !subbrands.includes(page2Key_(r[5]))) return false;
-    if (accounts.length && !accounts.includes(page2Key_(r[27]))) return false;
-    if (categories.length && !categories.includes(page2Key_(r[28]))) return false;
+    if (page2Key_(r[7]) !== 'SOO') return false; // Jenis Sales dikunci SOO.
+    if (pics.length && !pics.includes(page2Key_(r[6]))) return false;
+    if (subdists.length && !subdists.includes(page2Key_(r[8]))) return false;
+    if (brands.length && !brands.includes(page2Key_(r[4]))) return false;
+    if (subbrands.length && !subbrands.includes(page2Key_(r[3]))) return false;
+    if (accounts.length && !accounts.includes(page2Key_(r[10]))) return false;
+    if (categories.length && !categories.includes(page2Key_(r[11]))) return false;
     return true;
   };
   const rows = all.filter(matches);
@@ -171,7 +172,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   }, -1);
   const mtdMonth = periodMonths.length ? (selectedMtdMonth || (latestAvailableMonth >= 0 ? monthNames[latestAvailableMonth] : monthNames[new Date().getMonth()])) : null;
   const mtdAO = {cy:new Set(),ly:new Set(),cyEC:new Set(),lyEC:new Set()};
-  const customer = r => page2Key_(r[12]);
+  const customer = r => page2Key_(r[5]);
   const addGroup = (bucket, dim, label, cust, date) => {
     if (!label) return;
     if (!bucket.groups[dim][label]) bucket.groups[dim][label] = {name:label,ao:new Set(),ec:new Set()};
@@ -193,10 +194,10 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (y === year ? ms.cyAO : ms.lyAO).add(cust);
       (y === year ? ms.cyEC : ms.lyEC).add(ecKey);
     }
-    addGroup(b,'subdist',page2Text_(r[24]),cust,date);
-    addGroup(b,'account',page2Text_(r[27]),cust,date);
-    addGroup(b,'category',page2Text_(r[28]),cust,date);
-    addGroup(b,'sbu',page2Text_(r[30]),cust,date);
+    addGroup(b,'subdist',page2Text_(r[8]),cust,date);
+    addGroup(b,'account',page2Text_(r[10]),cust,date);
+    addGroup(b,'category',page2Text_(r[11]),cust,date);
+    addGroup(b,'sbu',page2Text_(r[12]),cust,date);
     if (m === mtdMonth) {
       (y === year ? mtdAO.cy : mtdAO.ly).add(cust);
       (y === year ? mtdAO.cyEC : mtdAO.lyEC).add(ecKey);
@@ -246,10 +247,10 @@ function page2BuildDashboardData_(filters, sourceRows) {
       account:(() => {
         const groups={};
         rows.forEach(r=>{
-          if(page2Key_(r[26]).indexOf('SALESMAN')<0)return;
+          if(page2Key_(r[9]).indexOf('SALESMAN')<0)return;
           const y=Number(r[0]),m=page2Month_(r[1]);
           if((y!==year&&y!==ly)||!periodMonths.includes(m))return;
-          const name=page2Text_(r[27]),c=customer(r),d=page2Date_(y,m,r[2]);
+          const name=page2Text_(r[10]),c=customer(r),d=page2Date_(y,m,r[2]);
           if(!name||!c||!d||(selectedMonthDays.length&&!selectedMonthDays.includes(d.slice(8,10))))return;
           if(!groups[name])groups[name]={name,cyAO:new Set(),lyAO:new Set()};
           (y===year?groups[name].cyAO:groups[name].lyAO).add(c);
@@ -295,7 +296,7 @@ function page2Cached_(key, builder, ttlSeconds) {
 }
 
 function page2GetMeta() {
-  const key = page2CacheKey_('p2meta', 'v4');
+  const key = page2CacheKey_('p2meta', 'v5-compact13');
   return page2Cached_(key, page2BuildMeta_, 300);
 }
 
@@ -313,7 +314,7 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const key = page2CacheKey_('p2initial', 'v3');
+  const key = page2CacheKey_('p2initial', 'v4-compact13');
   return page2Cached_(key, function() {
     const sourceRows = page2Read_();
     const meta = page2BuildMeta_(sourceRows);
@@ -325,7 +326,7 @@ function getPage2InitialPayload() {
     // Dengan begitu MTD initial-load konsisten dengan pilihan filter di UI.
     const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
     const initialMonths = Array.from(new Set(sourceRows
-      .filter(r => Number(r[0]) === year && page2Key_(r[21]) === 'SOO')
+      .filter(r => Number(r[0]) === year && page2Key_(r[7]) === 'SOO')
       .map(r => page2Month_(r[1]))
       .filter(m => monthOrder.includes(m))))
       .sort((a,b) => monthOrder.indexOf(a)-monthOrder.indexOf(b));
