@@ -24,14 +24,15 @@ function page2Read_() {
   const rowCount = sh.getLastRow() - 1;
   if (rowCount <= 0) return [];
 
-  // Page 2 hanya memakai A:C, F:G, K, M, V, dan AA:AE.
-  // Ambil dua blok kolom yang diperlukan saja; kolom N:U dan kolom lain
-  // tidak ikut dibaca. Bentuk array tetap dipertahankan agar indeks lama aman.
-  const left = sh.getRange(2, 1, rowCount, 13).getValues();  // A:M
+  // Page 2 memakai A:C, F:G, K:M, O (PIC), dan V:AE.
+  // Kolom N dan P:U tidak dibaca; kolom O dibaca khusus untuk filter PIC.
+  const left = sh.getRange(2, 1, rowCount, 13).getValues();   // A:M
+  const pic = sh.getRange(2, 15, rowCount, 1).getValues();    // O
   const right = sh.getRange(2, 22, rowCount, 10).getValues(); // V:AE
   return left.map((row, i) => {
     const compact = new Array(31);
     for (let c = 0; c < 13; c++) compact[c] = row[c];
+    compact[14] = pic[i][0];
     for (let c = 0; c < 10; c++) compact[21 + c] = right[i][c];
     return compact;
   });
@@ -54,16 +55,22 @@ function page2BuildMeta_(sourceRows) {
   // Bangun seluruh opsi filter dalam satu lintasan; hindari membuat beberapa
   // array perantara besar dari RAW_DATA_SALES.
   const values = sourceRows || page2Read_();
-  const fields = {years:0, months:1, teams:26, subdists:10, brands:6, subbrands:5, accounts:27, categories:28};
+  const fields = {years:0, months:1, pics:14, subdists:24, brands:6, subbrands:5, accounts:27, categories:28};
   const sets = {};
   Object.keys(fields).forEach(k => sets[k] = new Set());
-  const dateSet = new Set();
+  const dateSet = new Set(), monthsByYear = {};
   values.forEach(r => {
     if (page2Key_(r[21]) !== 'SOO') return;
     Object.keys(fields).forEach(k => {
       const value = page2Text_(r[fields[k]]);
       if (value) sets[k].add(k === 'months' ? page2Month_(value) : value);
     });
+    const normalizedMonth = page2Month_(r[1]);
+    const yearKey = page2Text_(r[0]);
+    if (yearKey && normalizedMonth) {
+      if (!monthsByYear[yearKey]) monthsByYear[yearKey] = new Set();
+      monthsByYear[yearKey].add(normalizedMonth);
+    }
     const date = page2Date_(r[0], r[1], r[2]);
     if (date) dateSet.add(date);
   });
@@ -72,8 +79,9 @@ function page2BuildMeta_(sourceRows) {
   return {
     years: sorted('years').sort((a,b) => Number(a)-Number(b)),
     months: monthOrder.filter(m => sets.months.has(m)),
+    monthsByYear: Object.fromEntries(Object.keys(monthsByYear).map(y => [y, monthOrder.filter(m => monthsByYear[y].has(m))])),
     dateKeys: Array.from(dateSet).sort(),
-    teams: sorted('teams'),
+    pics: sorted('pics'),
     subdists: sorted('subdists'),
     brands: sorted('brands'),
     subbrands: sorted('subbrands'),
@@ -97,7 +105,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const selectedMonths = page2FilterList_(filters.months);
   const selectedDates = page2FilterList_(filters.dates);
   const selectedMonthDays = selectedDates;
-  const teams = page2FilterList_(filters.teams);
+  const pics = page2FilterList_(filters.pics);
   const subdists = page2FilterList_(filters.subdists);
   const brands = page2FilterList_(filters.brands);
   const subbrands = page2FilterList_(filters.subbrands);
@@ -105,8 +113,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const categories = page2FilterList_(filters.categories);
   const matches = r => {
     if (page2Key_(r[21]) !== 'SOO') return false; // Jenis Sales dikunci SOO.
-    if (teams.length && !teams.includes(page2Key_(r[26]))) return false;
-    if (subdists.length && !subdists.includes(page2Key_(r[10]))) return false;
+    if (pics.length && !pics.includes(page2Key_(r[14]))) return false;
+    if (subdists.length && !subdists.includes(page2Key_(r[24]))) return false;
     if (brands.length && !brands.includes(page2Key_(r[6]))) return false;
     if (subbrands.length && !subbrands.includes(page2Key_(r[5]))) return false;
     if (accounts.length && !accounts.includes(page2Key_(r[27]))) return false;
@@ -115,7 +123,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   };
   const rows = all.filter(matches);
   const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  const periodMonths = selectedMonths.length ? selectedMonths : monthNames;
+  const periodMonths = Array.isArray(filters.months) ? selectedMonths : monthNames;
   const monthCount = periodMonths.length;
   const makeBucket = () => ({ ao:new Set(), ec:new Set(), groups:{subdist:{},account:{},category:{},sbu:{}} });
   const CY = makeBucket(), LY = makeBucket();
@@ -131,7 +139,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const idx = monthNames.indexOf(page2Month_(r[1]));
     return idx > latest ? idx : latest;
   }, -1);
-  const mtdMonth = selectedMtdMonth || (latestAvailableMonth >= 0 ? monthNames[latestAvailableMonth] : monthNames[new Date().getMonth()]);
+  const mtdMonth = periodMonths.length ? (selectedMtdMonth || (latestAvailableMonth >= 0 ? monthNames[latestAvailableMonth] : monthNames[new Date().getMonth()])) : null;
   const mtdAO = {cy:new Set(),ly:new Set(),cyEC:new Set(),lyEC:new Set()};
   const customer = r => page2Key_(r[12]);
   const addGroup = (bucket, dim, label, cust, date) => {
@@ -155,7 +163,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (y === year ? ms.cyAO : ms.lyAO).add(cust);
       (y === year ? ms.cyEC : ms.lyEC).add(ecKey);
     }
-    addGroup(b,'subdist',page2Text_(r[10]),cust,date);
+    addGroup(b,'subdist',page2Text_(r[24]),cust,date);
     addGroup(b,'account',page2Text_(r[27]),cust,date);
     addGroup(b,'category',page2Text_(r[28]),cust,date);
     addGroup(b,'sbu',page2Text_(r[30]),cust,date);
@@ -257,13 +265,13 @@ function page2Cached_(key, builder, ttlSeconds) {
 }
 
 function page2GetMeta() {
-  const key = page2CacheKey_('p2meta', 'v2');
+  const key = page2CacheKey_('p2meta', 'v3');
   return page2Cached_(key, page2BuildMeta_, 300);
 }
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v2', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 180);
@@ -275,7 +283,7 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const key = page2CacheKey_('p2initial', 'v1');
+  const key = page2CacheKey_('p2initial', 'v2');
   return page2Cached_(key, function() {
     const sourceRows = page2Read_();
     const meta = page2BuildMeta_(sourceRows);
