@@ -47,7 +47,7 @@ function page2Init(){
   p2Data=data;
   page2Render();
   if(view)view.removeAttribute('aria-busy');
-  p2$('p2Status').textContent=`${p2Fmt(data.kpi.rows)} baris sumber terfilter • Jenis Sales SOO • Distributor ALL • ${data.updatedAt||'Live Google Sheets'}`;
+  p2$('p2Status').textContent=`${p2Fmt(data.kpi.rows)} baris sumber terfilter • Jenis Sales SOO • PIC dan Subdist mengikuti filter terpilih • ${data.updatedAt||'Live Google Sheets'}`;
  }).withFailureHandler(e=>{
   if(view)view.removeAttribute('aria-busy');
   p2$('p2Status').textContent='Gagal memuat Halaman 2: '+(e.message||String(e));
@@ -69,7 +69,7 @@ function page2Apply(){
   if(requestId!==p2RequestSeq)return;
   p2Data=d;page2Render();
   if(view)view.removeAttribute('aria-busy');
-  p2$('p2Status').textContent=`${p2Fmt(d.kpi.rows)} baris sumber terfilter • Jenis Sales SOO • Distributor ALL • ${d.updatedAt||'Live Google Sheets'}`;
+  p2$('p2Status').textContent=`${p2Fmt(d.kpi.rows)} baris sumber terfilter • Jenis Sales SOO • PIC dan Subdist mengikuti filter terpilih • ${d.updatedAt||'Live Google Sheets'}`;
  }).withFailureHandler(e=>{
   if(requestId!==p2RequestSeq)return;
   if(view)view.removeAttribute('aria-busy');
