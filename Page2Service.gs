@@ -30,7 +30,8 @@ function page2Read_() {
   const count = lastRow - 1;
   const abc = sh.getRange(2, 1, count, 3).getValues();    // A:C tahun, bulan, tanggal
   const fg = sh.getRange(2, 6, count, 2).getValues();     // F:G subbrand, brand
-  const k = sh.getRange(2, 11, count, 1).getValues();      // K distributors
+  const o = sh.getRange(2, 15, count, 1).getValues();      // O PIC
+  const y = sh.getRange(2, 25, count, 1).getValues();      // Y SUBDIST
   const mno = sh.getRange(2, 13, count, 1).getValues();   // M customer name
   const vy = sh.getRange(2, 22, count, 1).getValues();    // V jenis sales
   const aaAe = sh.getRange(2, 27, count, 5).getValues();  // AA:AE tim, nama akun, category, DOT, SBU
@@ -38,8 +39,8 @@ function page2Read_() {
   return abc.map((row, i) => [
     row[0], row[1], row[2],
     fg[i][0], fg[i][1],
-    mno[i][0], aaAe[i][1],
-    vy[i][0], k[i][0],
+    mno[i][0], o[i][0],
+    vy[i][0], y[i][0],
     aaAe[i][0], aaAe[i][1], aaAe[i][2], aaAe[i][4]
   ]);
 }
@@ -173,7 +174,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   all.forEach(r => {
     if (!matches(r)) return;
     rows.push(r);
-    if (page2Key_(r[9]).indexOf('SALESMAN') >= 0 && (!salesmen.length || salesmen.includes(page2Key_(r[10])))) chartRows.push(r);
+    if (page2Key_(r[9]).indexOf('SALESMAN') >= 0 && (!salesmen.length || salesmen.includes(page2Key_(r[9])))) chartRows.push(r);
   });
   const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const periodMonths = Array.isArray(filters.months) ? selectedMonths : monthNames;
@@ -218,8 +219,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (y === year ? mtdAO.cyEC : mtdAO.lyEC).add(ecKey);
     }
   });
-  // Grafik bulanan, harian, dan komposisi hanya membaca baris Salesman (AA)
-  // dan memakai NAMA AKUN (AB) sebagai dimensi/filter Salesman.
+  // Grafik bulanan, harian, dan komposisi hanya membaca baris Salesman (AA).
+  // Filter PIC memakai kolom O; Nama Akun tetap berasal dari kolom AB.
   chartRows.forEach(r => {
     const y = Number(r[0]), m = page2Month_(r[1]);
     if ((y !== year && y !== ly) || !periodMonths.includes(m)) return;
