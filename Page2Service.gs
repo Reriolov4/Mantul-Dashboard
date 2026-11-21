@@ -254,10 +254,12 @@ function page2BuildDashboardData_(filters, sourceRows) {
           if((y!==year&&y!==ly)||!periodMonths.includes(m))return;
           const name=page2Text_(r[10]),c=customer(r),d=page2Date_(y,m,r[2]);
           if(!name||!c||!d)return;
-          if(!groups[name])groups[name]={name,cyAO:new Set(),lyAO:new Set()};
-          (y===year?groups[name].cyAO:groups[name].lyAO).add(c);
+          if(!groups[name])groups[name]={name,cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
+          const bucket=groups[name];
+          (y===year?bucket.cyAO:bucket.lyAO).add(c);
+          (y===year?bucket.cyEC:bucket.lyEC).add(c+'|'+d);
         });
-        return Object.keys(groups).map(n=>{const ao=groups[n].cyAO.size,aoLy=groups[n].lyAO.size;return {name:n,ao,aoLy,growth:page2Growth_(ao,aoLy)};}).sort((a,b)=>b.ao-a.ao);
+        return Object.keys(groups).map(n=>{const ao=groups[n].cyAO.size,aoLy=groups[n].lyAO.size,ec=groups[n].cyEC.size;return {name:n,ao,aoLy,ec,growth:page2Growth_(ao,aoLy)};}).sort((a,b)=>b.ao-a.ao);
       })(),
       category:compositionGroups('category')
     },
