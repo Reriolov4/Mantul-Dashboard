@@ -195,7 +195,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const mtdAO = {cy:new Set(),ly:new Set(),cyEC:new Set(),lyEC:new Set()};
   const customer = r => page2Key_(r[5]);
   const outlet = r => customer(r); // AO: satu outlet unik berdasarkan Customer Name
-  const ecOutlet = r => page2OutletKey_(r[5], r[8]);
+  // EC mengikuti identitas Customer Name + tanggal transaksi; distributor tidak membuat EC baru.
+  const ecOutlet = r => customer(r);
   const addGroup = (bucket, dim, label, outletKey, date) => {
     if (!label) return;
     if (!bucket.groups[dim][label]) bucket.groups[dim][label] = {name:label,ao:new Set(),ec:new Set()};
@@ -327,7 +328,7 @@ function page2GetMeta() {
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v13', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v14', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 21600);
@@ -339,8 +340,8 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const metaKey = page2CacheKey_('p2meta', 'v13-ao-customer-only-ec-date-customer-distributor-daily-dd');
-  const dataKey = page2CacheKey_('p2initialdata', 'v13-ao-customer-only-ec-date-customer-distributor-daily-dd');
+  const metaKey = page2CacheKey_('p2meta', 'v14-ao-distinct-customer-ec-distinct-customer-date-daily-dd');
+  const dataKey = page2CacheKey_('p2initialdata', 'v14-ao-distinct-customer-ec-distinct-customer-date-daily-dd');
   const cache = CacheService.getScriptCache();
   const cachedMeta = cache.get(metaKey);
   const cachedData = cache.get(dataKey);
