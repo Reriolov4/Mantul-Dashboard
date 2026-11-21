@@ -44,7 +44,7 @@ function getOrCreateSheet_(name) {
 
 function getDashboardData() {
   const cache = CacheService.getScriptCache();
-  const cacheKey = 'dashboard_rows_v3';
+  const cacheKey = 'dashboard_rows_v4_' + String(PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || 'unconfigured').trim();
   const cached = cache.get(cacheKey);
   if (cached) {
     try { return JSON.parse(cached); } catch (err) { cache.remove(cacheKey); }
