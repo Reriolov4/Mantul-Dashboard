@@ -197,7 +197,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (y === year ? ms.cyEC : ms.lyEC).add(ecKey);
     }
     addGroup(b,'subdist',page2Text_(r[8]),cust,date);
-    addGroup(b,'account',page2Text_(r[10]),cust,date);
+    if (page2Key_(r[9]).indexOf('SALESMAN') >= 0) addGroup(b,'account',page2Text_(r[10]),cust,date);
     addGroup(b,'category',page2Text_(r[11]),cust,date);
     addGroup(b,'sbu',page2Text_(r[12]),cust,date);
     if (m === mtdMonth) {
@@ -246,21 +246,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     monthly,daily,
     donut:{
       subdist:compositionGroups('subdist'),
-      account:(() => {
-        const groups={};
-        rows.forEach(r=>{
-          if(page2Key_(r[9]).indexOf('SALESMAN')<0)return;
-          const y=Number(r[0]),m=page2Month_(r[1]);
-          if((y!==year&&y!==ly)||!periodMonths.includes(m))return;
-          const name=page2Text_(r[10]),c=customer(r),d=page2Date_(y,m,r[2]);
-          if(!name||!c||!d)return;
-          if(!groups[name])groups[name]={name,cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
-          const bucket=groups[name];
-          (y===year?bucket.cyAO:bucket.lyAO).add(c);
-          (y===year?bucket.cyEC:bucket.lyEC).add(c+'|'+d);
-        });
-        return Object.keys(groups).map(n=>{const ao=groups[n].cyAO.size,aoLy=groups[n].lyAO.size,ec=groups[n].cyEC.size;return {name:n,ao,aoLy,ec,growth:page2Growth_(ao,aoLy)};}).sort((a,b)=>b.ao-a.ao);
-      })(),
+      account:compositionGroups('account'),
       category:compositionGroups('category')
     },
     sbu:{b7:groupSbu('B7'),saka:groupSbu('SAKA')},
