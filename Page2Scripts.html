@@ -28,7 +28,9 @@ function page2Init(){
   return;
  }
  google.script.run.withSuccessHandler(payload=>{
-  const meta=payload.meta||{},data=payload.data;
+  try {
+  if(!payload || !payload.meta || !payload.data) throw new Error('Server tidak mengirim metadata dan data awal Page 2.');
+  const meta=payload.meta,data=payload.data;
   p2Meta=meta;
   const year=p2$('p2Year'),page1Year=p2$('year');
   year.innerHTML='';
@@ -53,10 +55,23 @@ function page2Init(){
   p2SetYtdMonths();
   p2UpdateTriggers();
   if(!data){if(view)view.removeAttribute('aria-busy');p2$('p2Status').textContent='Respons awal Page 2 tidak berisi data dashboard.';p2SetLoadingState_('Gagal memuat');return;}
+  // Jika tahun Page 1 berbeda dari payload awal server, ambil ulang
+  // menggunakan tahun yang benar-benar tampil pada filter Page 2.
+  if(Number(year.value)!==Number(data.kpi.year)){
+   p2Data=null;
+   page2Apply();
+   return;
+  }
   p2Data=data;
   page2Render();
   if(view)view.removeAttribute('aria-busy');
   p2$('p2Status').textContent=`${p2Fmt(data.kpi.rows)} baris SOO terpilih • Sumber RAW_DATA_SALES: ${p2Fmt(meta.sourceRowCount||0)} baris (SOO: ${p2Fmt(meta.sooRowCount||0)}) • Tahun ${data.kpi.year} • ${data.updatedAt||'Live Google Sheets'}`;
+  } catch(err) {
+   if(view)view.removeAttribute('aria-busy');
+   p2$('p2Status').textContent='Kesalahan tampilan Page 2: '+(err.message||String(err));
+   p2SetLoadingState_('Gagal memuat');
+   console.error(err);
+  }
  }).withFailureHandler(e=>{
   if(view)view.removeAttribute('aria-busy');
   p2$('p2Status').textContent='Gagal memuat Halaman 2: '+(e.message||String(e));
