@@ -194,7 +194,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const mtdMonth = periodMonths.length ? (selectedMtdMonth || (latestAvailableMonth >= 0 ? monthNames[latestAvailableMonth] : monthNames[new Date().getMonth()])) : null;
   const mtdAO = {cy:new Set(),ly:new Set(),cyEC:new Set(),lyEC:new Set()};
   const customer = r => page2Key_(r[5]);
-  const outlet = r => page2OutletKey_(r[5], r[8]);
+  const outlet = r => customer(r); // AO: satu outlet unik berdasarkan Customer Name
+  const ecOutlet = r => page2OutletKey_(r[5], r[8]);
   const addGroup = (bucket, dim, label, outletKey, date) => {
     if (!label) return;
     if (!bucket.groups[dim][label]) bucket.groups[dim][label] = {name:label,ao:new Set(),ec:new Set()};
@@ -208,7 +209,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const date = page2Date_(y,m,r[2]);
     if (!cust || !date) return;
     const outletKey = outlet(r);
-    const ecKey = page2EcKey_(outletKey, date);
+    const ecKey = page2EcKey_(ecOutlet(r), date);
     const b = y === year ? CY : LY;
     const cb = y === year ? CHART_CY : CHART_LY;
     b.ao.add(outletKey); b.ec.add(ecKey);
@@ -230,7 +231,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const date = page2Date_(y,m,r[2]);
     if (!cust || !date) return;
     const outletKey = outlet(r);
-    const ecKey = page2EcKey_(outletKey, date);
+    const ecKey = page2EcKey_(ecOutlet(r), date);
     const monthIndex = monthNames.indexOf(m);
     if (monthIndex >= 0) {
       const ms = monthlySets[monthIndex];
@@ -238,9 +239,9 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (y === year ? ms.cyEC : ms.lyEC).add(ecKey);
     }
     const dayKey = date.slice(8,10);
-    if (y === year && m === mtdMonth && (!hasDateFilter || selectedDates.includes(dayKey))) {
-      if (!dailyMap[date]) dailyMap[date] = {date:date,ao:new Set(),ec:new Set()};
-      dailyMap[date].ao.add(outletKey); dailyMap[date].ec.add(ecKey);
+    if (y === year && (!hasDateFilter || selectedDates.includes(dayKey))) {
+      if (!dailyMap[dayKey]) dailyMap[dayKey] = {day:dayKey,ao:new Set(),ec:new Set()};
+      dailyMap[dayKey].ao.add(outletKey); dailyMap[dayKey].ec.add(ecKey);
     }
   });
   // Monthly AO/EC grafik dihitung terpisah dari KPI.
@@ -265,9 +266,9 @@ function page2BuildDashboardData_(filters, sourceRows) {
   // Trend Harian memakai tanggal penuh pada bulan mtdMonth; tidak menjumlahkan
   // tanggal DD yang sama dari beberapa bulan.
   const daily = Array.from({length:31},(_,i)=>{
-    const date = year + '-' + String(monthNames.indexOf(mtdMonth)+1).padStart(2,'0') + '-' + String(i+1).padStart(2,'0');
-    const item = dailyMap[date];
-    return {day:String(i+1).padStart(2,'0'),ao:item?item.ao.size:0,ec:item?item.ec.size:0};
+    const day = String(i+1).padStart(2,'0');
+    const item = dailyMap[day];
+    return {day,ao:item?item.ao.size:0,ec:item?item.ec.size:0};
   });
   const ao=CY.ao.size, aoLy=LY.ao.size, ec=CY.ec.size, ecLy=LY.ec.size;
   const compositionGroups = dim => groupResult(dim,CHART_CY,CHART_LY);
@@ -326,7 +327,7 @@ function page2GetMeta() {
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v11', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v13', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 21600);
@@ -338,8 +339,8 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const metaKey = page2CacheKey_('p2meta', 'v12-account-dropdown-12cols');
-  const dataKey = page2CacheKey_('p2initialdata', 'v12-account-dropdown-12cols');
+  const metaKey = page2CacheKey_('p2meta', 'v13-ao-customer-only-ec-date-customer-distributor-daily-dd');
+  const dataKey = page2CacheKey_('p2initialdata', 'v13-ao-customer-only-ec-date-customer-distributor-daily-dd');
   const cache = CacheService.getScriptCache();
   const cachedMeta = cache.get(metaKey);
   const cachedData = cache.get(dataKey);
