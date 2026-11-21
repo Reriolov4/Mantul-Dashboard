@@ -25,21 +25,18 @@ function page2Read_() {
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
 
-  // Ambil hanya kolom yang dipakai Page 2 (19 kolom, bukan A:AE/31 kolom).
+  // Baca hanya 12 kolom relevan; kolom O tidak dipakai untuk kalkulasi Page 2.
   const n = lastRow - 1;
-  const a = sh.getRange(2, 1, n, 3).getValues();    // A:C
-  const f = sh.getRange(2, 6, n, 10).getValues();   // F:O
-  const v = sh.getRange(2, 22, n, 1).getValues();   // V
-  const aa = sh.getRange(2, 27, n, 5).getValues();  // AA:AE
+  const a = sh.getRange(2, 1, n, 3).getValues();   // A:C
+  const fg = sh.getRange(2, 6, n, 2).getValues();  // F:G
+  const k = sh.getRange(2, 11, n, 1).getValues();  // K distributor
+  const m = sh.getRange(2, 13, n, 1).getValues();  // M customer
+  const v = sh.getRange(2, 22, n, 1).getValues();  // V jenis sales
+  const aa = sh.getRange(2, 27, n, 3).getValues(); // AA:AC
+  const ae = sh.getRange(2, 31, n, 1).getValues(); // AE SBU
   const rows = new Array(n);
   for (let i = 0; i < n; i++) {
-    rows[i] = [
-      a[i][0], a[i][1], a[i][2],
-      f[i][0], f[i][1],
-      f[i][7], f[i][9],
-      v[i][0], f[i][5],
-      aa[i][0], aa[i][1], aa[i][2], aa[i][4]
-    ];
+    rows[i] = [a[i][0],a[i][1],a[i][2],fg[i][0],fg[i][1],m[i][0],'',v[i][0],k[i][0],aa[i][0],aa[i][1],aa[i][2],ae[i][0]];
   }
   return rows;
 }
@@ -82,6 +79,7 @@ function page2BuildMeta_(sourceRows) {
   const fields = {years:0, months:1, pics:10, salesmen:9, subdists:8, brands:4, subbrands:3, accounts:10, categories:11};
   const sets = {};
   Object.keys(fields).forEach(k => sets[k] = new Set());
+  const salesmen = new Set();
   const dateSet = new Set(), monthsByYear = {};
   const salesTypeCounts = {};
   let sooRowCount = 0;
@@ -94,6 +92,7 @@ function page2BuildMeta_(sourceRows) {
       const value = page2Text_(r[fields[k]]);
       if (value) sets[k].add(k === 'months' ? page2Month_(value) : value);
     });
+    if (page2Key_(r[9]).indexOf('SALESMAN') === 0) { const account = page2Text_(r[10]); if (account) salesmen.add(account); }
     const normalizedMonth = page2Month_(r[1]);
     const yearKey = page2Text_(r[0]);
     if (yearKey && normalizedMonth) {
@@ -111,7 +110,7 @@ function page2BuildMeta_(sourceRows) {
     monthsByYear: Object.fromEntries(Object.keys(monthsByYear).map(y => [y, monthOrder.filter(m => monthsByYear[y].has(m))])),
     dateKeys: Array.from(dateSet).sort(),
     pics: sorted('pics'),
-    salesmen: sorted('salesmen'),
+    salesmen: Array.from(salesmen).sort((a,b) => a.localeCompare(b,'id')),
     subdists: sorted('subdists'),
     brands: sorted('brands'),
     subbrands: sorted('subbrands'),
@@ -173,7 +172,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   all.forEach(r => {
     if (!matches(r)) return;
     rows.push(r);
-    if (!salesmen.length || salesmen.includes(page2Key_(r[9]))) chartRows.push(r);
+    if (!salesmen.length || salesmen.includes(page2Key_(r[10]))) chartRows.push(r);
   });
   const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const periodMonths = Array.isArray(filters.months) ? selectedMonths : monthNames;
@@ -263,16 +262,13 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const ao=cy?cy.ao.size:0,aoLy=prev?prev.ao.size:0;
     return {name:sbu,aoCY:ao,aoLY:aoLy,growth:page2Growth_(ao,aoLy),ctr:CY.ao.size?ao/CY.ao.size*100:0};
   };
-  // Roll-up per nomor tanggal: jumlahkan nilai harian dari seluruh bulan
-  // yang dipilih. AO tetap unik per tanggal; EC tetap unik per customer-tanggal.
-  const dailyTotals = Array.from({length:31},(_,i)=>({day:String(i+1).padStart(2,'0'),ao:0,ec:0}));
-  Object.keys(dailyMap).forEach(k => {
-    const dayIndex = Number(k.slice(8,10)) - 1;
-    if (dayIndex < 0 || dayIndex >= 31) return;
-    dailyTotals[dayIndex].ao += dailyMap[k].ao.size;
-    dailyTotals[dayIndex].ec += dailyMap[k].ec.size;
+  // Trend Harian memakai tanggal penuh pada bulan mtdMonth; tidak menjumlahkan
+  // tanggal DD yang sama dari beberapa bulan.
+  const daily = Array.from({length:31},(_,i)=>{
+    const date = year + '-' + String(monthNames.indexOf(mtdMonth)+1).padStart(2,'0') + '-' + String(i+1).padStart(2,'0');
+    const item = dailyMap[date];
+    return {day:String(i+1).padStart(2,'0'),ao:item?item.ao.size:0,ec:item?item.ec.size:0};
   });
-  const daily = dailyTotals;
   const ao=CY.ao.size, aoLy=LY.ao.size, ec=CY.ec.size, ecLy=LY.ec.size;
   const compositionGroups = dim => groupResult(dim,CHART_CY,CHART_LY);
   return {
@@ -330,10 +326,10 @@ function page2GetMeta() {
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v10', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v11', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
-  }, 180);
+  }, 21600);
 }
 
 
@@ -342,8 +338,8 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const metaKey = page2CacheKey_('p2meta', 'v11-team-aa-daily-month-narrow-read');
-  const dataKey = page2CacheKey_('p2initialdata', 'v11-team-aa-daily-month-narrow-read');
+  const metaKey = page2CacheKey_('p2meta', 'v12-account-dropdown-12cols');
+  const dataKey = page2CacheKey_('p2initialdata', 'v12-account-dropdown-12cols');
   const cache = CacheService.getScriptCache();
   const cachedMeta = cache.get(metaKey);
   const cachedData = cache.get(dataKey);
@@ -372,8 +368,8 @@ function getPage2InitialPayload() {
   // 131k-row Spreadsheet scan while keeping each item within the limit.
   const metaJson = JSON.stringify(meta), dataJson = JSON.stringify(data);
   try {
-    if (metaJson.length <= 90000) cache.put(metaKey, metaJson, 300);
-    if (dataJson.length <= 90000) cache.put(dataKey, dataJson, 180);
+    if (metaJson.length <= 90000) cache.put(metaKey, metaJson, 21600);
+    if (dataJson.length <= 90000) cache.put(dataKey, dataJson, 21600);
   } catch (err) { /* cache remains an optimization, not a dependency */ }
   return { meta: meta, data: data };
 }
