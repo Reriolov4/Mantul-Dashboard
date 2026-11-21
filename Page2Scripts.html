@@ -20,11 +20,8 @@ function p2DateOptions(){
   else if(monthNums.length)latestDay=Math.max(latestDay,day);
  });
  if(!latestDay)latestDay=31;
- const old=new Set(p2Selected('p2Dates'));
  const values=Array.from({length:latestDay},(_,i)=>String(i+1).padStart(2,'0'));
- p2Fill('p2Dates',values,false);
- const hasPrior=old.size>0&&[...old].some(v=>values.includes(v));
- p2$('p2Dates')?.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=hasPrior?old.has(cb.value):true);
+ p2Fill('p2Dates',values,true);
  p2UpdateTriggers();
 }
 function p2FilterValues(){return {year:p2$('p2Year').value,months:p2Selected('p2Months'),dates:p2Selected('p2Dates'),pics:p2Selected('p2Pics'),subdists:p2Selected('p2Subdists'),brands:p2Selected('p2Brands'),subbrands:p2Selected('p2Subbrands'),categories:p2Selected('p2Categories')};}
