@@ -82,7 +82,6 @@ function page2BuildMeta_(sourceRows) {
   const fields = {years:0, months:1, pics:6, subdists:8, brands:4, subbrands:3, accounts:10, categories:11};
   const sets = {};
   Object.keys(fields).forEach(k => sets[k] = new Set());
-  const salesmanSet = new Set();
   const dateSet = new Set(), monthsByYear = {};
   const salesTypeCounts = {};
   let sooRowCount = 0;
@@ -95,10 +94,6 @@ function page2BuildMeta_(sourceRows) {
       const value = page2Text_(r[fields[k]]);
       if (value) sets[k].add(k === 'months' ? page2Month_(value) : value);
     });
-    if (page2Key_(r[9]).indexOf('SALESMAN') >= 0) {
-      const accountName = page2Text_(r[10]);
-      if (accountName) salesmanSet.add(accountName);
-    }
     const normalizedMonth = page2Month_(r[1]);
     const yearKey = page2Text_(r[0]);
     if (yearKey && normalizedMonth) {
