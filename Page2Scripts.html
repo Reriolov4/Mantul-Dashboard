@@ -52,7 +52,7 @@ function page2Init(){
   p2Fill('p2Brands',meta.brands||[]);
   p2Fill('p2Subbrands',meta.subbrands||[]);
   p2Fill('p2Categories',meta.categories||[]);
-  const teamSelect=p2$('p2TeamSelect');if(teamSelect){const keep=teamSelect.value;[...teamSelect.options].forEach(o=>{if(o.value)o.remove();});(meta.salesmen||meta.accounts||[]).forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;teamSelect.appendChild(o);});teamSelect.value=[...teamSelect.options].some(o=>o.value===keep)?keep:'';}
+  const teamSelect=p2$('p2TeamSelect');if(teamSelect){const keep=teamSelect.value;[...teamSelect.options].forEach(o=>{if(o.value)o.remove();});(meta.salesmen||[]).forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;teamSelect.appendChild(o);});teamSelect.value=[...teamSelect.options].some(o=>o.value===keep)?keep:'';}
   p2SetYtdMonths();
   p2SetDateDefaults();
   p2UpdateTriggers();
@@ -116,8 +116,8 @@ function page2Render(){
  p2SetText('p2EC',p2Fmt(k.ec));p2SetText('p2ECdesc',`Aktivitas outlet ${k.year} • ${k.monthCount} bulan`);p2SetText('p2ECly',`EC LY (${k.ly}): ${p2Fmt(k.ecLy)}`);p2SetGrowth('p2ECgrowth',k.ecGrowth);p2$('p2ECgrowth').textContent='GRW '+p2Growth(k.ecGrowth);
  const aoMtdGrw=k.aoMTDLY?(k.aoMTD/k.aoMTDLY-1)*100:(k.aoMTD?null:0);
  const ecMtdGrw=k.ecMTDLY?(k.ecMTD/k.ecMTDLY-1)*100:(k.ecMTD?null:0);
- p2SetText('p2AOMTD',p2Fmt(k.aoMTD));p2SetText('p2AOMTDdesc','AO '+k.mtdMonth+' '+k.year);p2SetGrowth('p2AOMTDgrowth',aoMtdGrw);p2$('p2AOMTDgrowth').textContent='GRW MTD '+p2Growth(aoMtdGrw)+' • LY '+p2Fmt(k.aoMTDLY);
- p2SetText('p2ECMTD',p2Fmt(k.ecMTD));p2SetText('p2ECMTDdesc','EC '+k.mtdMonth+' '+k.year);p2SetGrowth('p2ECMTDgrowth',ecMtdGrw);p2$('p2ECMTDgrowth').textContent='GRW MTD '+p2Growth(ecMtdGrw)+' • LY '+p2Fmt(k.ecMTDLY);
+ p2SetText('p2AOMTD',p2Fmt(k.aoMTD));p2SetText('p2AOMTDdesc','AO '+k.mtdMonth+' '+k.year);p2SetGrowth('p2AOMTDgrowth',aoMtdGrw);p2$('p2AOMTDgrowth').textContent='GRW MTD '+p2Growth(aoMtdGrw);p2SetText('p2AOMTDLY',`AO LY (${k.ly}): ${p2Fmt(k.aoMTDLY)}`);
+ p2SetText('p2ECMTD',p2Fmt(k.ecMTD));p2SetText('p2ECMTDdesc','EC '+k.mtdMonth+' '+k.year);p2SetGrowth('p2ECMTDgrowth',ecMtdGrw);p2$('p2ECMTDgrowth').textContent='GRW MTD '+p2Growth(ecMtdGrw);p2SetText('p2ECMTDLY',`EC LY (${k.ly}): ${p2Fmt(k.ecMTDLY)}`);
  [['B7','b7'],['SAKA','saka']].forEach(([label,key])=>{const x=d.sbu[key];p2SetText('p2'+label,p2Fmt(x.aoCY));p2SetText('p2'+label+'desc',`Outlet unik ${k.year} • ${k.monthCount} bulan`);p2SetText('p2'+label+'LY',`AO LY (${k.ly}): ${p2Fmt(x.aoLY)}`);p2SetText('p2'+label+'GRW','GRW '+p2Growth(x.growth));p2SetGrowth('p2'+label+'GRW',x.growth);});
  page2DrawCharts();
 }
@@ -138,7 +138,7 @@ function page2DrawCharts(){const d=p2Data,metric=p2MetricValue;
  // Dataset LY lebih dulu agar batang CY biru selalu berada di sisi kanan.
  p2Chart('p2MonthlyChart','bar',{labels:monthly.map(x=>x.month),datasets:[{label:String(d.kpi.ly),data:monthly.map(x=>x[metric==='ao'?'aoLy':'ecLy']),backgroundColor:'#a5afbd',borderRadius:5},{label:String(d.kpi.year),data:monthly.map(x=>x[metric]),backgroundColor:'#2563eb',borderRadius:5}]},{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9}}}}});
  const daily=d.daily||[];
- p2Chart('p2DailyChart','line',{labels:Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0')),datasets:[{label:(metric==='ao'?'AKTIF OUTLET':'EFFECTIVE CALL')+' • AKUMULASI BULAN TERPILIH',data:Array.from({length:31},(_,i)=>{const day=String(i+1).padStart(2,'0');const row=daily.find(x=>x.day===day);return row?row[metric]:0;}),tension:.25,fill:false,borderColor:'#2563eb',backgroundColor:'#2563eb',pointRadius:2}]},{scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,callback:(v,i)=>String(i+1).padStart(2,'0')}},y:{beginAtZero:true,grid:{display:false},ticks:{font:{size:9}}}}});
+ p2Chart('p2DailyChart','line',{labels:Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0')),datasets:[{label:(metric==='ao'?'AKTIF OUTLET':'EFFECTIVE CALL')+' • '+(d.kpi.mtdMonth||'BULAN TERPILIH'),data:Array.from({length:31},(_,i)=>{const day=String(i+1).padStart(2,'0');const row=daily.find(x=>x.day===day);return row?row[metric]:0;}),tension:.25,fill:false,borderColor:'#2563eb',backgroundColor:'#2563eb',pointRadius:2}]},{scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,callback:(v,i)=>String(i+1).padStart(2,'0')}},y:{beginAtZero:true,grid:{display:false},ticks:{font:{size:9}}}}});
  p2RenderDonut('subdist','p2SubdistChart','p2SubdistLegend');
  p2RenderDonut('account','p2AccountChart','p2AccountLegend');
  p2RenderDonut('category','p2CategoryChart','p2CategoryLegend');
