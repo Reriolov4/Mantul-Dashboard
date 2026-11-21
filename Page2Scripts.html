@@ -55,7 +55,7 @@ function page2Init(){
  }).getPage2InitialPayload();
 }
 document.addEventListener('click',e=>{const trigger=e.target.closest('#page2View .p2-trigger');if(trigger){const filter=trigger.closest('.p2-filter');const wasOpen=filter.classList.contains('open');p2CloseMenus();if(!wasOpen)filter.classList.add('open');return;}if(!e.target.closest('#page2View .p2-menu'))p2CloseMenus();});
-document.addEventListener('change',e=>{if(e.target.closest('#page2View .p2-checklist'))p2UpdateTriggers();if(e.target&&e.target.id==='p2Year'){p2DateOptions();p2SetYtdMonths();}});
+document.addEventListener('change',e=>{if(e.target.closest('#page2View .p2-checklist'))p2UpdateTriggers();if(e.target&&e.target.id==='p2Year'){p2DateOptions();p2SetYtdMonths();if(p2Meta)page2Apply();}});
 function page2Apply(){
  if(!p2Meta)return;
  const requestId=++p2RequestSeq;
