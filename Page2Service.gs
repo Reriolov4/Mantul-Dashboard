@@ -3,8 +3,8 @@
  * Sumber: RAW_DATA_SALES pada spreadsheet utama.
  * Kolom mengikuti struktur A:AH:
  * A tahun, B bulan, C tanggal, F subbrand, G brand, M customer name,
- * K distributors (label filter SUBDIST), V jenis sales, AA tim, AB nama akun (label filter PIC),
- * AC category, AE SBU. K adalah DISTRIBUTORS, bukan SUBDIST.
+ * K distributors (sumber pengelompokan SOO), O PIC (label/filter), V jenis sales,
+ * AA tim, AB nama akun, AC category, AE SBU. Page 2 hanya mengambil SOO.
  */
 function page2Source_() {
   const ss = getDatabase_();
@@ -30,8 +30,8 @@ function page2Read_() {
   const count = lastRow - 1;
   const abc = sh.getRange(2, 1, count, 3).getValues();    // A:C tahun, bulan, tanggal
   const fg = sh.getRange(2, 6, count, 2).getValues();     // F:G subbrand, brand
-  const o = sh.getRange(2, 15, count, 1).getValues();      // O PIC
-  const y = sh.getRange(2, 25, count, 1).getValues();      // Y SUBDIST
+  const k = sh.getRange(2, 11, count, 1).getValues();      // K DISTRIBUTORS
+  const o = sh.getRange(2, 15, count, 1).getValues();      // O PIC (label/filter)
   const mno = sh.getRange(2, 13, count, 1).getValues();   // M customer name
   const vy = sh.getRange(2, 22, count, 1).getValues();    // V jenis sales
   const aaAe = sh.getRange(2, 27, count, 5).getValues();  // AA:AE tim, nama akun, category, DOT, SBU
@@ -40,7 +40,7 @@ function page2Read_() {
     row[0], row[1], row[2],
     fg[i][0], fg[i][1],
     mno[i][0], o[i][0],
-    vy[i][0], y[i][0],
+    vy[i][0], k[i][0],
     aaAe[i][0], aaAe[i][1], aaAe[i][2], aaAe[i][4]
   ]);
 }
@@ -326,13 +326,13 @@ function page2Cached_(key, builder, ttlSeconds) {
 }
 
 function page2GetMeta() {
-  const key = page2CacheKey_('p2meta', 'v7-salesman-ab');
+  const key = page2CacheKey_('p2meta', 'v8-soo-distributor-k');
   return page2Cached_(key, page2BuildMeta_, 300);
 }
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v6', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v7', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 180);
@@ -344,7 +344,7 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const key = page2CacheKey_('p2initial', 'v7-salesman-ab-distributor-keys');
+  const key = page2CacheKey_('p2initial', 'v8-soo-distributor-k-ao-ec');
   return page2Cached_(key, function() {
     const sourceRows = page2Read_();
     const meta = page2BuildMeta_(sourceRows);
