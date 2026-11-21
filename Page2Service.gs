@@ -25,14 +25,26 @@ function page2Read_() {
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
 
-  // Baca struktur RAW_DATA_SALES utuh sesuai skema resmi A:AH (34 kolom).
-  // Ini menghindari indeks kolom yang bergeser akibat pembentukan array compact.
-  return sh.getRange(2, 1, lastRow - 1, 34).getValues();
+  // Page 2 hanya memakai A:M, O, dan V:AE.
+  // Susun kembali ke indeks kolom asli agar fungsi agregasi tetap kompatibel,
+  // tetapi jangan membaca kolom N, P:U, dan AF:AH yang tidak dipakai.
+  const count = lastRow - 1;
+  const left = sh.getRange(2, 1, count, 13).getValues();   // A:M
+  const pic = sh.getRange(2, 15, count, 1).getValues();   // O: PIC
+  const right = sh.getRange(2, 22, count, 10).getValues(); // V:AE
+
+  return left.map((row, i) => {
+    const compact = new Array(34).fill('');
+    for (let c = 0; c < 13; c++) compact[c] = row[c];
+    compact[14] = pic[i][0];
+    for (let c = 0; c < 10; c++) compact[21 + c] = right[i][c];
+    return compact;
+  });
 }
 function page2Date_(year, month, day) {
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   let mi = months.indexOf(page2Month_(month));
-  if (mi < 0 && /^\\d{1,2}$/.test(String(month).trim())) mi = Number(month) - 1;
+  if (mi < 0 && /^\d{1,2}$/.test(String(month).trim())) mi = Number(month) - 1;
   let d = null;
   if (Object.prototype.toString.call(day) === '[object Date]' && !isNaN(day)) {
     d = day.getDate();
@@ -41,12 +53,12 @@ function page2Date_(year, month, day) {
     d = day > 31 ? new Date(Date.UTC(1899, 11, 30) + day * 86400000).getUTCDate() : day;
   } else {
     const raw = String(day == null ? '' : day).trim();
-    let m = raw.match(/^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})/);
+    let m = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
     if (m) d = Number(m[3]);
     else {
-      m = raw.match(/^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})$/);
+      m = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
       if (m) d = Number(m[1]);
-      else if (/^\\d{1,2}$/.test(raw)) d = Number(raw);
+      else if (/^\d{1,2}$/.test(raw)) d = Number(raw);
       else {
         const parsed = Date.parse(raw);
         if (!isNaN(parsed)) d = new Date(parsed).getDate();
