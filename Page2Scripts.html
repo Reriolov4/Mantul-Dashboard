@@ -30,10 +30,19 @@ function page2Init(){
  google.script.run.withSuccessHandler(payload=>{
   const meta=payload.meta||{},data=payload.data;
   p2Meta=meta;
-  const years=meta.years||[],year=p2$('p2Year');
+  const year=p2$('p2Year'),page1Year=p2$('year');
   year.innerHTML='';
-  years.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;year.appendChild(o);});
-  year.value=years.includes('2026')?'2026':(years[years.length-1]||'');
+  if(page1Year && page1Year.options.length){
+   [...page1Year.options].forEach(source=>{
+    const option=document.createElement('option');
+    option.value=source.value;option.textContent=source.textContent;
+    year.appendChild(option);
+   });
+   year.value=page1Year.value;
+  }else{
+   (meta.years||[]).forEach(y=>{const option=document.createElement('option');option.value=y;option.textContent=y;year.appendChild(option);});
+   year.value=(meta.years||[]).includes('2026')?'2026':((meta.years||[]).slice(-1)[0]||'');
+  }
   p2Fill('p2Months',meta.months||[],false);
   p2Fill('p2Pics',meta.pics||[]);
   p2Fill('p2Subdists',meta.subdists||[]);
@@ -47,7 +56,7 @@ function page2Init(){
   p2Data=data;
   page2Render();
   if(view)view.removeAttribute('aria-busy');
-  p2$('p2Status').textContent=`${p2Fmt(data.kpi.rows)} baris sumber terfilter • Jenis Sales SOO • PIC dan Subdist mengikuti filter terpilih • ${data.updatedAt||'Live Google Sheets'}`;
+  p2$('p2Status').textContent=`${p2Fmt(data.kpi.rows)} baris SOO terpilih • Sumber RAW_DATA_SALES: ${p2Fmt(meta.sourceRowCount||0)} baris (SOO: ${p2Fmt(meta.sooRowCount||0)}) • Tahun ${data.kpi.year} • ${data.updatedAt||'Live Google Sheets'}`;
  }).withFailureHandler(e=>{
   if(view)view.removeAttribute('aria-busy');
   p2$('p2Status').textContent='Gagal memuat Halaman 2: '+(e.message||String(e));
@@ -69,7 +78,7 @@ function page2Apply(){
   if(requestId!==p2RequestSeq)return;
   p2Data=d;page2Render();
   if(view)view.removeAttribute('aria-busy');
-  p2$('p2Status').textContent=`${p2Fmt(d.kpi.rows)} baris sumber terfilter • Jenis Sales SOO • PIC dan Subdist mengikuti filter terpilih • ${d.updatedAt||'Live Google Sheets'}`;
+  p2$('p2Status').textContent=`${p2Fmt(d.kpi.rows)} baris SOO terpilih • Tahun ${d.kpi.year} • ${d.updatedAt||'Live Google Sheets'}`;
  }).withFailureHandler(e=>{
   if(requestId!==p2RequestSeq)return;
   if(view)view.removeAttribute('aria-busy');
