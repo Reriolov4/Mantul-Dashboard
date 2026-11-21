@@ -78,7 +78,7 @@ function page2BuildMeta_(sourceRows) {
   // Bangun seluruh opsi filter dalam satu lintasan; hindari membuat beberapa
   // array perantara besar dari RAW_DATA_SALES.
   const values = sourceRows || page2Read_();
-  const fields = {years:0, months:1, pics:14, subdists:24, brands:6, subbrands:5, accounts:27, categories:28};
+  const fields = {years:0, months:1, pics:6, subdists:8, brands:4, subbrands:3, accounts:10, categories:11};
   const sets = {};
   Object.keys(fields).forEach(k => sets[k] = new Set());
   const dateSet = new Set(), monthsByYear = {};
