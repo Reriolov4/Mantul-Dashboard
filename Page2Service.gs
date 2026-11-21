@@ -79,7 +79,7 @@ function page2BuildMeta_(sourceRows) {
   // Bangun seluruh opsi filter dalam satu lintasan; hindari membuat beberapa
   // array perantara besar dari RAW_DATA_SALES.
   const values = sourceRows || page2Read_();
-  const fields = {years:0, months:1, pics:6, subdists:8, brands:4, subbrands:3, accounts:10, categories:11};
+  const fields = {years:0, months:1, pics:6, subdists:8, teams:9, brands:4, subbrands:3, accounts:10, categories:11};
   const sets = {};
   Object.keys(fields).forEach(k => sets[k] = new Set());
   const dateSet = new Set(), monthsByYear = {};
@@ -135,14 +135,14 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const year = Number(filters.year) || new Date().getFullYear();
   const ly = year - 1;
   const selectedMonths = page2FilterList_(filters.months);
-  const selectedDates = page2FilterList_(filters.dates);
-  const selectedMonthDays = selectedDates;
+  // Date checklist intentionally does not constrain KPI or composition.
   const pics = page2FilterList_(filters.pics);
   const subdists = page2FilterList_(filters.subdists);
   const brands = page2FilterList_(filters.brands);
   const subbrands = page2FilterList_(filters.subbrands);
   const accounts = page2FilterList_(filters.accounts);
   const categories = page2FilterList_(filters.categories);
+  const teams = page2FilterList_(filters.teams);
   const matches = r => {
     if (page2Key_(r[7]) !== 'SOO') return false; // Jenis Sales dikunci SOO.
     if (pics.length && !pics.includes(page2Key_(r[6]))) return false;
@@ -151,6 +151,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if (subbrands.length && !subbrands.includes(page2Key_(r[3]))) return false;
     if (accounts.length && !accounts.includes(page2Key_(r[10]))) return false;
     if (categories.length && !categories.includes(page2Key_(r[11]))) return false;
+    if (teams.length && !teams.includes(page2Key_(r[9]))) return false;
     return true;
   };
   const rows = all.filter(matches);
@@ -185,7 +186,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if ((y !== year && y !== ly) || !periodMonths.includes(m)) return;
     const cust = customer(r);
     const date = page2Date_(y,m,r[2]);
-    if (!cust || !date || (selectedMonthDays.length && !selectedMonthDays.includes(date.slice(8,10)))) return;
+    if (!cust || !date) return;
     const b = y === year ? CY : LY;
     const ecKey = cust + '|' + date;
     b.ao.add(cust); b.ec.add(ecKey);
@@ -252,7 +253,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
           const y=Number(r[0]),m=page2Month_(r[1]);
           if((y!==year&&y!==ly)||!periodMonths.includes(m))return;
           const name=page2Text_(r[10]),c=customer(r),d=page2Date_(y,m,r[2]);
-          if(!name||!c||!d||(selectedMonthDays.length&&!selectedMonthDays.includes(d.slice(8,10))))return;
+          if(!name||!c||!d)return;
           if(!groups[name])groups[name]={name,cyAO:new Set(),lyAO:new Set()};
           (y===year?groups[name].cyAO:groups[name].lyAO).add(c);
         });
@@ -301,13 +302,13 @@ function page2Cached_(key, builder, ttlSeconds) {
 }
 
 function page2GetMeta() {
-  const key = page2CacheKey_('p2meta', 'v5-compact13');
+  const key = page2CacheKey_('p2meta', 'v6-teams');
   return page2Cached_(key, page2BuildMeta_, 300);
 }
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v2', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v3', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 180);
@@ -319,7 +320,7 @@ function getPage2DashboardData(filters) {
  * metadata and dashboard aggregates from the same compact row set.
  */
 function getPage2InitialPayload() {
-  const key = page2CacheKey_('p2initial', 'v4-compact13');
+  const key = page2CacheKey_('p2initial', 'v5-teams');
   return page2Cached_(key, function() {
     const sourceRows = page2Read_();
     const meta = page2BuildMeta_(sourceRows);
