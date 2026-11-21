@@ -116,7 +116,7 @@ function page2BuildMeta_(sourceRows) {
     monthsByYear: Object.fromEntries(Object.keys(monthsByYear).map(y => [y, monthOrder.filter(m => monthsByYear[y].has(m))])),
     dateKeys: Array.from(dateSet).sort(),
     pics: sorted('pics'),
-    salesmen: Array.from(salesmanSet).sort((a,b) => a.localeCompare(b,'id')),
+    salesmen: ['DB BAC','DB MBO','EPM BAC','EPM LSE','GMP LGS','GMP LSE'],
     subdists: sorted('subdists'),
     brands: sorted('brands'),
     subbrands: sorted('subbrands'),
@@ -160,8 +160,13 @@ function page2BuildDashboardData_(filters, sourceRows) {
     return true;
   };
   // KPI memakai seluruh populasi sesuai filter utama. Salesman hanya memfilter grafik/donut.
-  const rows = all.filter(matches);
-  const chartRows = rows.filter(r => page2Key_(r[9]).indexOf('SALESMAN') >= 0 && (!salesmen.length || salesmen.includes(page2Key_(r[10]))));
+  const rows = [], chartRows = [];
+  // Satu lintasan sumber: simpan populasi KPI, lalu subset khusus grafik Salesman.
+  all.forEach(r => {
+    if (!matches(r)) return;
+    rows.push(r);
+    if (page2Key_(r[9]).indexOf('SALESMAN') >= 0 && (!salesmen.length || salesmen.includes(page2Key_(r[10])))) chartRows.push(r);
+  });
   const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const periodMonths = Array.isArray(filters.months) ? selectedMonths : monthNames;
   const monthCount = periodMonths.length;
