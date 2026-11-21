@@ -20,7 +20,7 @@
 #page2View .p2-filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:7px}
 #page2View .p2-filter-actions button{cursor:pointer;height:34px;border:0;border-radius:8px;padding:0 15px;background:#2563eb;color:#fff;font-size:11px;font-weight:700}
 #page2View .p2-filter-actions .secondary{background:#edf2f8;color:#365477}
-#page2View .p2-inline-apply{width:100%;height:27px;margin-top:5px;border:0;border-radius:7px;background:#2563eb;color:#fff;font-size:10px;font-weight:700;cursor:pointer}
+#page2View .p2-inline-actions{display:flex;gap:5px;margin-top:5px}#page2View .p2-inline-actions button{flex:1;height:27px;border:0;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer}#page2View .p2-inline-apply{background:#2563eb;color:#fff}#page2View .p2-inline-reset{background:#edf2f8;color:#365477}
 #page2View .p2-title{font-size:20px;font-weight:800;letter-spacing:-.3px;color:#173b70;margin:0 0 4px}
 #page2View .p2-subtitle{font-size:11px;color:#718096;margin:0 0 12px}
 #page2View .p2-status{font-size:10px;color:#718096;margin:6px 2px 11px}
@@ -66,7 +66,7 @@
 </style>
 <section id="page2View" class="p2-view" hidden>
  <div class="p2-filters">
-  <div class="p2-filter"><label>TAHUN ANALISIS</label><select id="p2Year"></select><button type="button" class="p2-inline-apply" onclick="page2Apply()">Terapkan Tahun</button></div>
+  <div class="p2-filter"><label>TAHUN ANALISIS</label><select id="p2Year"></select><div class="p2-inline-actions"><button type="button" class="p2-inline-apply" onclick="page2Apply()">Terapkan</button><button type="button" class="p2-inline-reset" onclick="page2Reset()">Reset Semua</button></div></div>
   <div class="p2-filter" id="p2MonthFilter"><label>BULAN</label><button class="p2-trigger" id="p2MonthsTrigger" type="button">Pilih Bulan</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" onclick="p2SelectAll('p2Months')">Pilih Semua</button><button type="button" onclick="p2Clear('p2Months')">Kosongkan</button><button type="button" onclick="p2SetYtdMonths()">Reset ke YTD</button><button type="button" class="p2-apply-menu" onclick="p2CloseMenus();page2Apply()">Terapkan Pilihan</button></div><div id="p2Months" class="p2-checklist"></div></div></div>
   <div class="p2-filter" id="p2DateFilter"><label>DATE</label><button class="p2-trigger" id="p2DatesTrigger" type="button">Semua Tanggal</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" onclick="p2SelectAll('p2Dates')">Pilih Semua</button><button type="button" onclick="p2Clear('p2Dates')">Kosongkan</button><button type="button" class="p2-apply-menu" onclick="p2CloseMenus();page2Apply()">Terapkan Pilihan</button></div><div id="p2Dates" class="p2-checklist p2-day-grid"></div></div></div>
   <div class="p2-filter"><label>JENIS SALES</label><select class="p2-locked" disabled><option>SOO</option></select></div>
