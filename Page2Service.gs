@@ -145,6 +145,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const categories = page2FilterList_(filters.categories);
   const salesmen = page2FilterList_(filters.salesmen);
   const selectedDates = page2FilterList_(filters.dates);
+  const hasDateFilter = Array.isArray(filters.dates);
   const matches = r => {
     if (page2Key_(r[7]) !== 'SOO') return false; // Jenis Sales dikunci SOO.
     if (pics.length && !pics.includes(page2Key_(r[6]))) return false;
@@ -225,7 +226,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     addGroup(b,'account',page2Text_(r[10]),cust,date);
     addGroup(b,'category',page2Text_(r[11]),cust,date);
     const dayKey = date.slice(8,10);
-    if (y === year && (!selectedDates.length || selectedDates.includes(dayKey))) {
+    if (y === year && (!hasDateFilter || selectedDates.includes(dayKey))) {
       if (!dailyMap[date]) dailyMap[date] = {date:date,ao:new Set(),ec:new Set()};
       dailyMap[date].ao.add(cust); dailyMap[date].ec.add(ecKey);
     }
