@@ -101,7 +101,7 @@ function page2Apply(){
   if(!p2Data)p2SetLoadingState_('Gagal memuat');
  }).getPage2DashboardData(f);
 }
-function page2Reset(){if(!p2Meta)return;p2$('p2Year').value=(p2Meta.years||[]).includes('2026')?'2026':(p2Meta.years||[]).slice(-1)[0];p2SetYtdMonths();['p2Pics','p2Subdists','p2Brands','p2Subbrands','p2Categories'].forEach(p2SelectAll);p2CloseMenus();page2Apply();}
+function page2Reset(){if(!p2Meta)return;p2$('p2Year').value=(p2Meta.years||[]).includes('2026')?'2026':(p2Meta.years||[]).slice(-1)[0];p2SetYtdMonths();['p2Pics','p2Subdists','p2Brands','p2Subbrands','p2Categories'].forEach(p2SelectAll);if(p2$('p2TeamSelect'))p2$('p2TeamSelect').value='';p2CloseMenus();page2Apply();}
 function p2Growth(v){if(v===null||v===undefined)return '—';return (v>0?'+':'')+Number(v).toFixed(1)+'%';}
 function p2SetGrowth(id,v){const el=p2$(id);el.textContent=p2Growth(v);el.className='k-growth '+(v===null||!Number.isFinite(Number(v))?'p2-neutral':v>0?'p2-positive':v<0?'p2-negative':'p2-neutral');}
 function p2IndicatorClass(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return 'p2-neutral';return v>0?'p2-positive':v<0?'p2-negative':'p2-neutral';}
