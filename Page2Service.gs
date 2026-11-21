@@ -111,7 +111,7 @@ function page2BuildMeta_(sourceRows) {
     monthsByYear: Object.fromEntries(Object.keys(monthsByYear).map(y => [y, monthOrder.filter(m => monthsByYear[y].has(m))])),
     dateKeys: Array.from(dateSet).sort(),
     pics: sorted('pics'),
-    salesmen: ['DB BAC','DB MBO','EPM BAC','EPM LSE','GMP LGS','GMP LSE'],
+    salesmen: ['Salesman DB BAC','Salesman DB MBO','Salesman EPM BAC','Salesman EPM LSE','Salesman GMP LGS','Salesman GMP LSE'],
     subdists: sorted('subdists'),
     brands: sorted('brands'),
     subbrands: sorted('subbrands'),
@@ -144,6 +144,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const accounts = page2FilterList_(filters.accounts);
   const categories = page2FilterList_(filters.categories);
   const salesmen = page2FilterList_(filters.salesmen);
+  const selectedDates = page2FilterList_(filters.dates);
   const matches = r => {
     if (page2Key_(r[7]) !== 'SOO') return false; // Jenis Sales dikunci SOO.
     if (pics.length && !pics.includes(page2Key_(r[6]))) return false;
@@ -223,7 +224,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
     addGroup(b,'subdist',page2Text_(r[8]),cust,date);
     addGroup(b,'account',page2Text_(r[10]),cust,date);
     addGroup(b,'category',page2Text_(r[11]),cust,date);
-    if (y === year) {
+    const dayKey = date.slice(8,10);
+    if (y === year && (!selectedDates.length || selectedDates.includes(dayKey))) {
       if (!dailyMap[date]) dailyMap[date] = {date:date,ao:new Set(),ec:new Set()};
       dailyMap[date].ao.add(cust); dailyMap[date].ec.add(ecKey);
     }
@@ -314,7 +316,7 @@ function page2GetMeta() {
 
 function getPage2DashboardData(filters) {
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v4', JSON.stringify(safeFilters));
+  const key = page2CacheKey_('p2data_v5', JSON.stringify(safeFilters));
   return page2Cached_(key, function() {
     return page2BuildDashboardData_(safeFilters);
   }, 180);
