@@ -78,6 +78,12 @@
 #page2View .p2-empty{font-size:10px;color:#94a3b8;text-align:center;padding:16px}
 @media(max-width:1200px){#page2View .p2-filters{grid-template-columns:repeat(5,minmax(0,1fr))}#page2View .p2-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}#page2View .p2-donuts{grid-template-columns:1fr}}
 @media(max-width:760px){#page2View .p2-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px}#page2View .p2-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}#page2View .p2-donut-layout{grid-template-columns:minmax(115px,.9fr) minmax(130px,1.1fr)}#page2View .p2-chartbox{height:235px}}
+
+/* Typography: keep Page 2 identical to the Page 1 Inter/Segoe UI stack. */
+#page2View,
+#page2View * {
+  font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+}
 </style>
 <section id="page2View" class="p2-view" hidden>
  <div class="p2-filters">
