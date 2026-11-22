@@ -134,6 +134,20 @@ function p2IndicatorClass(v){if(v===null||v===undefined||!Number.isFinite(Number
 function p2CtrClass(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return 'p2-ctr-neutral';return v>=25?'p2-ctr-blue':v>=10?'p2-ctr-darkgreen':v>=5?'p2-ctr-lightgreen':v>=3?'p2-ctr-orange':'p2-ctr-red';}
 function p2SetIndicator(id,v,kind){const el=p2$(id);el.className=kind==='ctr'?'k-ctr '+p2CtrClass(v):p2IndicatorClass(v);}
 function p2SetText(id,v){p2$(id).textContent=v;}
+function page2RenderPareto(){
+ const body=p2$('p2ParetoBody');if(!body)return;
+ const rows=p2Data?.pareto||[];
+ if(!rows.length){body.innerHTML='<tr><td colspan="12" class="p2-empty">Tidak ada outlet pada filter terpilih.</td></tr>';return;}
+ const money=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:0});
+ const growth=v=>v===null||v===undefined?'—':(v>0?'+':'')+Number(v).toFixed(1)+'%';
+ const cls=v=>v===null||v===undefined?'p2-neutral':v>0?'p2-positive':v<0?'p2-negative':'p2-neutral';
+ body.innerHTML=rows.map(r=>'<tr>'+
+  '<td>'+p2Esc(r.customerName)+'</td><td>'+p2Esc(r.subdist)+'</td>'+
+  '<td>'+money(r.actualCY)+'</td><td>'+money(r.actualLY)+'</td><td class="'+cls(r.grwMTD)+'">'+growth(r.grwMTD)+'</td>'+
+  '<td><b>'+money(r.actualYTD)+'</b></td><td>'+money(r.actualLYYTD)+'</td><td class="'+cls(r.grwYTD)+'">'+growth(r.grwYTD)+'</td>'+
+  '<td class="'+cls(r.grwVsLM)+'">'+growth(r.grwVsLM)+'</td><td class="'+cls(r.grwVsL3M)+'">'+growth(r.grwVsL3M)+'</td>'+
+  '<td>'+Number(r.ctr||0).toFixed(1)+'%</td><td>'+(r.avgMonth===null?'—':money(r.avgMonth))+'</td></tr>').join('');
+}
 function page2Render(){
  if(!p2Data)return;const d=p2Data,k=d.kpi;
  p2SetText('p2AO',p2Fmt(k.ao));p2SetText('p2AOdesc',`Outlet unik ${k.year} • ${k.monthCount} bulan`);p2SetText('p2AOly',`AO LY (${k.ly}): ${p2Fmt(k.aoLy)}`);p2SetGrowth('p2AOgrowth',k.aoGrowth);p2$('p2AOgrowth').textContent='GRW '+p2Growth(k.aoGrowth);
@@ -144,6 +158,7 @@ function page2Render(){
  p2SetText('p2ECMTD',p2Fmt(k.ecMTD));p2SetText('p2ECMTDdesc','EC '+k.mtdMonth+' '+k.year);p2SetGrowth('p2ECMTDgrowth',ecMtdGrw);p2$('p2ECMTDgrowth').textContent='GRW MTD '+p2Growth(ecMtdGrw);p2SetText('p2ECMTDLY',`EC LY (${k.ly}): ${p2Fmt(k.ecMTDLY)}`);
  [['B7','b7'],['SAKA','saka']].forEach(([label,key])=>{const x=d.sbu[key];p2SetText('p2'+label,p2Fmt(x.aoCY));p2SetText('p2'+label+'desc',`Outlet unik ${k.year} • ${k.monthCount} bulan`);p2SetText('p2'+label+'LY',`AO LY (${k.ly}): ${p2Fmt(x.aoLY)}`);p2SetText('p2'+label+'GRW','GRW '+p2Growth(x.growth));p2SetGrowth('p2'+label+'GRW',x.growth);});
  page2DrawCharts();
+ page2RenderPareto();
 }
 const p2Palette=['#284b8f','#2f7775','#2f7139','#b87525','#76508d','#b23d42','#5986b7','#9b9b54','#5b6472','#c16d55'];
 const p2CenterText={id:'p2CenterText',afterDraw(chart){if(chart.config.type!=='doughnut')return;const total=(chart.data.datasets[0]?.data||[]).reduce((a,b)=>a+Number(b||0),0);const ctx=chart.ctx,area=chart.chartArea;if(!area)return;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#64748b';ctx.font='600 10px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(p2MetricValue==='ao'?'TOTAL AO':'TOTAL EC', (area.left+area.right)/2,(area.top+area.bottom)/2-9);ctx.fillStyle='#172b4d';ctx.font='800 19px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(p2Fmt(total),(area.left+area.right)/2,(area.top+area.bottom)/2+11);ctx.restore();}};
@@ -164,7 +179,7 @@ function page2DrawCharts(){const d=p2Data,metric=p2MetricValue;
  const daily=d.daily||[];
  p2Chart('p2DailyChart','line',{labels:Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0')),datasets:[{label:(metric==='ao'?'AKTIF OUTLET':'EFFECTIVE CALL')+' • '+(d.kpi.mtdMonth||'BULAN TERPILIH'),data:Array.from({length:31},(_,i)=>{const day=String(i+1).padStart(2,'0');const row=daily.find(x=>x.day===day);return row?row[metric]:0;}),tension:.25,fill:false,borderColor:'#2563eb',backgroundColor:'#2563eb',pointRadius:2}]},{scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,callback:(v,i)=>String(i+1).padStart(2,'0')}},y:{beginAtZero:true,grid:{display:false},ticks:{font:{size:9}}}}});
  p2RenderDonut('subdist','p2SubdistChart','p2SubdistLegend');
- p2RenderDonut('account','p2AccountChart','p2AccountLegend');
+ p2RenderDonut('team','p2TeamChart','p2TeamLegend');
  p2RenderDonut('category','p2CategoryChart','p2CategoryLegend');
 }
 function page2SetMetric(metric){p2MetricValue=metric;document.querySelectorAll('#p2MetricSwitch button').forEach(b=>{const active=b.dataset.metric===metric;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});if(p2Data)page2DrawCharts();}
