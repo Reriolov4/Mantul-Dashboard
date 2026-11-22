@@ -146,7 +146,6 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const year = Number(filters.year) || new Date().getFullYear();
   const ly = year - 1;
   const selectedMonths = page2FilterList_(filters.months);
-  // Date checklist intentionally does not constrain KPI or composition.
   const pics = page2FilterList_(filters.pics);
   const subdists = page2FilterList_(filters.subdists);
   const brands = page2FilterList_(filters.brands);
@@ -156,8 +155,9 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const salesmen = page2FilterList_(filters.salesmen);
   const selectedDates = page2FilterList_(filters.dates);
   const hasDateFilter = Array.isArray(filters.dates);
+
   const matches = r => {
-    if (page2Key_(r[7]) !== 'SOO') return false; // Jenis Sales dikunci SOO.
+    if (page2Key_(r[7]) !== 'SOO') return false;
     if (pics.length && !pics.includes(page2Key_(r[10]))) return false;
     if (subdists.length && !subdists.includes(page2Key_(r[8]))) return false;
     if (brands.length && !brands.includes(page2Key_(r[4]))) return false;
@@ -166,14 +166,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if (categories.length && !categories.includes(page2Key_(r[11]))) return false;
     return true;
   };
-  // KPI memakai seluruh populasi sesuai filter utama. Salesman hanya memfilter grafik/donut.
-  const rows = [], chartRows = [];
-  // Satu lintasan sumber: simpan populasi KPI, lalu subset khusus grafik Salesman.
-  all.forEach(r => {
-    if (!matches(r)) return;
-    rows.push(r);
-    if (!salesmen.length || salesmen.includes(page2Key_(r[10]))) chartRows.push(r);
-  });
+
   const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   const periodMonths = Array.isArray(filters.months) ? selectedMonths : monthNames;
   const monthCount = periodMonths.length;
@@ -182,74 +175,78 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const monthly = monthNames.map(m => ({month:m,ao:0,aoLy:0,ec:0,ecLy:0}));
   const monthlySets = monthNames.map(() => ({cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()}));
   const dailyMap = {};
-  // MTD mengikuti bulan terpilih paling akhir. Jika filter bulan kosong
-  // (artinya semua bulan), gunakan bulan terbaru yang benar-benar tersedia
-  // pada tahun berjalan, bukan otomatis Desember.
-  const selectedMtdMonth = periodMonths.slice().sort((a,b)=>monthNames.indexOf(a)-monthNames.indexOf(b)).slice(-1)[0];
-  const latestAvailableMonth = rows.reduce((latest, r) => {
-    if (Number(r[0]) !== year) return latest;
-    const idx = monthNames.indexOf(page2Month_(r[1]));
-    return idx > latest ? idx : latest;
-  }, -1);
-  const mtdMonth = periodMonths.length ? (selectedMtdMonth || (latestAvailableMonth >= 0 ? monthNames[latestAvailableMonth] : monthNames[new Date().getMonth()])) : null;
+  const selectedMtdMonth = periodMonths.slice()
+    .sort((a,b)=>monthNames.indexOf(a)-monthNames.indexOf(b)).slice(-1)[0];
+  const mtdMonth = selectedMtdMonth || null;
   const mtdAO = {cy:new Set(),ly:new Set(),cyEC:new Set(),lyEC:new Set()};
   const customer = r => page2Key_(r[5]);
-  const outlet = r => customer(r); // AO: satu outlet unik berdasarkan Customer Name
-  // EC mengikuti identitas Customer Name + tanggal transaksi; distributor tidak membuat EC baru.
+  const outlet = r => customer(r);
   const ecOutlet = r => customer(r);
+
   const addGroup = (bucket, dim, label, outletKey, date) => {
     if (!label) return;
     if (!bucket.groups[dim][label]) bucket.groups[dim][label] = {name:label,ao:new Set(),ec:new Set()};
     bucket.groups[dim][label].ao.add(outletKey);
     bucket.groups[dim][label].ec.add(page2EcKey_(outletKey, date));
   };
-  rows.forEach(r => {
+
+  // Satu lintasan untuk semua agregasi. Tidak membuat array rows/chartRows
+  // berukuran besar dan tidak memindai subset yang sama dua kali.
+  let matchedRowCount = 0;
+  all.forEach(r => {
+    if (!matches(r)) return;
+    matchedRowCount++;
+
     const y = Number(r[0]), m = page2Month_(r[1]);
     if ((y !== year && y !== ly) || !periodMonths.includes(m)) return;
+
     const cust = customer(r);
     const date = page2Date_(y,m,r[2]);
     if (!cust || !date) return;
+
     const outletKey = outlet(r);
     const ecKey = page2EcKey_(ecOutlet(r), date);
-    const b = y === year ? CY : LY;
-    const cb = y === year ? CHART_CY : CHART_LY;
-    b.ao.add(outletKey); b.ec.add(ecKey);
-    addGroup(b,'sbu',page2Text_(r[12]),outletKey,date);
-    addGroup(cb,'subdist',page2Text_(r[8]),outletKey,date);
-    addGroup(cb,'account',page2Text_(r[10]),outletKey,date);
-    addGroup(cb,'category',page2Text_(r[11]),outletKey,date);
+    const isCurrentYear = y === year;
+    const bucket = isCurrentYear ? CY : LY;
+    const chartBucket = isCurrentYear ? CHART_CY : CHART_LY;
+
+    bucket.ao.add(outletKey);
+    bucket.ec.add(ecKey);
+    addGroup(bucket,'sbu',page2Text_(r[12]),outletKey,date);
+
     if (m === mtdMonth) {
-      (y === year ? mtdAO.cy : mtdAO.ly).add(outletKey);
-      (y === year ? mtdAO.cyEC : mtdAO.lyEC).add(ecKey);
+      (isCurrentYear ? mtdAO.cy : mtdAO.ly).add(outletKey);
+      (isCurrentYear ? mtdAO.cyEC : mtdAO.lyEC).add(ecKey);
     }
-  });
-  // Filter SALESMAN (Nama Akun/AB) hanya memengaruhi Trend Bulanan dan Harian.
-  // KPI dan komposisi tetap memakai seluruh populasi yang lolos filter utama.
-  chartRows.forEach(r => {
-    const y = Number(r[0]), m = page2Month_(r[1]);
-    if ((y !== year && y !== ly) || !periodMonths.includes(m)) return;
-    const cust = customer(r);
-    const date = page2Date_(y,m,r[2]);
-    if (!cust || !date) return;
-    const outletKey = outlet(r);
-    const ecKey = page2EcKey_(ecOutlet(r), date);
+
+    // Filter Salesman hanya untuk grafik bulanan/harian dan komposisi.
+    // Dimensi filter tetap memakai kolom NAMA AKUN (AB), sesuai mapping aktif.
+    if (salesmen.length && !salesmen.includes(page2Key_(r[10]))) return;
+
+    addGroup(chartBucket,'subdist',page2Text_(r[8]),outletKey,date);
+    addGroup(chartBucket,'account',page2Text_(r[10]),outletKey,date);
+    addGroup(chartBucket,'category',page2Text_(r[11]),outletKey,date);
+
     const monthIndex = monthNames.indexOf(m);
     if (monthIndex >= 0) {
       const ms = monthlySets[monthIndex];
-      (y === year ? ms.cyAO : ms.lyAO).add(outletKey);
-      (y === year ? ms.cyEC : ms.lyEC).add(ecKey);
+      (isCurrentYear ? ms.cyAO : ms.lyAO).add(outletKey);
+      (isCurrentYear ? ms.cyEC : ms.lyEC).add(ecKey);
     }
+
     const dayKey = date.slice(8,10);
-    if (y === year && (!hasDateFilter || selectedDates.includes(dayKey))) {
+    if (isCurrentYear && (!hasDateFilter || selectedDates.includes(dayKey))) {
       if (!dailyMap[dayKey]) dailyMap[dayKey] = {day:dayKey,ao:new Set(),ec:new Set()};
-      dailyMap[dayKey].ao.add(outletKey); dailyMap[dayKey].ec.add(ecKey);
+      dailyMap[dayKey].ao.add(outletKey);
+      dailyMap[dayKey].ec.add(ecKey);
     }
   });
-  // Monthly AO/EC grafik dihitung terpisah dari KPI.
+
   monthlySets.forEach((sets,idx) => {
     monthly[idx].ao=sets.cyAO.size; monthly[idx].aoLy=sets.lyAO.size;
     monthly[idx].ec=sets.cyEC.size; monthly[idx].ecLy=sets.lyEC.size;
   });
+
   const aoMTD = mtdAO.cy.size, aoMTDLY = mtdAO.ly.size;
   const ecMTD = mtdAO.cyEC.size, ecMTDLY = mtdAO.lyEC.size;
   const groupResult = (dim, cyBucket, lyBucket) => {
@@ -259,13 +256,11 @@ function page2BuildDashboardData_(filters, sourceRows) {
       return {name,ao,aoLy,ec,growth:page2Growth_(ao,aoLy)};
     }).sort((x,y)=>y.ao-x.ao||x.name.localeCompare(y.name,'id'));
   };
-  const groupSbu = (sbu) => {
+  const groupSbu = sbu => {
     const cy=CY.groups.sbu[sbu],prev=LY.groups.sbu[sbu];
     const ao=cy?cy.ao.size:0,aoLy=prev?prev.ao.size:0;
     return {name:sbu,aoCY:ao,aoLY:aoLy,growth:page2Growth_(ao,aoLy),ctr:CY.ao.size?ao/CY.ao.size*100:0};
   };
-  // Trend Harian memakai tanggal penuh pada bulan mtdMonth; tidak menjumlahkan
-  // tanggal DD yang sama dari beberapa bulan.
   const daily = Array.from({length:31},(_,i)=>{
     const day = String(i+1).padStart(2,'0');
     const item = dailyMap[day];
@@ -273,8 +268,9 @@ function page2BuildDashboardData_(filters, sourceRows) {
   });
   const ao=CY.ao.size, aoLy=LY.ao.size, ec=CY.ec.size, ecLy=LY.ec.size;
   const compositionGroups = dim => groupResult(dim,CHART_CY,CHART_LY);
+
   return {
-    kpi:{year,ly,months:periodMonths,monthCount,ao,aoLy,aoGrowth:page2Growth_(ao,aoLy),ec,ecLy,ecGrowth:page2Growth_(ec,ecLy),aoMTD,aoMTDLY,ecMTD,ecMTDLY,mtdMonth,rows:rows.length},
+    kpi:{year,ly,months:periodMonths,monthCount,ao,aoLy,aoGrowth:page2Growth_(ao,aoLy),ec,ecLy,ecGrowth:page2Growth_(ec,ecLy),aoMTD,aoMTDLY,ecMTD,ecMTDLY,mtdMonth,rows:matchedRowCount},
     monthly,daily,
     donut:{
       subdist:compositionGroups('subdist'),
@@ -282,11 +278,10 @@ function page2BuildDashboardData_(filters, sourceRows) {
       category:compositionGroups('category')
     },
     sbu:{b7:groupSbu('B7'),saka:groupSbu('SAKA')},
-    byTeam:groupResult('sbu',CY,LY), // data ringkas KPI; tidak dipengaruhi filter Salesman grafik.
+    byTeam:groupResult('sbu',CY,LY),
     updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED')||'Live dari Google Sheets'
   };
 }
-
 
 /**
  * Cache layer for Page 2.
