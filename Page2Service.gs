@@ -141,7 +141,7 @@ function page2Day_(day) {
   } else {
     const raw = page2Text_(day);
     let match = raw.match(/^\d{4}[-/](\d{1,2})[-/](\d{1,2})/);
-    if (match) d = Number(match[3]);
+    if (match) d = Number(match[2]);
     else {
       match = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
       if (match) d = Number(match[1]);
