@@ -22,7 +22,7 @@ const P1_FACT_HEADERS_ = [
 
 const P2_EVENT_HEADERS_ = [
   'YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','PIC',
-  'BRAND','SUBBRAND','CATEGORY','SBU','SALES_TYPE','SALESMAN','TEAM'
+  'BRAND','SUBBRAND','CATEGORY','SBU','SALES_TYPE','SALESMAN','TEAM','VAL'
 ];
 
 function analyticsStartInitialBuild() {
@@ -75,7 +75,7 @@ function analyticsStartInitialBuild() {
       ['SOURCE_SPREADSHEET_ID',source.getId()],
       ['SOURCE_DATA_SALES_ROWS',String(p1.getLastRow()-1)],
       ['SOURCE_RAW_DATA_SALES_ROWS',String(p2.getLastRow()-1)],
-      ['SCHEMA_VERSION','1']
+      ['SCHEMA_VERSION','2']
     ]);
     return analyticsGetBuildStatus();
   } finally {
@@ -149,7 +149,7 @@ function analyticsBuildNextChunk() {
           ['SOURCE_SPREADSHEET_ID',sourceId],
           ['P1_FACT_ROWS',props.getProperty(prefix+'P1_WRITTEN')||'0'],
           ['P2_EVENT_INDEX_ROWS',props.getProperty(prefix+'P2_WRITTEN')||'0'],
-          ['SCHEMA_VERSION','1'],
+          ['SCHEMA_VERSION','2'],
           ['SOURCE_VERSION',source.getId()+'|'+sh.getLastRow()+'|'+source.getSheetId()]
         ]);
         return analyticsGetBuildStatus();
@@ -171,7 +171,8 @@ function analyticsBuildNextChunk() {
           String(r[RAW_SALES_COL.CATEGORY]||'').trim(),
           String(r[RAW_SALES_COL.SBU]||'').trim(),
           salesType, String(r[RAW_SALES_COL.SALESMAN]||'').trim(),
-          String(r[RAW_SALES_COL.TEAM]||'').trim()
+          String(r[RAW_SALES_COL.TEAM]||'').trim(),
+          Number(r[RAW_SALES_COL.VALUE]) || 0
         ]);
       });
       if (output.length) analyticsAppendRows_(analytics.getSheetByName('P2_EVENT_INDEX'), output, P2_EVENT_HEADERS_.length);
