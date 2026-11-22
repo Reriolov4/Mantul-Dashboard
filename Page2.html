@@ -106,9 +106,15 @@
 #page2View .p2-pareto-table .p2-positive{color:#16803c;font-weight:800}#page2View .p2-pareto-table .p2-negative{color:#d12c2c;font-weight:800}#page2View .p2-pareto-table .p2-neutral{color:#64748b;font-weight:700}
 #page2View .p2-pareto-table .p2-grand-total td{position:sticky;bottom:0;background:#e8eef8;color:#173b70;font-weight:850;border-top:2px solid #94a3b8;z-index:4}
 #page2View .p2-pareto-table .p2-ctr-blue{color:#2563eb;font-weight:850}#page2View .p2-pareto-table .p2-ctr-darkgreen{color:#166534;font-weight:850}#page2View .p2-pareto-table .p2-ctr-lightgreen{color:#65a30d;font-weight:850}#page2View .p2-pareto-table .p2-ctr-orange{color:#ea580c;font-weight:850}#page2View .p2-pareto-table .p2-ctr-red{color:#991b1b;font-weight:850}#page2View .p2-pareto-table .p2-ctr-neutral{color:#64748b;font-weight:700}
-#page2View .p2-control-row{grid-template-columns:220px minmax(300px,380px);column-gap:16px;align-items:center}
-#page2View #p2CustomerFilter{margin-left:8px;min-width:300px}
-#page2View #p2CustomerFilter .p2-customer-menu{left:0}
+#page2View .p2-control-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start;padding:16px 18px}
+#page2View .p2-control-row>.p2-filter{width:100%;min-width:0}
+#page2View .p2-control-row>.p2-filter>label{margin:0 0 9px;line-height:1.25}
+#page2View #p2MetricSwitch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;min-width:0;height:48px;gap:5px;padding:4px}
+#page2View #p2MetricSwitch button{min-width:0;width:100%;height:40px;padding:6px 8px;white-space:normal;line-height:1.15;font-size:clamp(10px,1vw,12px)}
+#page2View #p2CustomerFilter{margin:0;min-width:0;width:100%}
+#page2View #p2CustomerTrigger{display:block;width:100%;height:48px;text-align:left}
+#page2View #p2CustomerFilter .p2-customer-menu{left:0;width:min(100%,420px)}
+@media(max-width:760px){#page2View .p2-control-row{grid-template-columns:minmax(0,1fr);gap:12px}#page2View #p2MetricSwitch{height:44px}#page2View #p2MetricSwitch button{height:36px}}
 </style>
 <section id="page2View" class="p2-view" hidden>
  <div class="p2-loading-overlay" aria-hidden="true"><div class="p2-loading-card"><span class="p2-loading-spinner"></span><span id="p2LoadingText">Sedang memproses data Page 2...</span></div></div>
@@ -151,8 +157,15 @@
   <div class="p2-chart-head"><div><h2>25 OUTLET PARETO</h2><p>Ranking berdasarkan Actual YTD terbesar; nama akun tertentu dikecualikan sesuai daftar.</p></div></div>
   <div class="p2-table-wrap"><table class="p2-pareto-table"><thead><tr><th>CUSTOMER NAME</th><th>SUBDIST</th><th>ACTUAL CY</th><th>ACTUAL LY</th><th>GRW MTD</th><th>ACTUAL YTD</th><th>ACTUAL LY</th><th>GRW YTD</th><th>GRW VS LM</th><th>GRW VS L3M</th><th>CTR</th><th>AVG / MONTH</th></tr></thead><tbody id="p2ParetoBody"><tr><td colspan="12" class="p2-empty">Menunggu data…</td></tr></tbody></table></div>
  </article>
+ <article class="p2-card p2-pareto-card" id="p2ParetoTrendCard">
+  <div class="p2-chart-head"><div><h2>TREND 25 OUTLET PARETO</h2><p>Omzet bulanan untuk 25 outlet Pareto berdasarkan filter dan bulan terpilih.</p></div></div>
+  <div class="p2-table-wrap p2-trend-wrap"><table class="p2-pareto-table p2-trend-table"><thead id="p2ParetoTrendHead"></thead><tbody id="p2ParetoTrendBody"><tr><td class="p2-empty">Menunggu data…</td></tr></tbody></table></div>
+ </article>
 </section>
 
-<style>#page2View #p2AOly,#page2View #p2ECly{font-size:12px!important;font-weight:800!important;color:#334155!important}</style>
+<style>#page2View #p2AOly,#page2View #p2ECly{font-size:12px!important;font-weight:800!important;color:#334155!important}#page2View .p2-trend-table{min-width:1100px}
+#page2View .p2-trend-table th:first-child,#page2View .p2-trend-table td:first-child{width:205px;text-align:left}
+#page2View .p2-trend-table th:nth-child(2),#page2View .p2-trend-table td:nth-child(2){width:105px;text-align:left}
+</style>
 
 <style>#page2View #p2Dates{grid-template-columns:1fr!important}</style>
