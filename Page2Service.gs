@@ -493,3 +493,36 @@ function getPage2InitialPayload() {
   } catch (err) { /* Cache hanya optimasi, bukan dependensi. */ }
   return {meta:meta,data:data};
 }
+
+/**
+ * Diagnostik manual sebelum deployment.
+ * Jalankan dari Apps Script editor untuk membandingkan sumber live dengan
+ * angka referensi dashboard tanpa mengubah sheet atau cache.
+ */
+function testPage2SourceSchema() {
+  const sh = page2Source_();
+  const rows = page2Read_(sh);
+  const meta = page2BuildMeta_(rows);
+  const year = Number(meta.years.indexOf('2026') >= 0 ? '2026' : meta.years[meta.years.length - 1]);
+  const months = (meta.monthsByYear || {})[String(year)] || [];
+  const data = page2BuildDashboardData_({year:year,months:months}, rows);
+  return {
+    ok:true,
+    spreadsheetName:sh.getParent().getName(),
+    sheetName:sh.getName(),
+    lastRow:sh.getLastRow(),
+    lastColumn:sh.getLastColumn(),
+    sourceRows:meta.sourceRowCount,
+    sooRows:meta.sooRowCount,
+    salesTypeCounts:meta.salesTypeCounts,
+    years:meta.years,
+    selectedYear:year,
+    availableMonths:months,
+    ao:data.kpi.ao,
+    ec:data.kpi.ec,
+    aoTrend:data.monthly.filter(x => months.indexOf(x.month) >= 0).map(x => ({month:x.month,ao:x.ao})),
+    ecTrend:data.monthly.filter(x => months.indexOf(x.month) >= 0).map(x => ({month:x.month,ec:x.ec})),
+    salesmanNamaAkunOptions:meta.salesmen.length,
+    updatedAt:data.updatedAt
+  };
+}
