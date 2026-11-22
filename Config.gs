@@ -13,11 +13,11 @@ const IMPORT_LOG_SHEET_NAME = 'IMPORT_LOG';
 
 const SALES_HEADERS = ['y','m','d','s','b','c','u','p','fm','fq','v','t','tg','be'];
 
-// Struktur sumber RAW_DATA_SALES: A:AH (34 kolom).
+// Skema transaksi RAW_DATA_SALES terbaru: A:AA (27 kolom).
+// Tabel mapping/catatan di AH:AL bukan bagian dari baris transaksi dan tidak diimpor.
 const RAW_SALES_HEADERS = [
-  'TAHUN','BULAN','DATE','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND','ENTITAS',
-  'JENIS FAKTUR','KARTON','DISTRIBUTORS','KODE CUSTOMER','CUSTOMER NAME','ALAMAT',
-  'SALESMAN','KODE SALUR','VAL','QTY','CLASS PRODUCT','DOT','CATEGORY','JENIS SALES',
-  'OUTLET SALUR','CABANG','SUBDIST','SISO','TIM','NAMA AKUN','CATEGORY','DOT','SBU',
-  'PF Bulanan','PF Triwulan','PRODUCT_DESC'
+  'TAHUN','BULAN','TANGGAL','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND',
+  'KARTON','SUBDIST','KODE CUSTOMER','CUSTOMER NAME','KODE SALUR','VAL','QTY',
+  'CLASS PRODUCT','UMBRAND','DOT','CATEGORY','JENIS SALES','PIC','SUB_DIST',
+  'TIM','SALESMAN','SBU','PF Bulanan','PF Triwulan','PRODUCT_DESC'
 ];
