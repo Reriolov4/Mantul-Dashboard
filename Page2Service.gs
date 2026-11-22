@@ -4,11 +4,9 @@
  * Skema aktif workbook: A:AA transaksi; AH:AI catatan dan tabel mapping terpisah.
  *
  * Definisi:
- * - AO = distinct CUSTOMER NAME pada periode (tidak digandakan antar-subdist).
- * - EC = distinct tanggal + CUSTOMER NAME + SUBDIST.
- * - Salesman filter = daftar CUSTOMER NAME yang TIM-nya SALESMAN.
- * - KPI total tetap mencakup seluruh SOO; filter Salesman membatasi trend/
- *   komposisi, mengikuti perilaku dashboard sebelumnya.
+ * - AO = distinct KODE CUSTOMER pada periode.
+ * - EC = distinct tanggal + KODE CUSTOMER + SUBDIST.
+ * - Customer picker memfilter KPI, trend, dan komposisi secara konsisten.
  */
 const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -65,23 +63,24 @@ function page2FindHeader_(headers, aliases, fieldName) {
 
 /**
  * Membaca hanya kolom transaksi yang dibutuhkan. Kolom dikelompokkan menjadi
- * rentang berurutan; area catatan/mapping AH:AI tidak ikut dipindai per baris.
+ * rentang berurutan A:C, F:G, I:K, R:X; AH:AI helper formula tidak dibaca.
  */
 function page2Read_(sheet) {
   const sh = sheet || page2Source_();
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
 
-  const lastColumn = sh.getLastColumn();
-  const headers = sh.getRange(1, 1, 1, lastColumn).getValues()[0];
+  // Header hanya A:AA. AH:AI merupakan helper formula workbook, bukan data dashboard.
+  const headers = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getValues()[0];
   const fields = {
     year: page2FindHeader_(headers, ['TAHUN','YEAR'], 'TAHUN'),
     month: page2FindHeader_(headers, ['BULAN','MONTH'], 'BULAN'),
     day: page2FindHeader_(headers, ['TANGGAL','DATE','DAY'], 'TANGGAL'),
     subbrand: page2FindHeader_(headers, ['SUB BRAND','SUBBRAND'], 'SUB BRAND'),
     brand: page2FindHeader_(headers, ['BRAND'], 'BRAND'),
-    subdist: page2FindHeader_(headers, ['SUBDIST','DISTRIBUTORS','DISTRIBUTOR'], 'SUBDIST'),
+    customerCode: page2FindHeader_(headers, ['KODE CUSTOMER','CUSTOMER CODE','KODE AKUN'], 'KODE CUSTOMER'),
     customer: page2FindHeader_(headers, ['CUSTOMER NAME','NAMA AKUN','CUSTOMER'], 'CUSTOMER NAME'),
+    subdist: page2FindHeader_(headers, ['SUBDIST','DISTRIBUTORS','DISTRIBUTOR'], 'SUBDIST'),
     category: page2FindHeader_(headers, ['CATEGORY','KATEGORI'], 'CATEGORY'),
     salesType: page2FindHeader_(headers, ['JENIS SALES','SALES TYPE'], 'JENIS SALES'),
     pic: page2FindHeader_(headers, ['PIC'], 'PIC'),
@@ -89,48 +88,39 @@ function page2Read_(sheet) {
     sbu: page2FindHeader_(headers, ['SBU'], 'SBU')
   };
 
-  const columns = Object.keys(fields).map(k => fields[k]).sort((a,b) => a-b);
-  const runs = [];
-  columns.forEach(col => {
-    const current = runs[runs.length - 1];
-    if (!current || col > current.end + 1) runs.push({start:col,end:col,values:null});
-    else current.end = col;
-  });
-
+  // Empat batch berurutan menggantikan banyak getRange kecil:
+  // A:C, F:G, I:K, R:X. Total 15 kolom yang benar-benar dibutuhkan.
   const rowCount = lastRow - 1;
-  runs.forEach(run => {
-    run.values = sh.getRange(2, run.start + 1, rowCount, run.end - run.start + 1).getValues();
-  });
-
-  const colRun = {};
-  runs.forEach(run => {
-    for (let c = run.start; c <= run.end; c++) colRun[c] = run;
-  });
-  const read = (rowIndex, colIndex) => {
-    const run = colRun[colIndex];
-    return run.values[rowIndex][colIndex - run.start];
+  const blocks = [
+    {start:0,end:2,values:sh.getRange(2,1,rowCount,3).getValues()},
+    {start:5,end:6,values:sh.getRange(2,6,rowCount,2).getValues()},
+    {start:8,end:10,values:sh.getRange(2,9,rowCount,3).getValues()},
+    {start:17,end:23,values:sh.getRange(2,18,rowCount,7).getValues()}
+  ];
+  const read = (rowIndex,colIndex) => {
+    const block = blocks.find(b => colIndex >= b.start && colIndex <= b.end);
+    if (!block) return '';
+    return block.values[rowIndex][colIndex - block.start];
   };
 
   const rows = new Array(rowCount);
   for (let i = 0; i < rowCount; i++) {
     const rawTim = page2Key_(read(i, fields.tim));
-    // Semua akun yang tidak masuk mapping Motoris/Canvaser diperlakukan
-    // sebagai Salesman, sesuai aturan klasifikasi yang disepakati.
-    const tim = rawTim || 'SALESMAN';
     rows[i] = [
       read(i, fields.year),                         // 0 year
       page2Month_(read(i, fields.month)),            // 1 month
-      read(i, fields.day),                          // 2 day (DD supported)
+      read(i, fields.day),                          // 2 day
       read(i, fields.subbrand),                     // 3 subbrand
       read(i, fields.brand),                        // 4 brand
-      read(i, fields.customer),                     // 5 customer / Nama Akun
+      read(i, fields.customer),                     // 5 display customer name
       read(i, fields.pic),                          // 6 PIC
       read(i, fields.salesType),                    // 7 SO / SOO
       read(i, fields.subdist),                      // 8 distributor / subdist
-      tim,                                          // 9 team classification
+      rawTim || 'SALESMAN',                         // 9 team classification
       read(i, fields.customer),                     // 10 Nama Akun
       read(i, fields.category),                     // 11 category
-      read(i, fields.sbu)                           // 12 SBU
+      read(i, fields.sbu),                          // 12 SBU
+      read(i, fields.customerCode)                  // 13 stable outlet identity
     ];
   }
   return rows;
@@ -249,7 +239,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const brands = page2FilterList_(filters.brands);
   const subbrands = page2FilterList_(filters.subbrands);
   const categories = page2FilterList_(filters.categories);
-  const salesmen = page2FilterList_(filters.salesmen);
+  const customers = page2FilterList_(filters.customers);
   const selectedDates = page2FilterList_(filters.dates);
   const hasDateFilter = Array.isArray(filters.dates);
   const periodMonths = Array.isArray(filters.months) ? selectedMonths : PAGE2_MONTHS_;
@@ -261,6 +251,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if (brands.length && !brands.includes(page2Key_(r[4]))) return false;
     if (subbrands.length && !subbrands.includes(page2Key_(r[3]))) return false;
     if (categories.length && !categories.includes(page2Key_(r[11]))) return false;
+    if (customers.length && !customers.includes(page2Key_(r[10]))) return false;
     return true;
   };
 
@@ -272,9 +263,9 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const orderedSelected = periodMonths.slice().sort((a,b) => PAGE2_MONTHS_.indexOf(a)-PAGE2_MONTHS_.indexOf(b));
   const mtdMonth = orderedSelected.length ? orderedSelected[orderedSelected.length - 1] : null;
   const mtd = {cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
-  const customer = r => page2Key_(r[5]);
-  const outlet = r => customer(r); // AO counts unique account names
-  const ecKeyFor = (r, date) => page2CompositeKey_([date, customer(r), r[8]]);
+  const customer = r => page2Key_(r[10] || r[5]);
+  const outlet = r => page2Key_(r[13]) || customer(r); // AO uses KODE CUSTOMER, falls back only when code is blank
+  const ecKeyFor = (r, date) => page2CompositeKey_([date, outlet(r), r[8]]);
 
   const addGroup = (bucket, dimension, label, outletKey, ecKey) => {
     if (!label) return;
@@ -310,10 +301,6 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (isCY ? mtd.cyAO : mtd.lyAO).add(outletKey);
       (isCY ? mtd.cyEC : mtd.lyEC).add(ecKey);
     }
-
-    // Dropdown SALESMAN hanya berisi Nama Akun yang diklasifikasikan SALESMAN.
-    // Saat dipilih, filter membatasi trend dan komposisi; KPI total tetap total SOO.
-    if (salesmen.length && !salesmen.includes(customerName)) return;
 
     const chartBucket = isCY ? CHART_CY : CHART_LY;
     addGroup(chartBucket, 'subdist', page2Text_(r[8]), outletKey, ecKey);
