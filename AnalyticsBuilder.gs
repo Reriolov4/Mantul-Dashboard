@@ -249,3 +249,60 @@ function analyticsResolveP1Columns_(headers) {
     tg:col(['TARGET','tg'],false),be:col(['BE','be'],false)
   };
 }
+
+
+/**
+ * Return a verified analytics sheet for dashboard reads.
+ * The source row-count check prevents using an index after append-only source updates.
+ * Returns null when the build is missing, incomplete, or stale; callers then use live sheets.
+ */
+function analyticsGetReadySheet_(analyticsSheetName, sourceSheetName, phase) {
+  const props = PropertiesService.getScriptProperties();
+  const prefix = ANALYTICS_BUILD_PREFIX_;
+  if (props.getProperty(prefix + 'STATUS') !== 'COMPLETE') return null;
+
+  const sourceId = String(props.getProperty(prefix + 'SOURCE_ID') || '').trim();
+  if (!sourceId) return null;
+
+  const source = getDatabase_();
+  if (source.getId() !== sourceId) return null;
+
+  const sourceSheet = source.getSheetByName(sourceSheetName);
+  if (!sourceSheet || sourceSheet.getLastRow() < 2) return null;
+
+  const sourceCountKey = prefix + phase + '_SOURCE_ROWS';
+  const writtenKey = prefix + phase + '_WRITTEN';
+  const expectedSourceRows = Number(props.getProperty(sourceCountKey) || 0);
+  const expectedWrittenRows = Number(props.getProperty(writtenKey) || 0);
+  if (sourceSheet.getLastRow() - 1 !== expectedSourceRows) return null;
+
+  const analytics = analyticsOpenDb_();
+  const target = analytics.getSheetByName(analyticsSheetName);
+  if (!target || target.getLastRow() - 1 !== expectedWrittenRows) return null;
+  return target;
+}
+
+/** Read-only route diagnostic for the dashboard migration. */
+function testAnalyticsDashboardRouting() {
+  const source = getDatabase_();
+  const p1Source = source.getSheetByName(DATA_SHEET_NAME);
+  const p2Source = source.getSheetByName(RAW_DATA_SHEET_NAME);
+  const p1 = analyticsGetReadySheet_('P1_FACT', DATA_SHEET_NAME, 'P1');
+  const p2 = analyticsGetReadySheet_('P2_EVENT_INDEX', RAW_DATA_SHEET_NAME, 'P2');
+  const result = {
+    buildStatus: PropertiesService.getScriptProperties().getProperty(ANALYTICS_BUILD_PREFIX_ + 'STATUS') || 'NOT_STARTED',
+    sourceSpreadsheetId: source.getId(),
+    p1: {
+      route: p1 ? 'P1_FACT' : 'DATA_SALES fallback',
+      sourceRows: p1Source ? p1Source.getLastRow() - 1 : 0,
+      analyticsRows: p1 ? p1.getLastRow() - 1 : 0
+    },
+    p2: {
+      route: p2 ? 'P2_EVENT_INDEX' : 'RAW_DATA_SALES fallback',
+      sourceRows: p2Source ? p2Source.getLastRow() - 1 : 0,
+      analyticsRows: p2 ? p2.getLastRow() - 1 : 0
+    }
+  };
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
