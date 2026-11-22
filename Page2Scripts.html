@@ -87,7 +87,16 @@ function page2Init(){
 }
 document.addEventListener('click',e=>{const action=e.target.closest('#page2View [data-p2-action]');if(action){e.preventDefault();e.stopPropagation();const act=action.dataset.p2Action,target=action.dataset.p2Target;if(act==='all')p2SelectAll(target);else if(act==='reset')p2ResetFilter(target);else if(act==='ytd')p2SetYtdMonths();else if(act==='customer-all'){p2CustomerSelected=new Set(p2CustomerOptions);p2RenderCustomerList();}else if(act==='customer-reset'){p2CustomerSelected.clear();p2RenderCustomerList();}else if(act==='customer-apply'){p2CloseMenus();page2Apply();}else if(act==='apply'){p2CloseMenus();page2Apply();}return;}const trigger=e.target.closest('#page2View .p2-trigger');if(trigger){const filter=trigger.closest('.p2-filter');const wasOpen=filter.classList.contains('open');p2CloseMenus();if(!wasOpen)filter.classList.add('open');return;}if(!e.target.closest('#page2View .p2-menu'))p2CloseMenus();});
 document.addEventListener('change',e=>{if(e.target?.closest('#page2View .p2-checklist')){if(e.target.closest('#p2CustomerList')){if(e.target.checked)p2CustomerSelected.add(e.target.value);else p2CustomerSelected.delete(e.target.value);p2UpdateCustomerTrigger();}else{p2UpdateTriggers();if(e.target?.closest('#p2Months'))p2SetDateDefaults();}}if(e.target?.id==='p2Year'){p2SetYtdMonths();if(p2Meta)page2Apply();}});
-document.addEventListener('input',e=>{if(e.target?.id==='p2CustomerSearch')p2RenderCustomerList();});
+document.addEventListener('input',e=>{
+ if(e.target?.id==='p2CustomerSearch'){p2RenderCustomerList();return;}
+ const search=e.target?.closest('[data-p2-search]');
+ if(!search)return;
+ const target=p2$(search.dataset.p2Search);
+ const query=String(search.value||'').trim().toLocaleLowerCase('id');
+ target?.querySelectorAll('.p2-checkitem').forEach(item=>{
+  item.style.display=!query||item.textContent.toLocaleLowerCase('id').includes(query)?'':'none';
+ });
+});
 function page2Apply(){
  if(!p2Meta)return;
  const requestId=++p2RequestSeq;
