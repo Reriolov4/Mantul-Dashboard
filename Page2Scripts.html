@@ -154,8 +154,8 @@ function page2RenderPareto(){
  const totalPrevious=sum('previousValue'),totalAverage3=sum('averageLast3Value');
  const totalCTR=sum('ctr'),totalAverageMonth=sum('avgMonth');
  body.insertAdjacentHTML('beforeend','<tr class="p2-grand-total"><td><b>GRAND TOTAL (25 OUTLET)</b></td><td>—</td>'+
-  '<td><b>'+money(totalCY)+'</b></td><td><b>'+money(totalLY)+'</b></td><td class="'+cls(totalLY?p2GrowthValue(totalCY,totalLY):null)+'">'+growth(totalLY?(totalCY/totalLY-1)*100:null)+'</td>'+
-  '<td><b>'+money(totalYTD)+'</b></td><td><b>'+money(totalLYYTD)+'</b></td><td class="'+cls(totalLYYTD?p2GrowthValue(totalYTD,totalLYYTD):null)+'">'+growth(totalLYYTD?(totalYTD/totalLYYTD-1)*100:null)+'</td>'+
+  '<td><b>'+money(totalCY)+'</b></td><td><b>'+money(totalLY)+'</b></td><td class="'+cls(totalLY?(totalCY/totalLY-1)*100:null)+'">'+growth(totalLY?(totalCY/totalLY-1)*100:null)+'</td>'+
+  '<td><b>'+money(totalYTD)+'</b></td><td><b>'+money(totalLYYTD)+'</b></td><td class="'+cls(totalLYYTD?(totalYTD/totalLYYTD-1)*100:null)+'">'+growth(totalLYYTD?(totalYTD/totalLYYTD-1)*100:null)+'</td>'+
   '<td class="'+cls(totalPrevious?(totalCY/totalPrevious-1)*100:null)+'">'+growth(totalPrevious?(totalCY/totalPrevious-1)*100:null)+'</td>'+
   '<td class="'+cls(totalAverage3?(totalCY/totalAverage3-1)*100:null)+'">'+growth(totalAverage3?(totalCY/totalAverage3-1)*100:null)+'</td>'+
   '<td class="'+p2CtrClass(totalCTR)+'"><b>'+totalCTR.toFixed(1)+'%</b></td><td><b>'+money(totalAverageMonth)+'</b></td></tr>');
