@@ -1,62 +1,159 @@
 /**
  * HALAMAN 2 — OUTLETS | SALES FORCE
- * Sumber: RAW_DATA_SALES pada spreadsheet utama.
- * Kolom mengikuti struktur A:AH:
- * A tahun, B bulan, C tanggal, F subbrand, G brand, M customer name,
- * K distributors (sumber pengelompokan SOO), O PIC (label/filter), V jenis sales,
- * AA tim, AB nama akun, AC category, AE SBU. Page 2 hanya mengambil SOO. Final synchronized deploy.
+ * Membaca RAW_DATA_SALES berdasarkan NAMA HEADER, bukan posisi kolom lama.
+ * Skema aktif workbook: A:AA transaksi; AH:AL tabel mapping/notes.
+ *
+ * Definisi:
+ * - AO = distinct CUSTOMER NAME pada periode (tidak digandakan antar-subdist).
+ * - EC = distinct tanggal + CUSTOMER NAME + SUBDIST.
+ * - Salesman filter = daftar CUSTOMER NAME yang TIM-nya SALESMAN.
+ * - KPI total tetap mencakup seluruh SOO; filter Salesman membatasi trend/
+ *   komposisi, mengikuti perilaku dashboard sebelumnya.
  */
+const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
 function page2Source_() {
   const ss = getDatabase_();
-  const sh = ss.getSheetByName('RAW_DATA_SALES');
-  if (!sh || sh.getLastRow() < 2) throw new Error('Sheet RAW_DATA_SALES belum tersedia atau belum berisi data.');
+  const sh = ss.getSheetByName(RAW_DATA_SHEET_NAME || 'RAW_DATA_SALES');
+  if (!sh || sh.getLastRow() < 2) {
+    throw new Error('Sheet RAW_DATA_SALES belum tersedia atau belum berisi data transaksi.');
+  }
   return sh;
 }
-function page2Month_(v) {
-  const s = String(v == null ? '' : v).trim().toUpperCase();
-  const map = {JANUARI:'JAN',FEBRUARI:'FEB',MARET:'MAR',APRIL:'APR',MEI:'MAY',JUNI:'JUN',JULI:'JUL',AGUSTUS:'AUG',SEPTEMBER:'SEP',OKTOBER:'OCT',NOVEMBER:'NOV',DESEMBER:'DEC'};
-  const en = {JANUARY:'JAN',FEBRUARY:'FEB',MARCH:'MAR',APRIL:'APR',MAY:'MAY',JUNE:'JUN',JULY:'JUL',AUGUST:'AUG',SEPTEMBER:'SEP',OCTOBER:'OCT',NOVEMBER:'NOV',DECEMBER:'DEC'};
-  return map[s] || en[s] || s.slice(0,3);
+
+function page2Month_(value) {
+  const s = String(value == null ? '' : value).trim().toUpperCase();
+  const aliases = {
+    JANUARI:'JAN',FEBRUARI:'FEB',MARET:'MAR',APRIL:'APR',MEI:'MAY',
+    JUNI:'JUN',JULI:'JUL',AGUSTUS:'AUG',SEPTEMBER:'SEP',
+    OKTOBER:'OCT',NOVEMBER:'NOV',DESEMBER:'DEC',
+    JANUARY:'JAN',FEBRUARY:'FEB',MARCH:'MAR',MAY:'MAY',
+    JUNE:'JUN',JULY:'JUL',AUGUST:'AUG',OCTOBER:'OCT',
+    DECEMBER:'DEC'
+  };
+  if (aliases[s]) return aliases[s];
+  if (/^\d{1,2}$/.test(s)) {
+    const n = Number(s);
+    return n >= 1 && n <= 12 ? PAGE2_MONTHS_[n - 1] : '';
+  }
+  return s.slice(0,3);
 }
-function page2Text_(v) { return String(v == null ? '' : v).trim(); }
-function page2Key_(v) { return page2Text_(v).toUpperCase(); }
-function page2Read_() {
-  const sh = page2Source_();
+
+function page2Text_(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function page2Key_(value) {
+  return page2Text_(value).toUpperCase().replace(/\s+/g,' ');
+}
+
+function page2HeaderKey_(value) {
+  return page2Key_(value).replace(/[_-]+/g,' ');
+}
+
+function page2FindHeader_(headers, aliases, fieldName) {
+  const normalized = headers.map(page2HeaderKey_);
+  for (let i = 0; i < aliases.length; i++) {
+    const at = normalized.indexOf(page2HeaderKey_(aliases[i]));
+    if (at >= 0) return at;
+  }
+  throw new Error(
+    'Kolom wajib "' + fieldName + '" tidak ditemukan di RAW_DATA_SALES. Header yang terbaca: ' +
+    headers.map(page2Text_).filter(Boolean).join(' | ')
+  );
+}
+
+/**
+ * Membaca hanya kolom yang dibutuhkan. Kolom dikelompokkan menjadi rentang
+ * berurutan sehingga jumlah panggilan Spreadsheet tetap rendah tanpa membaca
+ * seluruh 38 kolom (termasuk tabel mapping dan catatan di AH:AL).
+ */
+function page2Read_(sheet) {
+  const sh = sheet || page2Source_();
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
 
-  // Baca hanya 12 kolom relevan; kolom O tidak dipakai untuk kalkulasi Page 2.
-  const n = lastRow - 1;
-  const a = sh.getRange(2, 1, n, 3).getValues();   // A:C
-  const fg = sh.getRange(2, 6, n, 2).getValues();  // F:G
-  const k = sh.getRange(2, 11, n, 1).getValues();  // K distributor
-  const m = sh.getRange(2, 13, n, 1).getValues();  // M customer
-  const v = sh.getRange(2, 22, n, 1).getValues();  // V jenis sales
-  const aa = sh.getRange(2, 27, n, 3).getValues(); // AA:AC
-  const ae = sh.getRange(2, 31, n, 1).getValues(); // AE SBU
-  const rows = new Array(n);
-  for (let i = 0; i < n; i++) {
-    rows[i] = [a[i][0],a[i][1],a[i][2],fg[i][0],fg[i][1],m[i][0],'',v[i][0],k[i][0],aa[i][0],aa[i][1],aa[i][2],ae[i][0]];
+  const lastColumn = sh.getLastColumn();
+  const headers = sh.getRange(1, 1, 1, lastColumn).getValues()[0];
+  const fields = {
+    year: page2FindHeader_(headers, ['TAHUN','YEAR'], 'TAHUN'),
+    month: page2FindHeader_(headers, ['BULAN','MONTH'], 'BULAN'),
+    day: page2FindHeader_(headers, ['TANGGAL','DATE','DAY'], 'TANGGAL'),
+    subbrand: page2FindHeader_(headers, ['SUB BRAND','SUBBRAND'], 'SUB BRAND'),
+    brand: page2FindHeader_(headers, ['BRAND'], 'BRAND'),
+    subdist: page2FindHeader_(headers, ['SUBDIST','DISTRIBUTORS','DISTRIBUTOR'], 'SUBDIST'),
+    customer: page2FindHeader_(headers, ['CUSTOMER NAME','NAMA AKUN','CUSTOMER'], 'CUSTOMER NAME'),
+    category: page2FindHeader_(headers, ['CATEGORY','KATEGORI'], 'CATEGORY'),
+    salesType: page2FindHeader_(headers, ['JENIS SALES','SALES TYPE'], 'JENIS SALES'),
+    pic: page2FindHeader_(headers, ['PIC'], 'PIC'),
+    tim: page2FindHeader_(headers, ['TIM','TEAM'], 'TIM'),
+    sbu: page2FindHeader_(headers, ['SBU'], 'SBU')
+  };
+
+  const columns = Object.keys(fields).map(k => fields[k]).sort((a,b) => a-b);
+  const runs = [];
+  columns.forEach(col => {
+    const current = runs[runs.length - 1];
+    if (!current || col > current.end + 1) runs.push({start:col,end:col,values:null});
+    else current.end = col;
+  });
+
+  const rowCount = lastRow - 1;
+  runs.forEach(run => {
+    run.values = sh.getRange(2, run.start + 1, rowCount, run.end - run.start + 1).getValues();
+  });
+
+  const colRun = {};
+  runs.forEach(run => {
+    for (let c = run.start; c <= run.end; c++) colRun[c] = run;
+  });
+  const read = (rowIndex, colIndex) => {
+    const run = colRun[colIndex];
+    return run.values[rowIndex][colIndex - run.start];
+  };
+
+  const rows = new Array(rowCount);
+  for (let i = 0; i < rowCount; i++) {
+    const rawTim = page2Key_(read(i, fields.tim));
+    const rawTeamName = fields.salesman >= 0 ? page2Text_(read(i, fields.salesman)) : '';
+    // Semua akun yang tidak masuk mapping Motoris/Canvaser diperlakukan
+    // sebagai Salesman, sesuai aturan klasifikasi yang disepakati.
+    const tim = rawTim || (rawTeamName ? 'SALESMAN' : 'SALESMAN');
+    rows[i] = [
+      read(i, fields.year),                         // 0 year
+      page2Month_(read(i, fields.month)),            // 1 month
+      read(i, fields.day),                          // 2 day (DD supported)
+      read(i, fields.subbrand),                     // 3 subbrand
+      read(i, fields.brand),                        // 4 brand
+      read(i, fields.customer),                     // 5 customer / Nama Akun
+      read(i, fields.pic),                          // 6 PIC
+      read(i, fields.salesType),                    // 7 SO / SOO
+      read(i, fields.subdist),                      // 8 distributor / subdist
+      tim,                                          // 9 team classification
+      read(i, fields.customer),                     // 10 Nama Akun
+      read(i, fields.category),                     // 11 category
+      read(i, fields.sbu)                           // 12 SBU
+    ];
   }
   return rows;
 }
+
 function page2Date_(year, month, day) {
-  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  let mi = months.indexOf(page2Month_(month));
-  if (mi < 0 && /^\d{1,2}$/.test(String(month).trim())) mi = Number(month) - 1;
+  const mi = PAGE2_MONTHS_.indexOf(page2Month_(month));
   let d = null;
   if (Object.prototype.toString.call(day) === '[object Date]' && !isNaN(day)) {
     d = day.getDate();
   } else if (typeof day === 'number' && Number.isFinite(day)) {
-    // Numeric values above 31 may be Google Sheets date serials.
-    d = day > 31 ? new Date(Date.UTC(1899, 11, 30) + day * 86400000).getUTCDate() : day;
+    d = day > 31
+      ? new Date(Date.UTC(1899, 11, 30) + day * 86400000).getUTCDate()
+      : day;
   } else {
-    const raw = String(day == null ? '' : day).trim();
-    let m = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-    if (m) d = Number(m[3]);
+    const raw = page2Text_(day);
+    let match = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (match) d = Number(match[3]);
     else {
-      m = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-      if (m) d = Number(m[1]);
+      match = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+      if (match) d = Number(match[1]);
       else if (/^\d{1,2}$/.test(raw)) d = Number(raw);
       else {
         const parsed = Date.parse(raw);
@@ -64,58 +161,60 @@ function page2Date_(year, month, day) {
       }
     }
   }
-  if (!Number(year) || mi < 0 || !d || d > 31) return '';
+  if (!Number(year) || mi < 0 || !d || d < 1 || d > 31) return '';
   return String(Number(year)) + '-' + String(mi + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
 }
-function page2Unique_(rows, index) {
-  const o = {};
-  rows.forEach(r => { const v = page2Text_(r[index]); if (v) o[v] = true; });
-  return Object.keys(o).sort((a,b) => a.localeCompare(b,'id'));
-}
+
 function page2BuildMeta_(sourceRows) {
-  // Bangun seluruh opsi filter dalam satu lintasan; hindari membuat beberapa
-  // array perantara besar dari RAW_DATA_SALES.
   const values = sourceRows || page2Read_();
-  const fields = {years:0, months:1, pics:10, salesmen:9, subdists:8, brands:4, subbrands:3, accounts:10, categories:11};
-  const sets = {};
-  Object.keys(fields).forEach(k => sets[k] = new Set());
-  const salesmen = new Set();
+  const years = new Set(), months = new Set(), pics = new Set();
+  const salesmen = new Set(), subdists = new Set(), brands = new Set();
+  const subbrands = new Set(), accounts = new Set(), categories = new Set();
   const dateSet = new Set(), monthsByYear = {};
   const salesTypeCounts = {};
   let sooRowCount = 0;
+
   values.forEach(r => {
-    const salesType = page2Key_(r[7]);
-    if (salesType) salesTypeCounts[salesType] = (salesTypeCounts[salesType] || 0) + 1;
-    if (salesType !== 'SOO') return;
+    const type = page2Key_(r[7]);
+    if (type) salesTypeCounts[type] = (salesTypeCounts[type] || 0) + 1;
+    if (type !== 'SOO') return;
     sooRowCount++;
-    Object.keys(fields).forEach(k => {
-      const value = page2Text_(r[fields[k]]);
-      if (value) sets[k].add(k === 'months' ? page2Month_(value) : value);
-    });
-    if (page2Key_(r[9]).indexOf('SALESMAN') === 0) { const account = page2Text_(r[10]); if (account) salesmen.add(account); }
-    const normalizedMonth = page2Month_(r[1]);
-    const yearKey = page2Text_(r[0]);
-    if (yearKey && normalizedMonth) {
-      if (!monthsByYear[yearKey]) monthsByYear[yearKey] = new Set();
-      monthsByYear[yearKey].add(normalizedMonth);
+
+    const year = page2Text_(r[0]);
+    const month = page2Month_(r[1]);
+    if (year) years.add(year);
+    if (month) months.add(month);
+    if (page2Text_(r[6])) pics.add(page2Text_(r[6]));
+    if (page2Text_(r[8])) subdists.add(page2Text_(r[8]));
+    if (page2Text_(r[4])) brands.add(page2Text_(r[4]));
+    if (page2Text_(r[3])) subbrands.add(page2Text_(r[3]));
+    if (page2Text_(r[10])) accounts.add(page2Text_(r[10]));
+    if (page2Text_(r[11])) categories.add(page2Text_(r[11]));
+    if (page2Key_(r[9]) === 'SALESMAN' && page2Text_(r[10])) salesmen.add(page2Text_(r[10]));
+
+    if (year && month) {
+      if (!monthsByYear[year]) monthsByYear[year] = new Set();
+      monthsByYear[year].add(month);
     }
-    const date = page2Date_(r[0], r[1], r[2]);
+    const date = page2Date_(year, month, r[2]);
     if (date) dateSet.add(date);
   });
-  const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  const sorted = key => Array.from(sets[key]).sort((a,b) => a.localeCompare(b,'id'));
+
+  const sorted = set => Array.from(set).sort((a,b) => a.localeCompare(b,'id'));
   return {
-    years: sorted('years').sort((a,b) => Number(a)-Number(b)),
-    months: monthOrder.filter(m => sets.months.has(m)),
-    monthsByYear: Object.fromEntries(Object.keys(monthsByYear).map(y => [y, monthOrder.filter(m => monthsByYear[y].has(m))])),
+    years: sorted(years).sort((a,b) => Number(a)-Number(b)),
+    months: PAGE2_MONTHS_.filter(m => months.has(m)),
+    monthsByYear: Object.fromEntries(Object.keys(monthsByYear).map(y => [
+      y, PAGE2_MONTHS_.filter(m => monthsByYear[y].has(m))
+    ])),
     dateKeys: Array.from(dateSet).sort(),
-    pics: sorted('pics'),
-    salesmen: Array.from(salesmen).sort((a,b) => a.localeCompare(b,'id')),
-    subdists: sorted('subdists'),
-    brands: sorted('brands'),
-    subbrands: sorted('subbrands'),
-    accounts: sorted('accounts'),
-    categories: sorted('categories'),
+    pics: sorted(pics),
+    salesmen: sorted(salesmen),
+    subdists: sorted(subdists),
+    brands: sorted(brands),
+    subbrands: sorted(subbrands),
+    accounts: sorted(accounts),
+    categories: sorted(categories),
     salesTypes: ['SOO'],
     distributors: ['ALL'],
     sourceRowCount: values.length,
@@ -124,22 +223,23 @@ function page2BuildMeta_(sourceRows) {
     updatedAt: PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED') || 'Live dari Google Sheets'
   };
 }
-function page2FilterList_(v) {
-  if (v == null || v === '' || v === 'ALL') return [];
-  return (Array.isArray(v) ? v : [v]).map(page2Key_).filter(Boolean);
+
+function page2FilterList_(value) {
+  if (value == null || value === '' || value === 'ALL') return [];
+  return (Array.isArray(value) ? value : [value]).map(page2Key_).filter(Boolean);
 }
-function page2Growth_(cy,ly) { return ly ? (cy / ly - 1) * 100 : (cy ? null : 0); }
-// Kunci outlet dan aktivitas menggunakan identitas outlet lintas distributor.
-// Length-prefix mencegah benturan jika nama mengandung karakter pemisah.
+
+function page2Growth_(current, previous) {
+  return previous ? (current / previous - 1) * 100 : (current ? null : 0);
+}
+
 function page2CompositeKey_(parts) {
-  return parts.map(v => { const s = page2Key_(v); return s.length + ':' + s; }).join('|');
+  return parts.map(value => {
+    const s = page2Key_(value);
+    return s.length + ':' + s;
+  }).join('|');
 }
-function page2OutletKey_(customer, distributor) {
-  return page2CompositeKey_([customer, distributor]);
-}
-function page2EcKey_(outletKey, dateKey) {
-  return page2CompositeKey_([dateKey, outletKey]);
-}
+
 function page2BuildDashboardData_(filters, sourceRows) {
   filters = filters || {};
   const all = sourceRows || page2Read_();
@@ -150,153 +250,169 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const subdists = page2FilterList_(filters.subdists);
   const brands = page2FilterList_(filters.brands);
   const subbrands = page2FilterList_(filters.subbrands);
-  const accounts = page2FilterList_(filters.accounts);
   const categories = page2FilterList_(filters.categories);
   const salesmen = page2FilterList_(filters.salesmen);
   const selectedDates = page2FilterList_(filters.dates);
   const hasDateFilter = Array.isArray(filters.dates);
-
+  const periodMonths = Array.isArray(filters.months) ? selectedMonths : PAGE2_MONTHS_;
+  const monthCount = periodMonths.length;
   const matches = r => {
     if (page2Key_(r[7]) !== 'SOO') return false;
-    if (pics.length && !pics.includes(page2Key_(r[10]))) return false;
+    if (pics.length && !pics.includes(page2Key_(r[6]))) return false;
     if (subdists.length && !subdists.includes(page2Key_(r[8]))) return false;
     if (brands.length && !brands.includes(page2Key_(r[4]))) return false;
     if (subbrands.length && !subbrands.includes(page2Key_(r[3]))) return false;
-    if (accounts.length && !accounts.includes(page2Key_(r[10]))) return false;
     if (categories.length && !categories.includes(page2Key_(r[11]))) return false;
     return true;
   };
 
-  const monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  const periodMonths = Array.isArray(filters.months) ? selectedMonths : monthNames;
-  const monthCount = periodMonths.length;
-  const makeBucket = () => ({ ao:new Set(), ec:new Set(), groups:{subdist:{},account:{},category:{},sbu:{}} });
+  const makeBucket = () => ({ao:new Set(),ec:new Set(),groups:{subdist:{},account:{},category:{},sbu:{}}});
   const CY = makeBucket(), LY = makeBucket(), CHART_CY = makeBucket(), CHART_LY = makeBucket();
-  const monthly = monthNames.map(m => ({month:m,ao:0,aoLy:0,ec:0,ecLy:0}));
-  const monthlySets = monthNames.map(() => ({cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()}));
+  const monthly = PAGE2_MONTHS_.map(month => ({month:month,ao:0,aoLy:0,ec:0,ecLy:0}));
+  const monthlySets = PAGE2_MONTHS_.map(() => ({cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()}));
   const dailyMap = {};
-  const selectedMtdMonth = periodMonths.slice()
-    .sort((a,b)=>monthNames.indexOf(a)-monthNames.indexOf(b)).slice(-1)[0];
-  const mtdMonth = selectedMtdMonth || null;
-  const mtdAO = {cy:new Set(),ly:new Set(),cyEC:new Set(),lyEC:new Set()};
+  const orderedSelected = periodMonths.slice().sort((a,b) => PAGE2_MONTHS_.indexOf(a)-PAGE2_MONTHS_.indexOf(b));
+  const mtdMonth = orderedSelected.length ? orderedSelected[orderedSelected.length - 1] : null;
+  const mtd = {cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
   const customer = r => page2Key_(r[5]);
-  const outlet = r => customer(r);
-  const ecOutlet = r => customer(r);
+  const outlet = r => customer(r); // AO counts unique account names
+  const ecKeyFor = (r, date) => page2CompositeKey_([date, customer(r), r[8]]);
 
-  const addGroup = (bucket, dim, label, outletKey, date) => {
+  const addGroup = (bucket, dimension, label, outletKey, ecKey) => {
     if (!label) return;
-    if (!bucket.groups[dim][label]) bucket.groups[dim][label] = {name:label,ao:new Set(),ec:new Set()};
-    bucket.groups[dim][label].ao.add(outletKey);
-    bucket.groups[dim][label].ec.add(page2EcKey_(outletKey, date));
+    if (!bucket.groups[dimension][label]) {
+      bucket.groups[dimension][label] = {name:label,ao:new Set(),ec:new Set()};
+    }
+    bucket.groups[dimension][label].ao.add(outletKey);
+    bucket.groups[dimension][label].ec.add(ecKey);
   };
 
-  // Satu lintasan untuk semua agregasi. Tidak membuat array rows/chartRows
-  // berukuran besar dan tidak memindai subset yang sama dua kali.
   let matchedRowCount = 0;
   all.forEach(r => {
     if (!matches(r)) return;
     matchedRowCount++;
 
-    const y = Number(r[0]), m = page2Month_(r[1]);
-    if ((y !== year && y !== ly) || !periodMonths.includes(m)) return;
-
-    const cust = customer(r);
-    const date = page2Date_(y,m,r[2]);
-    if (!cust || !date) return;
+    const y = Number(r[0]), month = page2Month_(r[1]);
+    if ((y !== year && y !== ly) || periodMonths.indexOf(month) < 0) return;
+    const customerName = customer(r);
+    if (!customerName) return;
+    const date = page2Date_(y, month, r[2]);
+    if (!date) return;
 
     const outletKey = outlet(r);
-    const ecKey = page2EcKey_(ecOutlet(r), date);
-    const isCurrentYear = y === year;
-    const bucket = isCurrentYear ? CY : LY;
-    const chartBucket = isCurrentYear ? CHART_CY : CHART_LY;
+    const ecKey = ecKeyFor(r, date);
+    const isCY = y === year;
+    const totalBucket = isCY ? CY : LY;
 
-    bucket.ao.add(outletKey);
-    bucket.ec.add(ecKey);
-    addGroup(bucket,'sbu',page2Text_(r[12]),outletKey,date);
+    totalBucket.ao.add(outletKey);
+    totalBucket.ec.add(ecKey);
+    addGroup(totalBucket, 'sbu', page2Key_(r[12]), outletKey, ecKey);
 
-    if (m === mtdMonth) {
-      (isCurrentYear ? mtdAO.cy : mtdAO.ly).add(outletKey);
-      (isCurrentYear ? mtdAO.cyEC : mtdAO.lyEC).add(ecKey);
+    if (month === mtdMonth) {
+      (isCY ? mtd.cyAO : mtd.lyAO).add(outletKey);
+      (isCY ? mtd.cyEC : mtd.lyEC).add(ecKey);
     }
 
-    // Filter Salesman hanya untuk grafik bulanan/harian dan komposisi.
-    // Dimensi filter tetap memakai kolom NAMA AKUN (AB), sesuai mapping aktif.
-    if (salesmen.length && !salesmen.includes(page2Key_(r[10]))) return;
+    // Dropdown SALESMAN hanya berisi Nama Akun yang diklasifikasikan SALESMAN.
+    // Saat dipilih, filter membatasi trend dan komposisi; KPI total tetap total SOO.
+    if (salesmen.length && !salesmen.includes(customerName)) return;
 
-    addGroup(chartBucket,'subdist',page2Text_(r[8]),outletKey,date);
-    addGroup(chartBucket,'account',page2Text_(r[10]),outletKey,date);
-    addGroup(chartBucket,'category',page2Text_(r[11]),outletKey,date);
+    const chartBucket = isCY ? CHART_CY : CHART_LY;
+    addGroup(chartBucket, 'subdist', page2Text_(r[8]), outletKey, ecKey);
+    addGroup(chartBucket, 'account', page2Text_(r[10]), outletKey, ecKey);
+    addGroup(chartBucket, 'category', page2Text_(r[11]), outletKey, ecKey);
 
-    const monthIndex = monthNames.indexOf(m);
+    const monthIndex = PAGE2_MONTHS_.indexOf(month);
     if (monthIndex >= 0) {
       const ms = monthlySets[monthIndex];
-      (isCurrentYear ? ms.cyAO : ms.lyAO).add(outletKey);
-      (isCurrentYear ? ms.cyEC : ms.lyEC).add(ecKey);
+      (isCY ? ms.cyAO : ms.lyAO).add(outletKey);
+      (isCY ? ms.cyEC : ms.lyEC).add(ecKey);
     }
 
     const dayKey = date.slice(8,10);
-    if (isCurrentYear && (!hasDateFilter || selectedDates.includes(dayKey))) {
-      if (!dailyMap[dayKey]) dailyMap[dayKey] = {day:dayKey,ao:new Set(),ec:new Set()};
+    if (isCY && (!hasDateFilter || selectedDates.includes(dayKey))) {
+      if (!dailyMap[dayKey]) dailyMap[dayKey] = {ao:new Set(),ec:new Set()};
       dailyMap[dayKey].ao.add(outletKey);
       dailyMap[dayKey].ec.add(ecKey);
     }
   });
 
-  monthlySets.forEach((sets,idx) => {
-    monthly[idx].ao=sets.cyAO.size; monthly[idx].aoLy=sets.lyAO.size;
-    monthly[idx].ec=sets.cyEC.size; monthly[idx].ecLy=sets.lyEC.size;
+  monthlySets.forEach((sets,index) => {
+    monthly[index].ao = sets.cyAO.size;
+    monthly[index].aoLy = sets.lyAO.size;
+    monthly[index].ec = sets.cyEC.size;
+    monthly[index].ecLy = sets.lyEC.size;
   });
 
-  const aoMTD = mtdAO.cy.size, aoMTDLY = mtdAO.ly.size;
-  const ecMTD = mtdAO.cyEC.size, ecMTDLY = mtdAO.lyEC.size;
-  const groupResult = (dim, cyBucket, lyBucket) => {
-    const a=cyBucket.groups[dim],b=lyBucket.groups[dim],names=Array.from(new Set(Object.keys(a).concat(Object.keys(b))));
-    return names.map(name=>{
-      const cy=a[name],prev=b[name],ao=cy?cy.ao.size:0,aoLy=prev?prev.ao.size:0,ec=cy?cy.ec.size:0;
-      return {name,ao,aoLy,ec,growth:page2Growth_(ao,aoLy)};
-    }).sort((x,y)=>y.ao-x.ao||x.name.localeCompare(y.name,'id'));
+  const groupResult = (dimension, currentBucket, previousBucket) => {
+    const current = currentBucket.groups[dimension];
+    const previous = previousBucket.groups[dimension];
+    const names = Array.from(new Set(Object.keys(current).concat(Object.keys(previous))));
+    return names.map(name => {
+      const cy = current[name], lyGroup = previous[name];
+      const ao = cy ? cy.ao.size : 0;
+      const aoLy = lyGroup ? lyGroup.ao.size : 0;
+      const ec = cy ? cy.ec.size : 0;
+      return {name:name,ao:ao,aoLy:aoLy,ec:ec,growth:page2Growth_(ao,aoLy)};
+    }).sort((a,b) => b.ao-a.ao || a.name.localeCompare(b.name,'id'));
   };
+
   const groupSbu = sbu => {
-    const cy=CY.groups.sbu[sbu],prev=LY.groups.sbu[sbu];
-    const ao=cy?cy.ao.size:0,aoLy=prev?prev.ao.size:0;
-    return {name:sbu,aoCY:ao,aoLY:aoLy,growth:page2Growth_(ao,aoLy),ctr:CY.ao.size?ao/CY.ao.size*100:0};
+    const current = CY.groups.sbu[sbu], previous = LY.groups.sbu[sbu];
+    const ao = current ? current.ao.size : 0;
+    const aoLy = previous ? previous.ao.size : 0;
+    return {
+      name:sbu,aoCY:ao,aoLY:aoLy,growth:page2Growth_(ao,aoLy),
+      ctr:CY.ao.size ? ao / CY.ao.size * 100 : 0
+    };
   };
-  const daily = Array.from({length:31},(_,i)=>{
-    const day = String(i+1).padStart(2,'0');
+
+  const daily = Array.from({length:31},(_,index) => {
+    const day = String(index + 1).padStart(2,'0');
     const item = dailyMap[day];
-    return {day,ao:item?item.ao.size:0,ec:item?item.ec.size:0};
+    return {day:day,ao:item ? item.ao.size : 0,ec:item ? item.ec.size : 0};
   });
-  const ao=CY.ao.size, aoLy=LY.ao.size, ec=CY.ec.size, ecLy=LY.ec.size;
-  const compositionGroups = dim => groupResult(dim,CHART_CY,CHART_LY);
+
+  const ao = CY.ao.size, aoLy = LY.ao.size, ec = CY.ec.size, ecLy = LY.ec.size;
+  const aoMTD = mtd.cyAO.size, aoMTDLY = mtd.lyAO.size;
+  const ecMTD = mtd.cyEC.size, ecMTDLY = mtd.lyEC.size;
+  const composition = dimension => groupResult(dimension, CHART_CY, CHART_LY);
 
   return {
-    kpi:{year,ly,months:periodMonths,monthCount,ao,aoLy,aoGrowth:page2Growth_(ao,aoLy),ec,ecLy,ecGrowth:page2Growth_(ec,ecLy),aoMTD,aoMTDLY,ecMTD,ecMTDLY,mtdMonth,rows:matchedRowCount},
-    monthly,daily,
+    kpi:{
+      year:year,ly:ly,months:periodMonths,monthCount:monthCount,
+      ao:ao,aoLy:aoLy,aoGrowth:page2Growth_(ao,aoLy),
+      ec:ec,ecLy:ecLy,ecGrowth:page2Growth_(ec,ecLy),
+      aoMTD:aoMTD,aoMTDLY:aoMTDLY,ecMTD:ecMTD,ecMTDLY:ecMTDLY,
+      mtdMonth:mtdMonth,rows:matchedRowCount
+    },
+    monthly:monthly,
+    daily:daily,
     donut:{
-      subdist:compositionGroups('subdist'),
-      account:compositionGroups('account'),
-      category:compositionGroups('category')
+      subdist:composition('subdist'),
+      account:composition('account'),
+      category:composition('category')
     },
     sbu:{b7:groupSbu('B7'),saka:groupSbu('SAKA')},
     byTeam:groupResult('sbu',CY,LY),
-    updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED')||'Live dari Google Sheets'
+    updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED') || 'Live dari Google Sheets'
   };
 }
 
-/**
- * Cache layer for Page 2.
- * Cache version follows PAGE2_RAW_UPDATED, so a completed import naturally
- * starts a fresh cache namespace without attempting to enumerate cache keys.
- */
-function page2CacheKey_(prefix, payload) {
+function page2SourceVersion_(sheet) {
+  const sh = sheet || page2Source_();
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
-  const version = props.getProperty('PAGE2_RAW_UPDATED') || 'initial';
-  // Cache dipisahkan per Spreadsheet agar hasil database lama tidak terbaca
-  // setelah konfigurasi sumber data berubah.
-  const raw = spreadsheetId + '|' + String(version) + '|' + String(payload || '');
+  return [
+    spreadsheetId, sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
+    props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
+  ].join('|');
+}
+
+function page2CacheKey_(prefix, payload, sourceVersion) {
+  const raw = String(sourceVersion || '') + '|' + String(payload || '');
   const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, raw, Utilities.Charset.UTF_8);
-  return prefix + '_' + Utilities.base64EncodeWebSafe(digest).replace(/=+$/g, '');
+  return prefix + '_' + Utilities.base64EncodeWebSafe(digest).replace(/=+$/g,'');
 }
 
 function page2Cached_(key, builder, ttlSeconds) {
@@ -308,65 +424,73 @@ function page2Cached_(key, builder, ttlSeconds) {
   }
   const result = builder();
   const json = JSON.stringify(result);
-  // Apps Script CacheService limits an individual cache value to about 100 KB.
   if (json.length <= 90000) {
-    try { cache.put(key, json, ttlSeconds || 180); }
-    catch (err) { /* Cache is an optimization, never a dependency. */ }
+    try { cache.put(key, json, ttlSeconds || 300); }
+    catch (err) { /* Cache hanya optimasi, bukan dependensi. */ }
   }
   return result;
 }
 
 function page2GetMeta() {
-  const key = page2CacheKey_('p2meta', 'v8-soo-distributor-k');
-  return page2Cached_(key, page2BuildMeta_, 300);
+  const sh = page2Source_();
+  const version = page2SourceVersion_(sh);
+  const key = page2CacheKey_('p2meta_schema2', 'soo-header-mapped', version);
+  return page2Cached_(key, function() {
+    return page2BuildMeta_(page2Read_(sh));
+  }, 300);
 }
 
 function getPage2DashboardData(filters) {
+  const sh = page2Source_();
   const safeFilters = filters || {};
-  const key = page2CacheKey_('p2data_v14', JSON.stringify(safeFilters));
+  const version = page2SourceVersion_(sh);
+  const key = page2CacheKey_('p2data_schema2', JSON.stringify(safeFilters), version);
   return page2Cached_(key, function() {
-    return page2BuildDashboardData_(safeFilters);
-  }, 21600);
+    return page2BuildDashboardData_(safeFilters, page2Read_(sh));
+  }, 300);
 }
 
-
 /**
- * Initial Page 2 payload: read RAW_DATA_SALES once, then build both filter
- * metadata and dashboard aggregates from the same compact row set.
+ * Initial payload membaca sumber satu kali dan membangun metadata + KPI/grafik.
+ * Versi cache memuat sheetId, jumlah baris/kolom, serta timestamp import,
+ * sehingga append data baru tidak memakai hasil cache dataset sebelumnya.
  */
 function getPage2InitialPayload() {
-  const metaKey = page2CacheKey_('p2meta', 'v14-ao-distinct-customer-ec-distinct-customer-date-daily-dd');
-  const dataKey = page2CacheKey_('p2initialdata', 'v14-ao-distinct-customer-ec-distinct-customer-date-daily-dd');
+  const sh = page2Source_();
+  const version = page2SourceVersion_(sh);
+  const metaKey = page2CacheKey_('p2meta_schema2', 'initial', version);
+  const dataKey = page2CacheKey_('p2initial_schema2', 'initial', version);
   const cache = CacheService.getScriptCache();
   const cachedMeta = cache.get(metaKey);
   const cachedData = cache.get(dataKey);
   if (cachedMeta && cachedData) {
-    try { return { meta: JSON.parse(cachedMeta), data: JSON.parse(cachedData) }; }
-    catch (err) { cache.remove(metaKey); cache.remove(dataKey); }
+    try {
+      return {meta:JSON.parse(cachedMeta),data:JSON.parse(cachedData)};
+    } catch (err) {
+      cache.remove(metaKey);
+      cache.remove(dataKey);
+    }
   }
 
-  // Read the sheet once; build both outputs from the same compact row set.
-  const sourceRows = page2Read_();
+  const sourceRows = page2Read_(sh);
   const meta = page2BuildMeta_(sourceRows);
   const years = meta.years || [];
-  const year = years.includes('2026')
-    ? 2026
-    : (Number(years[years.length - 1]) || new Date().getFullYear());
-  const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  const initialMonths = Array.from(new Set(sourceRows
-    .filter(r => Number(r[0]) === year && page2Key_(r[7]) === 'SOO')
-    .map(r => page2Month_(r[1]))
-    .filter(m => monthOrder.includes(m))))
-    .sort((a,b) => monthOrder.indexOf(a)-monthOrder.indexOf(b));
-  const data = page2BuildDashboardData_({ year: year, months: initialMonths }, sourceRows);
+  const year = Number(years.indexOf('2026') >= 0 ? '2026' : years[years.length - 1]) || new Date().getFullYear();
+  const monthSet = new Set();
+  sourceRows.forEach(r => {
+    if (Number(r[0]) === year && page2Key_(r[7]) === 'SOO') {
+      const month = page2Month_(r[1]);
+      if (PAGE2_MONTHS_.indexOf(month) >= 0) monthSet.add(month);
+    }
+  });
+  const initialMonths = PAGE2_MONTHS_.filter(month => monthSet.has(month));
+  const data = page2BuildDashboardData_({year:year,months:initialMonths}, sourceRows);
 
-  // The combined payload can exceed CacheService's 100 KB/item limit.
-  // Cache metadata and dashboard data separately so later visits avoid a full
-  // 131k-row Spreadsheet scan while keeping each item within the limit.
-  const metaJson = JSON.stringify(meta), dataJson = JSON.stringify(data);
+  const metaJson = JSON.stringify(meta);
+  const dataJson = JSON.stringify(data);
   try {
-    if (metaJson.length <= 90000) cache.put(metaKey, metaJson, 21600);
-    if (dataJson.length <= 90000) cache.put(dataKey, dataJson, 21600);
-  } catch (err) { /* cache remains an optimization, not a dependency */ }
-  return { meta: meta, data: data };
+    if (metaJson.length <= 90000) cache.put(metaKey, metaJson, 300);
+    if (dataJson.length <= 90000) cache.put(dataKey, dataJson, 300);
+  } catch (err) { /* Cache hanya optimasi, bukan dependensi. */ }
+  return {meta:meta,data:data};
 }
