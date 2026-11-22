@@ -3,6 +3,8 @@ let p2Data=null,p2Meta=null,p2Charts={},p2RequestSeq=0,p2MetricValue='ao';
 let p2CustomerOptions=[],p2CustomerSelected=new Set();
 const p2$=id=>document.getElementById(id);
 const p2Fmt=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:1});
+const p2FmtValue=v=>{const n=Number(v||0),a=Math.abs(n);if(a>=1e9)return (n/1e9).toLocaleString('id-ID',{maximumFractionDigits:0})+' M';if(a>=1e6)return (n/1e6).toLocaleString('id-ID',{maximumFractionDigits:0})+' Jt';if(a>=1e3)return (n/1e3).toLocaleString('id-ID',{maximumFractionDigits:0})+' Rb';return n.toLocaleString('id-ID',{maximumFractionDigits:0});};
+const p2FmtMetric=(v,metric=p2MetricValue)=>metric==='value'?p2FmtValue(v):p2Fmt(v);
 const p2Esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function p2Selected(id){const el=p2$(id);if(!el)return [];if(el.tagName==='SELECT')return [...el.selectedOptions].map(o=>o.value);return [...el.querySelectorAll('input[type="checkbox"]:checked')].map(o=>o.value);}
 function p2Fill(id,values,selectAll=true){const el=p2$(id);if(!el)return;const old=new Set(p2Selected(id));el.innerHTML='';(values||[]).forEach(v=>{const label=document.createElement('label');label.className='p2-checkitem';const cb=document.createElement('input');cb.type='checkbox';cb.value=String(v);cb.checked=selectAll||old.has(String(v));const text=document.createElement('span');text.textContent=String(v);label.append(cb,text);el.appendChild(label);});}
@@ -146,7 +148,17 @@ function page2RenderPareto(){
   '<td>'+money(r.actualCY)+'</td><td>'+money(r.actualLY)+'</td><td class="'+cls(r.grwMTD)+'">'+growth(r.grwMTD)+'</td>'+
   '<td><b>'+money(r.actualYTD)+'</b></td><td>'+money(r.actualLYYTD)+'</td><td class="'+cls(r.grwYTD)+'">'+growth(r.grwYTD)+'</td>'+
   '<td class="'+cls(r.grwVsLM)+'">'+growth(r.grwVsLM)+'</td><td class="'+cls(r.grwVsL3M)+'">'+growth(r.grwVsL3M)+'</td>'+
-  '<td>'+Number(r.ctr||0).toFixed(1)+'%</td><td>'+(r.avgMonth===null?'—':money(r.avgMonth))+'</td></tr>').join('');
+  '<td class="'+p2CtrClass(Number(r.ctr||0))+'">'+Number(r.ctr||0).toFixed(1)+'%</td><td>'+(r.avgMonth===null?'—':money(r.avgMonth))+'</td></tr>').join('');
+ const sum=key=>rows.reduce((total,r)=>total+(Number(r[key])||0),0);
+ const totalCY=sum('actualCY'),totalLY=sum('actualLY'),totalYTD=sum('actualYTD'),totalLYYTD=sum('actualLYYTD');
+ const totalPrevious=sum('previousValue'),totalAverage3=sum('averageLast3Value');
+ const totalCTR=sum('ctr'),totalAverageMonth=sum('avgMonth');
+ body.insertAdjacentHTML('beforeend','<tr class="p2-grand-total"><td><b>GRAND TOTAL (25 OUTLET)</b></td><td>—</td>'+
+  '<td><b>'+money(totalCY)+'</b></td><td><b>'+money(totalLY)+'</b></td><td class="'+cls(totalLY?p2GrowthValue(totalCY,totalLY):null)+'">'+growth(totalLY?(totalCY/totalLY-1)*100:null)+'</td>'+
+  '<td><b>'+money(totalYTD)+'</b></td><td><b>'+money(totalLYYTD)+'</b></td><td class="'+cls(totalLYYTD?p2GrowthValue(totalYTD,totalLYYTD):null)+'">'+growth(totalLYYTD?(totalYTD/totalLYYTD-1)*100:null)+'</td>'+
+  '<td class="'+cls(totalPrevious?(totalCY/totalPrevious-1)*100:null)+'">'+growth(totalPrevious?(totalCY/totalPrevious-1)*100:null)+'</td>'+
+  '<td class="'+cls(totalAverage3?(totalCY/totalAverage3-1)*100:null)+'">'+growth(totalAverage3?(totalCY/totalAverage3-1)*100:null)+'</td>'+
+  '<td class="'+p2CtrClass(totalCTR)+'"><b>'+totalCTR.toFixed(1)+'%</b></td><td><b>'+money(totalAverageMonth)+'</b></td></tr>');
 }
 function page2Render(){
  if(!p2Data)return;const d=p2Data,k=d.kpi;
@@ -161,16 +173,16 @@ function page2Render(){
  page2RenderPareto();
 }
 const p2Palette=['#284b8f','#2f7775','#2f7139','#b87525','#76508d','#b23d42','#5986b7','#9b9b54','#5b6472','#c16d55'];
-const p2CenterText={id:'p2CenterText',afterDraw(chart){if(chart.config.type!=='doughnut')return;const total=(chart.data.datasets[0]?.data||[]).reduce((a,b)=>a+Number(b||0),0);const ctx=chart.ctx,area=chart.chartArea;if(!area)return;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#64748b';ctx.font='600 10px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(p2MetricValue==='ao'?'TOTAL AO':p2MetricValue==='ec'?'TOTAL EC':'TOTAL VALUE', (area.left+area.right)/2,(area.top+area.bottom)/2-9);ctx.fillStyle='#172b4d';ctx.font='800 19px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(p2Fmt(total),(area.left+area.right)/2,(area.top+area.bottom)/2+11);ctx.restore();}};
+const p2CenterText={id:'p2CenterText',afterDraw(chart){if(chart.config.type!=='doughnut')return;const total=(chart.data.datasets[0]?.data||[]).reduce((a,b)=>a+Number(b||0),0);const ctx=chart.ctx,area=chart.chartArea;if(!area)return;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#64748b';ctx.font='600 10px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(p2MetricValue==='ao'?'TOTAL AO':p2MetricValue==='ec'?'TOTAL EC':'TOTAL VALUE', (area.left+area.right)/2,(area.top+area.bottom)/2-9);ctx.fillStyle='#172b4d';ctx.font='800 19px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(p2FmtMetric(total),(area.left+area.right)/2,(area.top+area.bottom)/2+11);ctx.restore();}};
 function p2Chart(id,type,data,options){if(p2Charts[id])p2Charts[id].destroy();const ctx=p2$(id);const defaults={responsive:true,maintainAspectRatio:false,font:{family:'Inter, Segoe UI, Arial, sans-serif'},plugins:{legend:{display:type!=='doughnut',position:'bottom',labels:{boxWidth:10,font:{size:9}}}},scales:type==='doughnut'?{}:{y:{beginAtZero:true,grid:{display:false,drawBorder:false},ticks:{font:{size:9}}},x:{grid:{display:false,drawBorder:false},ticks:{font:{size:9},maxRotation:0,minRotation:0}}}};p2Charts[id]=new Chart(ctx,{type,data,options:Object.assign(defaults,options||{}),plugins:type==='doughnut'?[p2CenterText]:[]});}
 function p2RenderDonut(key,canvasId,legendId){
  const metric=p2MetricValue;
  const arr=(p2Data.donut[key]||[]).filter(x=>Number(x[metric])>0).sort((a,b)=>b[metric]-a[metric]).slice();
  const total=arr.reduce((s,x)=>s+Number(x[metric]||0),0);
  const colors=arr.map((x,i)=>p2Palette[i%p2Palette.length]);
- p2Chart(canvasId,'doughnut',{labels:arr.map(x=>x.name),datasets:[{data:arr.map(x=>Number(x[metric]||0)),backgroundColor:colors,borderColor:'#d9c8ad',borderWidth:1.5,hoverOffset:4}]},{cutout:'56%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${p2Fmt(c.raw)} ${metric.toUpperCase()} (${total?(c.raw/total*100).toFixed(1):0}%)`}}}});
+ p2Chart(canvasId,'doughnut',{labels:arr.map(x=>x.name),datasets:[{data:arr.map(x=>Number(x[metric]||0)),backgroundColor:colors,borderColor:'#d9c8ad',borderWidth:1.5,hoverOffset:4}]},{cutout:'56%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${p2FmtMetric(c.raw,metric)}${metric==='value'?'':' '+metric.toUpperCase()} (${total?(c.raw/total*100).toFixed(1):0}%)`}}}});
  const legend=p2$(legendId);if(!arr.length){legend.innerHTML='<div class="p2-empty">Tidak ada data pada filter terpilih.</div>';return;}
- legend.innerHTML=arr.map((x,i)=>{const share=total?Number(x[metric])/total*100:0;const growth=metric==='value'?x.valueGrowth:x.growth;const cls=growth===null||growth===undefined?'neu':growth>0?'pos':growth<0?'neg':'neu';return `<div class="p2-donut-row"><div class="p2-donut-name" style="color:${colors[i]}">${p2Esc(x.name)}</div><div class="p2-donut-meta"><span class="p2-donut-share">${share.toFixed(1)}% • ${p2Fmt(x[metric])} ${metric.toUpperCase()}</span><span class="p2-donut-growth ${cls}">${p2Growth(growth)}</span></div></div>`;}).join('');
+ legend.innerHTML=arr.map((x,i)=>{const share=total?Number(x[metric])/total*100:0;const growth=metric==='value'?x.valueGrowth:x.growth;const cls=growth===null||growth===undefined?'neu':growth>0?'pos':growth<0?'neg':'neu';return `<div class="p2-donut-row"><div class="p2-donut-name" style="color:${colors[i]}">${p2Esc(x.name)}</div><div class="p2-donut-meta"><span class="p2-donut-share">${share.toFixed(1)}% • ${p2FmtMetric(x[metric],metric)}${metric==='value'?'':' '+metric.toUpperCase()}</span><span class="p2-donut-growth ${cls}">${p2Growth(growth)}</span></div></div>`;}).join('');
 }
 function page2DrawCharts(){const d=p2Data,metric=p2MetricValue;
  const monthly=d.monthly.filter(x=>d.kpi.months.includes(x.month));
