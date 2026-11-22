@@ -414,7 +414,7 @@ function testAnalyticsDashboardDataParity() {
  * Does not write to either spreadsheet or change dashboard calculations.
  */
 function analyticsAuditEc2026Detail() {
-  const source = getDatabase__();
+  const source = getDatabase_();
   const sh = source.getSheetByName(RAW_DATA_SHEET_NAME);
   if (!sh || sh.getLastRow() < 2) throw new Error('RAW_DATA_SALES tidak ditemukan atau kosong.');
 
