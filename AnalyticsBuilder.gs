@@ -286,6 +286,8 @@ function analyticsGetReadySheet_(analyticsSheetName, sourceSheetName, phase) {
   }
   const target = analytics.getSheetByName(analyticsSheetName);
   if (!target || target.getLastRow() - 1 !== expectedWrittenRows) return null;
+  // P2 schema v2 adds VAL for the Pareto sales-value aggregation.
+  if (analyticsSheetName === 'P2_EVENT_INDEX' && target.getLastColumn() < P2_EVENT_HEADERS_.length) return null;
   return target;
 }
 
