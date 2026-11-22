@@ -17,6 +17,8 @@ function opts(id,values){let el=$(id),old=el.value;el.innerHTML='<option value="
 function selectedMonths(){return [...document.querySelectorAll('#monthChecks input:checked')].map(x=>x.value).sort((a,b)=>months.indexOf(a)-months.indexOf(b));}
 function updateMonthLabel(){const chosen=selectedMonths(),btn=$('monthTrigger');btn.textContent='Pilih Bulan';btn.title=chosen.length?chosen.map(m=>labels[months.indexOf(m)]).join(', '):'Belum ada bulan dipilih';}
 function setMonths(list, shouldRender=true){document.querySelectorAll('#monthChecks input').forEach(x=>x.checked=list.includes(x.value));updateMonthLabel();if(shouldRender)render();}
+function p1AvailableMonths(){const y=Number($('year').value),typ=$('sales').value;return months.filter(m=>rows.some(r=>r.y===y&&r.m===m&&r.t===typ&&n(r.v)!==0));}
+function p1SetYtdMonths(shouldRender=false){const available=p1AvailableMonths();const last=available.length?months.indexOf(available[available.length-1]):-1;setMonths(months.slice(0,last+1),shouldRender);}
 function selectedSubdists(){return [...document.querySelectorAll('#subdistChecks input:checked')].map(x=>x.value);}
 function selectedPics(){return [...document.querySelectorAll('#picChecks input:checked')].map(x=>x.value);}
 function isPicSelected(value){return selectedPics().includes(String(value||''));}
@@ -80,10 +82,11 @@ function init(){
  }
  $('selectAllMonths').onclick=()=>{document.querySelectorAll('#monthChecks input').forEach(x=>x.checked=true);updateMonthLabel();};
  $('clearMonths').onclick=()=>{document.querySelectorAll('#monthChecks input').forEach(x=>x.checked=false);updateMonthLabel();};
- $('resetYtd').onclick=()=>{let last=-1;months.forEach((m,i)=>{if(rows.some(r=>r.y===Number($('year').value)&&r.m===m&&r.t===$('sales').value&&isPicSelected(r.p)&&n(r.v)!==0))last=i;});document.querySelectorAll('#monthChecks input').forEach(x=>x.checked=months.slice(0,last+1).includes(x.value));updateMonthLabel();};
+ $('resetYtd').onclick=()=>p1SetYtdMonths(false);
  $('applyMonths').onclick=()=>{render();$('monthFilter').classList.remove('open');$('monthTrigger').setAttribute('aria-expanded','false');};
- ['year','sales','subdist','pic'].forEach(id=>$(id).addEventListener('change',render));
- setMonths(months.slice(0,months.findIndex(m=>m==='DEC')), false); // default YTD through November; caller renders once after init
+ ['year','sales'].forEach(id=>$(id).addEventListener('change',()=>p1SetYtdMonths(true)));
+ ['subdist','pic'].forEach(id=>$(id).addEventListener('change',render));
+ p1SetYtdMonths(false); // samakan Reset ke YTD Page 1 dengan ketersediaan bulan pada Page 2
 }
 function filtered(year,month,dimValue=null,dim=null){
  return rows.filter(r=>r.y===Number(year)&&r.t===$('sales').value&&isSubdistSelected(r.d)&&isProductFilterSelected(r)&&(!dim||r[dim]===dimValue)&&isPicSelected(r.p)&&
