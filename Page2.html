@@ -92,12 +92,20 @@
 
 #page2View .p2-section-title{margin:4px 0 9px;color:#173b70}#page2View .p2-section-title h2{font-size:13px;margin:0 0 3px}#page2View .p2-section-title p{font-size:9px;color:#77869a;margin:0}
 #page2View .p2-pareto-card{margin-top:11px}.p2-table-wrap{overflow:auto;max-width:100%;max-height:520px}
-#page2View .p2-pareto-table{border-collapse:separate;border-spacing:0;width:100%;min-width:1120px;font-size:9px;white-space:nowrap}
-#page2View .p2-pareto-table th{position:sticky;top:0;background:#f8e8eb;color:#173b70;padding:8px 7px;text-align:right;border-bottom:1px solid #d7dee9;z-index:2}
-#page2View .p2-pareto-table th:first-child,#page2View .p2-pareto-table th:nth-child(2),#page2View .p2-pareto-table td:first-child,#page2View .p2-pareto-table td:nth-child(2){text-align:left}
-#page2View .p2-pareto-table td{padding:7px;border-bottom:1px solid #e2e8f0;text-align:right;color:#243b5a}
+#page2View .p2-table-wrap{position:relative;isolation:isolate;overflow:auto;max-width:100%;max-height:520px;overscroll-behavior:contain}
+#page2View .p2-pareto-table{border-collapse:separate;border-spacing:0;width:100%;min-width:1380px;table-layout:fixed;font-size:9px;white-space:nowrap}
+#page2View .p2-pareto-table th{position:sticky;top:0;height:34px;line-height:1.25;vertical-align:middle;background:#f8e8eb;color:#173b70;padding:9px 7px;text-align:right;border-bottom:1px solid #cbd5e1;z-index:5;overflow:hidden;text-overflow:ellipsis}
+#page2View .p2-pareto-table th:first-child,#page2View .p2-pareto-table td:first-child{width:205px;text-align:left}
+#page2View .p2-pareto-table th:nth-child(2),#page2View .p2-pareto-table td:nth-child(2){width:115px;text-align:left}
+#page2View .p2-pareto-table th:nth-child(n+3),#page2View .p2-pareto-table td:nth-child(n+3){width:96px}
+#page2View .p2-pareto-table td{height:30px;line-height:1.35;padding:7px;border-bottom:1px solid #e2e8f0;text-align:right;color:#243b5a;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
 #page2View .p2-pareto-table tbody tr:hover{background:#f8fafc}
 #page2View .p2-pareto-table .p2-positive{color:#16803c;font-weight:800}#page2View .p2-pareto-table .p2-negative{color:#d12c2c;font-weight:800}#page2View .p2-pareto-table .p2-neutral{color:#64748b;font-weight:700}
+#page2View .p2-pareto-table .p2-grand-total td{position:sticky;bottom:0;background:#e8eef8;color:#173b70;font-weight:850;border-top:2px solid #94a3b8;z-index:4}
+#page2View .p2-pareto-table .p2-ctr-blue{color:#2563eb;font-weight:850}#page2View .p2-pareto-table .p2-ctr-darkgreen{color:#166534;font-weight:850}#page2View .p2-pareto-table .p2-ctr-lightgreen{color:#65a30d;font-weight:850}#page2View .p2-pareto-table .p2-ctr-orange{color:#ea580c;font-weight:850}#page2View .p2-pareto-table .p2-ctr-red{color:#991b1b;font-weight:850}#page2View .p2-pareto-table .p2-ctr-neutral{color:#64748b;font-weight:700}
+#page2View .p2-control-row{grid-template-columns:220px minmax(300px,380px);column-gap:16px;align-items:center}
+#page2View #p2CustomerFilter{margin-left:8px;min-width:300px}
+#page2View #p2CustomerFilter .p2-customer-menu{left:0}
 </style>
 <section id="page2View" class="p2-view" hidden>\n <div class="p2-loading-overlay" aria-hidden="true"><div class="p2-loading-card"><span class="p2-loading-spinner"></span><span id="p2LoadingText">Sedang memproses data Page 2...</span></div></div>
  <div class="p2-filters">
