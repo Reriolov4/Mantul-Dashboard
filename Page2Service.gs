@@ -302,9 +302,9 @@ function page2BuildDashboardData_(filters, sourceRows) {
     return true;
   };
 
-  const makeBucket = () => ({ao:new Set(),ec:new Set(),groups:{subdist:{},account:{},category:{},sbu:{},team:{}}});
+  const makeBucket = () => ({ao:new Set(),ec:new Set(),groups:{subdist:{},account:{},category:{},subbrand:{},sbu:{},team:{}}});
   const CY = makeBucket(), LY = makeBucket(), CHART_CY = makeBucket(), CHART_LY = makeBucket();
-  const monthly = PAGE2_MONTHS_.map(month => ({month:month,ao:0,aoLy:0,ec:0,ecLy:0}));
+  const monthly = PAGE2_MONTHS_.map(month => ({month:month,ao:0,aoLy:0,ec:0,ecLy:0,value:0,valueLy:0}));
   const monthlySets = PAGE2_MONTHS_.map(() => ({cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()}));
   const dailyMap = {};
   const orderedSelected = periodMonths.slice().sort((a,b) => PAGE2_MONTHS_.indexOf(a)-PAGE2_MONTHS_.indexOf(b));
@@ -339,10 +339,11 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const addGroup = (bucket, dimension, label, outletKey, ecKey) => {
     if (!label) return;
     if (!bucket.groups[dimension][label]) {
-      bucket.groups[dimension][label] = {name:label,ao:new Set(),ec:new Set()};
+      bucket.groups[dimension][label] = {name:label,ao:new Set(),ec:new Set(),value:0};
     }
     if (outletKey) bucket.groups[dimension][label].ao.add(outletKey);
     bucket.groups[dimension][label].ec.add(ecKey);
+    bucket.groups[dimension][label].value += Number(arguments.length > 5 ? arguments[5] : 0) || 0;
   };
 
   let matchedRowCount = 0;
@@ -380,7 +381,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if (outletKey) totalBucket.ao.add(outletKey);
     totalBucket.ec.add(ecKey);
     addGroup(totalBucket, 'sbu', page2Key_(r[12]), outletKey, ecKey);
-    addGroup(totalBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey);
+    addGroup(totalBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey, Number(r[14]) || 0);
 
     if (month === mtdMonth) {
       if (outletKey) (isCY ? mtd.cyAO : mtd.lyAO).add(outletKey);
@@ -388,22 +389,25 @@ function page2BuildDashboardData_(filters, sourceRows) {
     }
 
     const chartBucket = isCY ? CHART_CY : CHART_LY;
-    addGroup(chartBucket, 'subdist', page2Text_(r[8]), outletKey, ecKey);
-    addGroup(chartBucket, 'account', page2Text_(r[10]), outletKey, ecKey);
-    addGroup(chartBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey);
-    addGroup(chartBucket, 'category', page2Text_(r[11]), outletKey, ecKey);
+    addGroup(chartBucket, 'subdist', page2Text_(r[8]), outletKey, ecKey, Number(r[14]) || 0);
+    addGroup(chartBucket, 'account', page2Text_(r[10]), outletKey, ecKey, Number(r[14]) || 0);
+    addGroup(chartBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey, Number(r[14]) || 0);
+    addGroup(chartBucket, 'category', page2Text_(r[11]), outletKey, ecKey, Number(r[14]) || 0);
+    addGroup(chartBucket, 'subbrand', page2Text_(r[3]), outletKey, ecKey, Number(r[14]) || 0);
 
     const monthIndex = PAGE2_MONTHS_.indexOf(month);
     if (monthIndex >= 0) {
+      monthly[monthIndex][isCY ? 'value' : 'valueLy'] += Number(r[14]) || 0;
       const ms = monthlySets[monthIndex];
       if (outletKey) (isCY ? ms.cyAO : ms.lyAO).add(outletKey);
       (isCY ? ms.cyEC : ms.lyEC).add(ecKey);
     }
 
     if (isCY && (!hasDateFilter || selectedDates.has(dayKey))) {
-      if (!dailyMap[dayKey]) dailyMap[dayKey] = {ao:new Set(),ec:new Set()};
+      if (!dailyMap[dayKey]) dailyMap[dayKey] = {ao:new Set(),ec:new Set(),value:0};
       if (outletKey) dailyMap[dayKey].ao.add(outletKey);
       dailyMap[dayKey].ec.add(ecKey);
+      dailyMap[dayKey].value += Number(r[14]) || 0;
     }
   });
 
@@ -423,7 +427,9 @@ function page2BuildDashboardData_(filters, sourceRows) {
       const ao = cy ? cy.ao.size : 0;
       const aoLy = lyGroup ? lyGroup.ao.size : 0;
       const ec = cy ? cy.ec.size : 0;
-      return {name:name,ao:ao,aoLy:aoLy,ec:ec,growth:page2Growth_(ao,aoLy)};
+      const value = cy ? cy.value : 0;
+      const valueLy = lyGroup ? lyGroup.value : 0;
+      return {name:name,ao:ao,aoLy:aoLy,ec:ec,value:value,valueLy:valueLy,valueGrowth:page2Growth_(value,valueLy),growth:page2Growth_(ao,aoLy)};
     }).sort((a,b) => b.ao-a.ao || a.name.localeCompare(b.name,'id'));
   };
 
@@ -440,7 +446,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const daily = Array.from({length:31},(_,index) => {
     const day = String(index + 1).padStart(2,'0');
     const item = dailyMap[day];
-    return {day:day,ao:item ? item.ao.size : 0,ec:item ? item.ec.size : 0};
+    return {day:day,ao:item ? item.ao.size : 0,ec:item ? item.ec.size : 0,value:item ? item.value || 0 : 0};
   });
 
   const ao = CY.ao.size, aoLy = LY.ao.size, ec = CY.ec.size, ecLy = LY.ec.size;
@@ -499,7 +505,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     donut:{
       subdist:composition('subdist'),
       team:composition('team'),
-      category:composition('category')
+      subbrand:composition('subbrand')
     },
     sbu:{b7:groupSbu('B7'),saka:groupSbu('SAKA')},
     byTeam:groupResult('team',CY,LY),
@@ -513,7 +519,7 @@ function page2SourceVersion_(sheet) {
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    'page2-team-pareto-value-v3',
+    'page2-value-matrix-subbrand-v4',
     spreadsheetId, sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');
