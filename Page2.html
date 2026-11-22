@@ -90,7 +90,7 @@
   font-family: Inter, "Segoe UI", Arial, sans-serif !important;
 }
 </style>
-<section id="page2View" class="p2-view" hidden>
+<section id="page2View" class="p2-view" hidden>\n <div class="p2-loading-overlay" aria-hidden="true"><div class="p2-loading-card"><span class="p2-loading-spinner"></span><span id="p2LoadingText">Sedang memproses data Page 2...</span></div></div>
  <div class="p2-filters">
   <div class="p2-filter"><label>TAHUN ANALISIS</label><select id="p2Year" aria-label="Tahun Analisis"></select></div>
   <div class="p2-filter" id="p2MonthFilter"><label>BULAN</label><button class="p2-trigger" id="p2MonthsTrigger" type="button">Pilih Bulan</button><div class="p2-menu"><div class="p2-menu-actions"><button type="button" data-p2-action="all" data-p2-target="p2Months">Pilih Semua</button><button type="button" data-p2-action="reset" data-p2-target="p2Months">Reset</button><button type="button" data-p2-action="ytd">Reset ke YTD</button><button type="button" class="p2-apply-menu" data-p2-action="apply">Terapkan Pilihan</button></div><div id="p2Months" class="p2-checklist"></div></div></div>
