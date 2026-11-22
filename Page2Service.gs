@@ -424,7 +424,45 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const ao = CY.ao.size, aoLy = LY.ao.size, ec = CY.ec.size, ecLy = LY.ec.size;
   const aoMTD = mtd.cyAO.size, aoMTDLY = mtd.lyAO.size;
   const ecMTD = mtd.cyEC.size, ecMTDLY = mtd.lyEC.size;
+
   const composition = dimension => groupResult(dimension, CHART_CY, CHART_LY);
+  const paretoExclude = new Set([
+    'TIM PROMOSI BINTANG TOEDJOE','BINTANG TOEDJOE','TEAM PROMOSI B7','PT. BINTANG TOEDJOE',
+    'END USER TEAM PROMOSI B7 LSE','PT.BINTANG TOEDJOE','TEAM PROMOSI BINTANG TOEDJOE / RABITAH',
+    'RAJA ALANSYAH MMTW-BAC-MEULABOH','DAVID FIRDAUS MMTW-BAC MEULABOH BARAT',
+    'MUHAMMAD RISKY RAMADHANA MMTW BAC MEULABOH TIMUR','ANDRIAN MMTW BAC MEULABOH TIMUR',
+    'FIKRI MMTW BAC MEULABOH','VICKY MMTW BAC MEULABOH','DONI KURNIAWAN','ZULFADHLI',
+    'MUNTAZAR MMTW - BAC- MEULABOH TIMUR','MUHMMAD ALI MMTW-BAC MEULABOH KOTA',
+    'GUNAWAN MMTW BAC MEULABOH','AFRIZAL MMTW BAC MEULABOH','SALMAN MMTW BAC MEULABOH',
+    'MUHAMMAD YATIM MMTW BAC MEULABOH','RAHMAD ZULFAHMY MMTW BAC MEULABOH',
+    'MMTW BANDA ACEH ACEH KOTA','MMTW LSE LHOKSEUMAWE','MMTW LSE MUARA DUA','MPR LSE LHOKSEUMAWE',
+    'MPR LSE BIREUEN','MMTW LSE LANGSA','MPR LSE IDI','MOTORIS KCH SAKA FARMA','MOTORIS KCH LSE'
+  ].map(v => page2Key_(v).replace(/[^A-Z0-9]/g,'')));
+  const normParetoName = value => page2Key_(value).replace(/[^A-Z0-9]/g,'');
+  const previousMonth = mtdIndex > 0 ? PAGE2_MONTHS_[mtdIndex - 1] : null;
+  const last3Months = mtdIndex > 0 ? PAGE2_MONTHS_.slice(Math.max(0,mtdIndex-3),mtdIndex) : [];
+  const completedMonths = periodMonths.filter(m => PAGE2_MONTHS_.indexOf(m) < mtdIndex);
+  const pareto = Array.from(paretoByOutlet.values()).filter(x =>
+    x.customerName && !paretoExclude.has(normParetoName(x.customerName))
+  ).map(x => {
+    const sum = (obj,months) => months.reduce((v,m)=>v+(Number(obj[m])||0),0);
+    const actualCY = Number(x.cy[mtdMonth]) || 0;
+    const actualLY = Number(x.ly[mtdMonth]) || 0;
+    const actualYTD = sum(x.cy,periodMonths);
+    const actualLYYTD = sum(x.ly,periodMonths);
+    const previous = previousMonth ? Number(x.cy[previousMonth]) || 0 : 0;
+    const averageLast3 = last3Months.length ? sum(x.cy,last3Months)/last3Months.length : 0;
+    const averageMonth = completedMonths.length ? sum(x.cy,completedMonths)/completedMonths.length : null;
+    return {
+      customerName:x.customerName,subdist:x.subdist,actualCY,actualLY,
+      grwMTD:page2Growth_(actualCY,actualLY),actualYTD,actualLYYTD,
+      grwYTD:page2Growth_(actualYTD,actualLYYTD),
+      grwVsLM:page2Growth_(actualCY,previous),
+      grwVsL3M:page2Growth_(actualCY,averageLast3),
+      ctr:paretoGrandTotalCY ? actualYTD/paretoGrandTotalCY*100 : 0,
+      avgMonth:averageMonth
+    };
+  }).sort((a,b)=>b.actualYTD-a.actualYTD || a.customerName.localeCompare(b.customerName,'id')).slice(0,25);
 
   return {
     kpi:{
@@ -438,11 +476,12 @@ function page2BuildDashboardData_(filters, sourceRows) {
     daily:daily,
     donut:{
       subdist:composition('subdist'),
-      account:composition('account'),
+      team:composition('team'),
       category:composition('category')
     },
     sbu:{b7:groupSbu('B7'),saka:groupSbu('SAKA')},
-    byTeam:groupResult('sbu',CY,LY),
+    byTeam:groupResult('team',CY,LY),
+    pareto:pareto,
     updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED') || 'Live dari Google Sheets'
   };
 }
@@ -452,7 +491,7 @@ function page2SourceVersion_(sheet) {
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    'page2-valid-customer-code-v2',
+    'page2-team-pareto-value-v3',
     spreadsheetId, sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');
