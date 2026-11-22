@@ -419,24 +419,26 @@ function analyticsAuditEc2026Detail() {
   if (!sh || sh.getLastRow() < 2) throw new Error('RAW_DATA_SALES tidak ditemukan atau kosong.');
 
   const rows = sh.getRange(2, 1, sh.getLastRow() - 1, RAW_SALES_COLUMN_COUNT).getValues();
-  const norm = value => String(value == null ? '' : value).trim().toUpperCase().replace(/\\s+/g, ' ');
+  const norm = value => String(value == null ? '' : value).trim().toUpperCase().replace(/\s+/g, ' ');
   const months = PAGE2_MONTHS_;
   const overall = {
     sooRows:0, blankCodeRows:0, othersbRows:0, validCodeRows:0,
     blankCustomerNameRows:0, invalidDayRows:0, blankSubdistRows:0,
-    validEcRows:0, validAoRows:0
+    validEcRows:0, ecIfNameNotRequired:0, validAoRows:0
   };
-  const ecKeys = new Set(), aoKeys = new Set();
-  const ecWithoutName = new Set(), ecWithoutSubdist = new Set();
+  const ecKeys = new Set(), ecWithoutName = new Set(), aoKeys = new Set();
   const monthly = {};
-  months.forEach(m => monthly[m] = {rows:0,validCodeRows:0,ec:0,ao:0,blankCodeRows:0,othersbRows:0,blankCustomerNameRows:0,invalidDayRows:0});
+  months.forEach(m => monthly[m] = {
+    rows:0,validCodeRows:0,ec:0,ecIfNameNotRequired:0,ao:0,
+    blankCodeRows:0,othersbRows:0,blankCustomerNameRows:0,invalidDayRows:0,blankSubdistRows:0
+  });
   const samples = {blankCustomerName:[],blankSubdist:[],invalidDay:[],othersb:[]};
 
   rows.forEach((r, index) => {
     if (Number(r[RAW_SALES_COL.YEAR]) !== 2026 || norm(r[RAW_SALES_COL.SALES_TYPE]) !== 'SOO') return;
     overall.sooRows++;
     const month = norm(r[RAW_SALES_COL.MONTH]).slice(0,3);
-    const m = monthly[month] ? monthly[month] : null;
+    const m = monthly[month] || null;
     if (m) m.rows++;
 
     const code = norm(r[RAW_SALES_COL.CUSTOMER_CODE]);
@@ -457,12 +459,8 @@ function analyticsAuditEc2026Detail() {
 
     overall.validCodeRows++;
     if (m) m.validCodeRows++;
-    const eventKey = page2CompositeKey_([day,code,subdist]);
-    const aoKey = page2CompositeKey_([code,subdist]);
-
     if (!name) {
       overall.blankCustomerNameRows++;
-      ecWithoutName.add(eventKey);
       if (m) m.blankCustomerNameRows++;
       if (samples.blankCustomerName.length < 10) samples.blankCustomerName.push({sheetRow:index+2,month:month,day:r[RAW_SALES_COL.DAY],code:code,subdist:subdist});
     }
@@ -472,40 +470,49 @@ function analyticsAuditEc2026Detail() {
       if (samples.invalidDay.length < 10) samples.invalidDay.push({sheetRow:index+2,month:month,customer:name,code:code,subdist:subdist,rawDay:r[RAW_SALES_COL.DAY]});
       return;
     }
+
+    const eventKey = page2CompositeKey_([day,code,subdist]);
+    const aoKey = page2CompositeKey_([code,subdist]);
+    if (m) {
+      // Alternative count without the production customer-name guard.
+      if (!m._ecAll) m._ecAll = new Set();
+      m._ecAll.add(eventKey);
+    }
+    if (!name) {
+      ecWithoutName.add(eventKey);
+      return; // Production KPI excludes rows without CUSTOMER NAME.
+    }
+
     ecKeys.add(eventKey);
     aoKeys.add(aoKey);
+    if (m) {
+      if (!m._ec) m._ec = new Set();
+      if (!m._ao) m._ao = new Set();
+      m._ec.add(eventKey);
+      m._ao.add(aoKey);
+    }
     if (!subdist) {
-      ecWithoutSubdist.add(eventKey);
       overall.blankSubdistRows++;
-      if (m) m.blankSubdistRows = (m.blankSubdistRows || 0) + 1;
+      if (m) m.blankSubdistRows++;
       if (samples.blankSubdist.length < 10) samples.blankSubdist.push({sheetRow:index+2,month:month,day:day,customer:name,code:code});
     }
   });
 
   overall.validEcRows = ecKeys.size;
+  overall.ecIfNameNotRequired = new Set([...ecKeys, ...ecWithoutName]).size;
   overall.validAoRows = aoKeys.size;
-
   months.forEach(month => {
-    const monthEc = new Set(), monthAo = new Set();
-    rows.forEach(r => {
-      if (Number(r[RAW_SALES_COL.YEAR]) !== 2026 ||
-          norm(r[RAW_SALES_COL.SALES_TYPE]) !== 'SOO' ||
-          norm(r[RAW_SALES_COL.MONTH]).slice(0,3) !== month) return;
-      const code = norm(r[RAW_SALES_COL.CUSTOMER_CODE]);
-      const subdist = norm(r[RAW_SALES_COL.SUBDIST]);
-      const day = page2Day_(r[RAW_SALES_COL.DAY]);
-      if (!code || code === 'OTHERSB' || !day) return;
-      monthEc.add(page2CompositeKey_([day,code,subdist]));
-      monthAo.add(page2CompositeKey_([code,subdist]));
-    });
-    monthly[month].ec = monthEc.size;
-    monthly[month].ao = monthAo.size;
+    const m = monthly[month];
+    m.ec = m._ec ? m._ec.size : 0;
+    m.ecIfNameNotRequired = m._ecAll ? m._ecAll.size : 0;
+    m.ao = m._ao ? m._ao.size : 0;
+    delete m._ec; delete m._ecAll; delete m._ao;
   });
 
   const result = {
     sourceSpreadsheetId:source.getId(),
     year:2026,
-    rule:'SOO; valid KODE CUSTOMER (not blank/OTHERSB); EC distinct DD + KODE CUSTOMER + SUBDIST; day must be valid',
+    rule:'SOO; valid KODE CUSTOMER (not blank/OTHERSB); EC distinct DD + KODE CUSTOMER + SUBDIST; customer name and day required, matching Page2 production logic',
     overall:overall,
     monthly:monthly,
     excludedOrEdgeCaseSamples:samples
