@@ -276,7 +276,13 @@ function analyticsGetReadySheet_(analyticsSheetName, sourceSheetName, phase) {
   const expectedWrittenRows = Number(props.getProperty(writtenKey) || 0);
   if (sourceSheet.getLastRow() - 1 !== expectedSourceRows) return null;
 
-  const analytics = analyticsOpenDb_();
+  let analytics;
+  try {
+    analytics = analyticsOpenDb_();
+  } catch (err) {
+    console.error('Analytics DB tidak dapat dibuka; dashboard memakai sumber live: ' + err.message);
+    return null;
+  }
   const target = analytics.getSheetByName(analyticsSheetName);
   if (!target || target.getLastRow() - 1 !== expectedWrittenRows) return null;
   return target;
