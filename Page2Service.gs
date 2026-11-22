@@ -115,10 +115,9 @@ function page2Read_(sheet) {
   const rows = new Array(rowCount);
   for (let i = 0; i < rowCount; i++) {
     const rawTim = page2Key_(read(i, fields.tim));
-    const rawTeamName = fields.salesman >= 0 ? page2Text_(read(i, fields.salesman)) : '';
     // Semua akun yang tidak masuk mapping Motoris/Canvaser diperlakukan
     // sebagai Salesman, sesuai aturan klasifikasi yang disepakati.
-    const tim = rawTim || (rawTeamName ? 'SALESMAN' : 'SALESMAN');
+    const tim = rawTim || 'SALESMAN';
     rows[i] = [
       read(i, fields.year),                         // 0 year
       page2Month_(read(i, fields.month)),            // 1 month
