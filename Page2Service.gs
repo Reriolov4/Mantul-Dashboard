@@ -75,7 +75,7 @@ function page2Read_(sheet) {
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
 
-  // Analytics index is already normalized to 14 columns and contains SOO only.
+  // Analytics index is already normalized to 15 columns (including VAL) and contains SOO only.
   // Convert it into the exact internal row shape consumed by existing KPI logic.
   if (sh.getName() === 'P2_EVENT_INDEX') {
     const values = sh.getRange(2, 1, lastRow - 1, 15).getValues();
@@ -450,7 +450,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const composition = dimension => groupResult(dimension, CHART_CY, CHART_LY);
   const paretoExclude = new Set([
     'TIM PROMOSI BINTANG TOEDJOE','BINTANG TOEDJOE','TEAM PROMOSI B7','PT. BINTANG TOEDJOE',
-    'END USER TEAM PROMOSI B7 LSE','PT.BINTANG TOEDJOE','TEAM PROMOSI BINTANG TOEDJOE / RABITAH',
+    'END USER TEAM PROMOSI B7 LSE','PT.BINTANG TOEDJOE','TEAM PROMOSI BINTANG TOEDJOE','TEAM PROMOSI BINTANG TOEDJOE / RABITAH',
     'RAJA ALANSYAH MMTW-BAC-MEULABOH','DAVID FIRDAUS MMTW-BAC MEULABOH BARAT',
     'MUHAMMAD RISKY RAMADHANA MMTW BAC MEULABOH TIMUR','ANDRIAN MMTW BAC MEULABOH TIMUR',
     'FIKRI MMTW BAC MEULABOH','VICKY MMTW BAC MEULABOH','DONI KURNIAWAN','ZULFADHLI',
