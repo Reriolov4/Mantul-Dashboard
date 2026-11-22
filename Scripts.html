@@ -48,6 +48,20 @@ function updateProductFilterLabel(key){const d=productFilterDefs[key],chosen=sel
 function setProductFilter(key,list){const d=productFilterDefs[key];document.querySelectorAll('#'+d.values+' input').forEach(x=>x.checked=list.includes(x.value));updateProductFilterLabel(key);}
 function initProductFilters(){Object.keys(productFilterDefs).forEach(key=>{const d=productFilterDefs[key],field=d.field,values=[...new Set([...rows,...targetRows].map(r=>r[field]).filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b));$(d.values).innerHTML=values.map(v=>`<label><input type="checkbox" value="${v.replaceAll('&','&amp;').replaceAll('\"','&quot;').replaceAll('<','&lt;')}" checked><span>${v.replaceAll('&','&amp;').replaceAll('<','&lt;')}</span></label>`).join('');document.querySelectorAll('#'+d.values+' input').forEach(x=>x.addEventListener('change',()=>updateProductFilterLabel(key)));$(d.trigger).onclick=()=>{const f=$(d.filter);f.classList.toggle('open');$(d.trigger).setAttribute('aria-expanded',f.classList.contains('open')?'true':'false');};$(d.all).onclick=()=>setProductFilter(key,values);$(d.clear).onclick=()=>setProductFilter(key,[]);$((key==='category'?'applyCategories':'apply'+key.charAt(0).toUpperCase()+key.slice(1)+'s')).onclick=()=>{render();$(d.filter).classList.remove('open');$(d.trigger).setAttribute('aria-expanded','false');};updateProductFilterLabel(key);});}
 
+document.addEventListener('input',e=>{
+ const search=e.target?.closest('[data-p1-search]');
+ if(search){
+  const box=$(search.dataset.p1Search),q=String(search.value||'').trim().toLocaleLowerCase('id');
+  box?.querySelectorAll('label').forEach(item=>{item.style.display=!q||item.textContent.toLocaleLowerCase('id').includes(q)?'':'none';});
+  return;
+ }
+ if(e.target?.id==='picSearch'){
+  const q=String(e.target.value||'').trim().toLocaleLowerCase('id');
+  const select=$('pic'),current=select.value;
+  [...select.options].forEach((option,index)=>{option.hidden=index>0&&!!q&&!option.textContent.toLocaleLowerCase('id').includes(q);});
+  if(current&&!([...select.options].some(o=>o.value===current&&!o.hidden)))select.value='ALL';
+ }
+});
 function init(){
  $('monthChecks').innerHTML=months.map((m,i)=>`<label><input type="checkbox" value="${m}"><span>${labels[i]}</span></label>`).join('');
  opts('subdist',[...new Set(rows.map(r=>r.d).filter(Boolean))].sort());
