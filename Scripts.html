@@ -503,7 +503,9 @@ function attachUploadHandler(){
    if(!rawSourceSheet) throw new Error('Sheet RAW_DATA_SALES tidak ditemukan. File harus memuat kedua sheet database.');
    const json=XLSX.utils.sheet_to_json(dataSheet,{defval:null});
    if(!json.length||!('YEAR' in json[0])||!('VAL' in json[0])) throw new Error('Kolom YEAR dan VAL pada DATA_SALES tidak ditemukan.');
-   const rawRange=XLSX.utils.decode_range(rawSourceSheet['!ref']||'A1:AA1');\n   rawRange.s.c=0;rawRange.e.c=26;\n   const rawMatrix=XLSX.utils.sheet_to_json(rawSourceSheet,{header:1,defval:null,raw:true,range:rawRange});
+   const rawRange=XLSX.utils.decode_range(rawSourceSheet['!ref']||'A1:AA1');
+   rawRange.s.c=0;rawRange.e.c=26;
+   const rawMatrix=XLSX.utils.sheet_to_json(rawSourceSheet,{header:1,defval:null,raw:true,range:rawRange});
    const expectedRawHeaders=['TAHUN','BULAN','TANGGAL','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND','KARTON','SUBDIST','KODE CUSTOMER','CUSTOMER NAME','KODE SALUR','VAL','QTY','CLASS PRODUCT','UMBRAND','DOT','CATEGORY','JENIS SALES','PIC','SUB_DIST','TIM','SALESMAN','SBU','PF Bulanan','PF Triwulan','PRODUCT_DESC'];
    const actualRawHeaders=(rawMatrix[0]||[]).slice(0,27).map(v=>String(v==null?'':v).trim().toUpperCase());
    if(actualRawHeaders.length!==27||!expectedRawHeaders.every((v,i)=>actualRawHeaders[i]===v.toUpperCase())) throw new Error('Header RAW_DATA_SALES tidak sesuai format A:AA.');
