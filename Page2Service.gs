@@ -1,7 +1,7 @@
 /**
  * HALAMAN 2 — OUTLETS | SALES FORCE
  * Membaca RAW_DATA_SALES berdasarkan NAMA HEADER, bukan posisi kolom lama.
- * Skema aktif workbook: A:AA transaksi; AH:AL tabel mapping/notes.
+ * Skema aktif workbook: A:AA transaksi; AH:AI catatan dan tabel mapping terpisah.
  *
  * Definisi:
  * - AO = distinct CUSTOMER NAME pada periode (tidak digandakan antar-subdist).
@@ -64,9 +64,8 @@ function page2FindHeader_(headers, aliases, fieldName) {
 }
 
 /**
- * Membaca hanya kolom yang dibutuhkan. Kolom dikelompokkan menjadi rentang
- * berurutan sehingga jumlah panggilan Spreadsheet tetap rendah tanpa membaca
- * seluruh 38 kolom (termasuk tabel mapping dan catatan di AH:AL).
+ * Membaca hanya kolom transaksi yang dibutuhkan. Kolom dikelompokkan menjadi
+ * rentang berurutan; area catatan/mapping AH:AI tidak ikut dipindai per baris.
  */
 function page2Read_(sheet) {
   const sh = sheet || page2Source_();

@@ -68,32 +68,56 @@ function getDashboardData() {
     catch (err) { cache.remove(cacheKey); }
   }
 
-  const values = sheet.getRange(1, 1, lastRow, SALES_HEADERS.length).getValues();
-  validateDatabaseHeaders_(values[0]);
+  const values = sheet.getRange(1, 1, lastRow, Math.max(sheet.getLastColumn(), SALES_HEADERS.length)).getValues();
+  const headers = values[0] || [];
+  validateDatabaseHeaders_(headers);
+
+  // Resolve DATA_SALES by header name. This supports the workbook's
+  // human-readable 14-column schema and the compact internal schema.
+  const headerKey = value => String(value == null ? '' : value).trim().toLowerCase().replace(/[_\\s]+/g, ' ');
+  const headerIndex = {};
+  headers.forEach((value, index) => { headerIndex[headerKey(value)] = index; });
+  const col = (aliases, required) => {
+    for (const alias of aliases) {
+      const index = headerIndex[headerKey(alias)];
+      if (index !== undefined) return index;
+    }
+    if (required) throw new Error('Kolom DATA_SALES tidak ditemukan: ' + aliases[0]);
+    return -1;
+  };
+  const ix = {
+    y:col(['YEAR','y'],true), m:col(['MONTH','m'],true),
+    d:col(['SUBDIST','d'],true), s:col(['Subbrand','SUBBRAND','s'],true),
+    b:col(['Brand','BRAND','b'],true), c:col(['CATEGORY','c'],true),
+    u:col(['SBU','u'],true), p:col(['PIC','p'],true),
+    fm:col(['PF Bulanan','fm'],true), fq:col(['PF Triwulan','fq'],true),
+    v:col(['VAL','v'],true), t:col(['JENIS SALES','t'],true),
+    tg:col(['TARGET','tg'],false), be:col(['BE','be'],false)
+  };
 
   const rows = [];
   for (let i = 1; i < values.length; i++) {
     const r = values[i];
     if (!r.some(v => v !== '' && v !== null)) continue;
-    const year = Number(r[0]);
-    const amount = Number(r[10]);
+    const year = Number(r[ix.y]);
+    const amount = Number(r[ix.v]);
     if (!Number.isFinite(year) || !Number.isFinite(amount)) continue;
 
     rows.push({
       y: year,
-      m: String(r[1] || '').toUpperCase(),
-      d: String(r[2] || ''),
-      s: String(r[3] || ''),
-      b: String(r[4] || ''),
-      c: String(r[5] || ''),
-      u: String(r[6] || ''),
-      p: String(r[7] || ''),
-      fm: String(r[8] || ''),
-      fq: String(r[9] || ''),
+      m: String(r[ix.m] || '').toUpperCase(),
+      d: String(r[ix.d] || ''),
+      s: String(r[ix.s] || ''),
+      b: String(r[ix.b] || ''),
+      c: String(r[ix.c] || ''),
+      u: String(r[ix.u] || ''),
+      p: String(r[ix.p] || ''),
+      fm: String(r[ix.fm] || ''),
+      fq: String(r[ix.fq] || ''),
       v: amount,
-      t: String(r[11] || '').toUpperCase(),
-      tg: r[12] === '' || r[12] === null ? null : Number(r[12]),
-      be: r[13] === '' || r[13] === null ? null : Number(r[13])
+      t: String(r[ix.t] || '').toUpperCase(),
+      tg: ix.tg < 0 || r[ix.tg] === '' || r[ix.tg] === null ? null : Number(r[ix.tg]),
+      be: ix.be < 0 || r[ix.be] === '' || r[ix.be] === null ? null : Number(r[ix.be])
     });
   }
 

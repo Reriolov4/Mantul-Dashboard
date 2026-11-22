@@ -14,7 +14,7 @@ const IMPORT_LOG_SHEET_NAME = 'IMPORT_LOG';
 const SALES_HEADERS = ['y','m','d','s','b','c','u','p','fm','fq','v','t','tg','be'];
 
 // Skema transaksi RAW_DATA_SALES terbaru: A:AA (27 kolom).
-// Tabel mapping/catatan di AH:AL bukan bagian dari baris transaksi dan tidak diimpor.
+// Transaksi utama berada di A:AA. Workbook juga memiliki catatan dan tabel mapping terpisah di AH:AI.
 const RAW_SALES_HEADERS = [
   'TAHUN','BULAN','TANGGAL','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND',
   'KARTON','SUBDIST','KODE CUSTOMER','CUSTOMER NAME','KODE SALUR','VAL','QTY',
