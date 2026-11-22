@@ -4,8 +4,8 @@
  * Skema aktif workbook: A:AA transaksi; AH:AI catatan dan tabel mapping terpisah.
  *
  * Definisi:
- * - AO = distinct KODE CUSTOMER pada periode.
- * - EC = distinct tanggal + KODE CUSTOMER + SUBDIST.
+ * - AO = distinct KODE CUSTOMER valid pada periode; baris tanpa kode (termasuk OTHERS) tidak dihitung sebagai outlet.
+ * - EC = distinct tanggal + identitas outlet + SUBDIST.
  * - Customer picker memfilter KPI, trend, dan komposisi secara konsisten.
  */
 const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
@@ -264,15 +264,19 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const mtdMonth = orderedSelected.length ? orderedSelected[orderedSelected.length - 1] : null;
   const mtd = {cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
   const customer = r => page2Key_(r[10] || r[5]);
-  const outlet = r => page2Key_(r[13]) || customer(r); // AO uses KODE CUSTOMER, falls back only when code is blank
-  const ecKeyFor = (r, date) => page2CompositeKey_([date, outlet(r), r[8]]);
+  // AO hanya menghitung outlet dengan KODE CUSTOMER valid. Jangan fallback ke nama,
+  // karena baris historis OTHERS tanpa kode bukan outlet aktif yang teridentifikasi.
+  const outlet = r => page2Key_(r[13]);
+  // EC tetap mempertahankan identitas fallback agar definisi aktivitas historis tidak berubah.
+  const ecOutlet = r => outlet(r) || customer(r);
+  const ecKeyFor = (r, date) => page2CompositeKey_([date, ecOutlet(r), r[8]]);
 
   const addGroup = (bucket, dimension, label, outletKey, ecKey) => {
     if (!label) return;
     if (!bucket.groups[dimension][label]) {
       bucket.groups[dimension][label] = {name:label,ao:new Set(),ec:new Set()};
     }
-    bucket.groups[dimension][label].ao.add(outletKey);
+    if (outletKey) bucket.groups[dimension][label].ao.add(outletKey);
     bucket.groups[dimension][label].ec.add(ecKey);
   };
 
@@ -293,12 +297,12 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const isCY = y === year;
     const totalBucket = isCY ? CY : LY;
 
-    totalBucket.ao.add(outletKey);
+    if (outletKey) totalBucket.ao.add(outletKey);
     totalBucket.ec.add(ecKey);
     addGroup(totalBucket, 'sbu', page2Key_(r[12]), outletKey, ecKey);
 
     if (month === mtdMonth) {
-      (isCY ? mtd.cyAO : mtd.lyAO).add(outletKey);
+      if (outletKey) (isCY ? mtd.cyAO : mtd.lyAO).add(outletKey);
       (isCY ? mtd.cyEC : mtd.lyEC).add(ecKey);
     }
 
@@ -310,14 +314,14 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const monthIndex = PAGE2_MONTHS_.indexOf(month);
     if (monthIndex >= 0) {
       const ms = monthlySets[monthIndex];
-      (isCY ? ms.cyAO : ms.lyAO).add(outletKey);
+      if (outletKey) (isCY ? ms.cyAO : ms.lyAO).add(outletKey);
       (isCY ? ms.cyEC : ms.lyEC).add(ecKey);
     }
 
     const dayKey = date.slice(8,10);
     if (isCY && (!hasDateFilter || selectedDates.includes(dayKey))) {
       if (!dailyMap[dayKey]) dailyMap[dayKey] = {ao:new Set(),ec:new Set()};
-      dailyMap[dayKey].ao.add(outletKey);
+      if (outletKey) dailyMap[dayKey].ao.add(outletKey);
       dailyMap[dayKey].ec.add(ecKey);
     }
   });
