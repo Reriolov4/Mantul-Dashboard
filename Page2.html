@@ -16,7 +16,7 @@
 #page2View .p2-checklist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
 #page2View .p2-checkitem{display:flex;align-items:center;gap:7px;min-width:0;margin:0;padding:7px 6px;border:1px solid #e5eaf1;border-radius:7px;color:#334155;font-size:11px;cursor:pointer}
 #page2View .p2-checkitem input{accent-color:#2563eb;margin:0;flex:0 0 auto}
-#page2View .p2-checkitem span{overflow-wrap:anywhere}
+#page2View .p2-checkitem span{overflow-wrap:anywhere}\n#page2View .p2-customer-menu{width:min(380px,92vw);max-height:420px}\n#page2View .p2-customer-list{display:grid;grid-template-columns:1fr;max-height:250px;overflow:auto}\n#page2View .p2-customer-list .p2-checkitem{padding:6px 7px}
 #page2View .p2-day-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
 #page2View .p2-day-grid .p2-checkitem{justify-content:center;padding:6px 2px}
 #page2View .p2-filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:7px}
@@ -111,7 +111,7 @@
  </div>
  <div class="p2-control-row">
   <div class="p2-filter"><label>METRIK GRAFIK & DONUT</label><div class="p2-switch" id="p2MetricSwitch" role="group" aria-label="Pilih metrik grafik"><button type="button" class="active" data-metric="ao" aria-pressed="true">Aktif Outlet (AO)</button><button type="button" data-metric="ec" aria-pressed="false">Effective Call (EC)</button></div></div>
-  <div class="p2-filter"><label>SALESMAN</label><select id="p2TeamSelect"><option value="">Semua Nama Akun Salesman</option></select></div>
+  <div class="p2-filter" id="p2CustomerFilter"><label>CUSTOMER</label><button class="p2-trigger" id="p2CustomerTrigger" type="button">Pilih Outlet</button><div class="p2-menu p2-customer-menu"><div class="p2-menu-actions"><button type="button" data-p2-action="customer-all">Pilih Semua</button><button type="button" data-p2-action="customer-reset">Reset</button><button type="button" class="p2-apply-menu" data-p2-action="customer-apply">Terapkan Pilihan</button></div><input id="p2CustomerSearch" type="search" placeholder="Cari nama outlet..." autocomplete="off" aria-label="Cari Customer" style="width:100%;height:34px;border:1px solid #dbe3ee;border-radius:8px;padding:0 9px;margin:0 0 8px;font:inherit;font-size:11px"><div id="p2CustomerCount" style="font-size:10px;color:#64748b;margin:0 0 6px">Belum ada outlet dipilih</div><div id="p2CustomerList" class="p2-checklist p2-customer-list"></div></div></div>
  </div>
  <div class="p2-panel-grid">
   <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND BULANAN</h2><p>Perbandingan tahun berjalan dan tahun lalu.</p></div></div><div class="p2-chartbox"><canvas id="p2MonthlyChart"></canvas></div></article>
