@@ -1,6 +1,6 @@
 // ============================================================
 // MANTUL DASHBOARD — CONFIGURATION / SOURCE OF TRUTH
-// Acuan diverifikasi dari workbook SALES PERFORMANCE DATABASE 2026(3).xlsx
+// Acuan diverifikasi dari workbook SALES PERFORMANCE DATABASE 2026(4).xlsx
 // Sheet: DATA_SALES, RAW_DATA_SALES, SKU
 // ============================================================
 
@@ -36,9 +36,9 @@ const SALES_HEADERS = [
 
 // ------------------------------------------------------------
 // RAW_DATA_SALES — transaksi utama tepat 27 kolom (A:AA).
-// Kolom AB:AG kosong pada workbook contoh.
-// Kolom AH berisi catatan aturan bisnis, bukan kolom transaksi.
-// Proses pembacaan/import transaksi hanya menggunakan A:AA.
+// Kolom transaksi yang dipakai dashboard hanya A:AA (27 kolom).
+// Kolom AH:AI adalah tabel pembantu/formula pada workbook sumber untuk
+// membantu pengisian array A:AA; bukan sumber transaksi dan tidak diimpor.
 // ------------------------------------------------------------
 const RAW_SALES_HEADERS = [
   'TAHUN',          // A
@@ -71,7 +71,6 @@ const RAW_SALES_HEADERS = [
 ];
 
 const RAW_SALES_COLUMN_COUNT = RAW_SALES_HEADERS.length; // 27
-const RAW_SALES_NOTE_COLUMN = 34; // AH, catatan aturan bisnis; bukan transaksi
 
 // Indeks kolom RAW_DATA_SALES berbasis 0 untuk JavaScript.
 // Gunakan konstanta ini agar kode tidak memakai angka indeks tersebar.
