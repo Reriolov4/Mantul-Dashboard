@@ -49,20 +49,25 @@ function getOrCreateSheet_(name) {
 }
 
 function getDashboardData() {
-  const cache = CacheService.getScriptCache();
-  const cacheKey = 'dashboard_rows_v4_' + String(PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || 'unconfigured').trim();
-  const cached = cache.get(cacheKey);
-  if (cached) {
-    try { return JSON.parse(cached); } catch (err) { cache.remove(cacheKey); }
-  }
-
   const ss = getDatabase_();
   const sheet = ss.getSheetByName(DATA_SHEET_NAME);
   if (!sheet || sheet.getLastRow() < 2) {
     return { rows: [], updatedAt: getLastUpdated_(), rowCount: 0 };
   }
 
+  // Source fingerprint prevents stale Page 1 cache after append-only updates.
   const lastRow = sheet.getLastRow();
+  const lastColumn = sheet.getLastColumn();
+  const signature = [ss.getId(), sheet.getSheetId(), lastRow, lastColumn, getLastUpdated_()].join('|');
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, signature, Utilities.Charset.UTF_8);
+  const cacheKey = 'dashboard_rows_v5_' + Utilities.base64EncodeWebSafe(digest).replace(/=+$/g, '');
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try { return JSON.parse(cached); }
+    catch (err) { cache.remove(cacheKey); }
+  }
+
   const values = sheet.getRange(1, 1, lastRow, SALES_HEADERS.length).getValues();
   validateDatabaseHeaders_(values[0]);
 
@@ -92,22 +97,13 @@ function getDashboardData() {
     });
   }
 
-  const result = {
-    rows: rows,
-    updatedAt: getLastUpdated_(),
-    rowCount: rows.length
-  };
-
-  // CacheService has a strict per-item size limit. Cache only small datasets;
-  // large datasets are read once in a single batch rather than repeatedly
-  // attempting a cache write that cannot succeed.
+  const result = { rows: rows, updatedAt: getLastUpdated_(), rowCount: rows.length };
   const json = JSON.stringify(result);
   if (json.length <= 90000) {
     try { cache.put(cacheKey, json, 300); } catch (err) { /* cache is optional */ }
   }
   return result;
 }
-
 function getLastUpdated_() {
   return PropertiesService.getScriptProperties().getProperty('SALES_LAST_UPDATED') || '';
 }
@@ -303,7 +299,7 @@ function finishSalesImport(payload) {
 
 function normalizeRawImportRow_(row, rowNumber) {
   if (!Array.isArray(row) || row.length < RAW_SALES_HEADERS.length) {
-    throw new Error('RAW_DATA_SALES baris ' + rowNumber + ' tidak memiliki 34 kolom A:AH.');
+    throw new Error('RAW_DATA_SALES baris ' + rowNumber + ' tidak memiliki 27 kolom A:AA.');
   }
   const out = row.slice(0, RAW_SALES_HEADERS.length).map(value => {
     if (value === undefined || value === null) return '';
@@ -312,8 +308,8 @@ function normalizeRawImportRow_(row, rowNumber) {
   });
   const year = Number(out[0]);
   const month = String(out[1] == null ? '' : out[1]).trim();
-  const amount = Number(out[16]);
-  const salesType = String(out[21] == null ? '' : out[21]).trim().toUpperCase();
+  const amount = Number(out[12]);
+  const salesType = String(out[18] == null ? '' : out[18]).trim().toUpperCase();
   if (!Number.isInteger(year) || year < 2000 || year > 2100 || !month || !Number.isFinite(amount) ||
       (salesType !== 'SO' && salesType !== 'SOO')) {
     throw new Error('TAHUN, BULAN, VAL, atau JENIS SALES tidak valid pada RAW_DATA_SALES baris ' + rowNumber + '.');
@@ -326,7 +322,7 @@ function validateRawDatabaseHeaders_(headers) {
   const actual = (headers || []).slice(0, RAW_SALES_HEADERS.length).map(normalize);
   const expected = RAW_SALES_HEADERS.map(normalize);
   if (actual.length !== expected.length || !actual.every((value, index) => value === expected[index])) {
-    throw new Error('Header RAW_DATA_SALES tidak sesuai struktur A:AH pada workbook. Tidak ada database yang dipublikasikan.');
+    throw new Error('Header RAW_DATA_SALES tidak sesuai struktur A:AA pada workbook terbaru. Tidak ada database yang dipublikasikan.');
   }
 }
 
