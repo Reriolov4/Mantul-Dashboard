@@ -303,7 +303,7 @@ function finishSalesImport(payload) {
 
 function normalizeRawImportRow_(row, rowNumber) {
   if (!Array.isArray(row) || row.length < RAW_SALES_HEADERS.length) {
-    throw new Error('RAW_DATA_SALES baris ' + rowNumber + ' tidak memiliki 34 kolom A:AH.');
+    throw new Error('RAW_DATA_SALES baris ' + rowNumber + ' tidak memiliki 27 kolom A:AA.');
   }
   const out = row.slice(0, RAW_SALES_HEADERS.length).map(value => {
     if (value === undefined || value === null) return '';
@@ -312,8 +312,8 @@ function normalizeRawImportRow_(row, rowNumber) {
   });
   const year = Number(out[0]);
   const month = String(out[1] == null ? '' : out[1]).trim();
-  const amount = Number(out[16]);
-  const salesType = String(out[21] == null ? '' : out[21]).trim().toUpperCase();
+  const amount = Number(out[12]);
+  const salesType = String(out[18] == null ? '' : out[18]).trim().toUpperCase();
   if (!Number.isInteger(year) || year < 2000 || year > 2100 || !month || !Number.isFinite(amount) ||
       (salesType !== 'SO' && salesType !== 'SOO')) {
     throw new Error('TAHUN, BULAN, VAL, atau JENIS SALES tidak valid pada RAW_DATA_SALES baris ' + rowNumber + '.');
@@ -326,7 +326,7 @@ function validateRawDatabaseHeaders_(headers) {
   const actual = (headers || []).slice(0, RAW_SALES_HEADERS.length).map(normalize);
   const expected = RAW_SALES_HEADERS.map(normalize);
   if (actual.length !== expected.length || !actual.every((value, index) => value === expected[index])) {
-    throw new Error('Header RAW_DATA_SALES tidak sesuai struktur A:AH pada workbook. Tidak ada database yang dipublikasikan.');
+    throw new Error('Header RAW_DATA_SALES tidak sesuai struktur A:AA pada workbook terbaru. Tidak ada database yang dipublikasikan.');
   }
 }
 
