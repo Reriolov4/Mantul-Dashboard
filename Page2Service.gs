@@ -133,6 +133,25 @@ function page2Read_(sheet) {
   return rows;
 }
 
+function page2Day_(day) {
+  let d = null;
+  if (Object.prototype.toString.call(day) === '[object Date]' && !isNaN(day)) d = day.getDate();
+  else if (typeof day === 'number' && Number.isFinite(day)) {
+    d = day > 31 ? new Date(Date.UTC(1899, 11, 30) + day * 86400000).getUTCDate() : day;
+  } else {
+    const raw = page2Text_(day);
+    let match = raw.match(/^\d{4}[-/](\d{1,2})[-/](\d{1,2})/);
+    if (match) d = Number(match[3]);
+    else {
+      match = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+      if (match) d = Number(match[1]);
+      else if (/^\d{1,2}$/.test(raw)) d = Number(raw);
+      else { const parsed = Date.parse(raw); if (!isNaN(parsed)) d = new Date(parsed).getDate(); }
+    }
+  }
+  return d && d >= 1 && d <= 31 ? String(d).padStart(2,'0') : '';
+}
+
 function page2Date_(year, month, day) {
   const mi = PAGE2_MONTHS_.indexOf(page2Month_(month));
   let d = null;
@@ -287,8 +306,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
     : '';
   // EC = kombinasi TANGGAL (DD) + KODE CUSTOMER valid + SUBDIST.
   // Hari yang sama pada outlet/subdist yang sama dihitung satu EC.
-  const ecKeyFor = (r, date) => page2CompositeKey_([
-    date.slice(8,10), outletCode(r), r[8]
+  const ecKeyFor = (r, dayKey) => page2CompositeKey_([
+    dayKey, outletCode(r), r[8]
   ]);
 
   const addGroup = (bucket, dimension, label, outletKey, ecKey) => {
@@ -309,14 +328,14 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if ((y !== year && y !== ly) || !periodMonthSet.has(month)) return;
     const customerName = customer(r);
     if (!customerName) return;
-    const date = page2Date_(y, month, r[2]);
-    if (!date) return;
+    const dayKey = page2Day_(r[2]);
+    if (!dayKey) return;
 
     const outletKey = outlet(r);
     // Baris tanpa kode customer valid (termasuk OTHERSB) dikeluarkan
     // dari seluruh agregasi KPI, trend, dan komposisi.
     if (!outletKey) return;
-    const ecKey = ecKeyFor(r, date);
+    const ecKey = ecKeyFor(r, dayKey);
     const isCY = y === year;
     const totalBucket = isCY ? CY : LY;
 
@@ -341,7 +360,6 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (isCY ? ms.cyEC : ms.lyEC).add(ecKey);
     }
 
-    const dayKey = date.slice(8,10);
     if (isCY && (!hasDateFilter || selectedDates.has(dayKey))) {
       if (!dailyMap[dayKey]) dailyMap[dayKey] = {ao:new Set(),ec:new Set()};
       if (outletKey) dailyMap[dayKey].ao.add(outletKey);
