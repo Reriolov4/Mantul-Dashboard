@@ -264,12 +264,23 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const mtdMonth = orderedSelected.length ? orderedSelected[orderedSelected.length - 1] : null;
   const mtd = {cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
   const customer = r => page2Key_(r[10] || r[5]);
-  // AO hanya menghitung outlet dengan KODE CUSTOMER valid. Jangan fallback ke nama,
-  // karena baris historis OTHERS tanpa kode bukan outlet aktif yang teridentifikasi.
-  const outlet = r => page2Key_(r[13]);
-  // EC tetap mempertahankan identitas fallback agar definisi aktivitas historis tidak berubah.
-  const ecOutlet = r => outlet(r) || customer(r);
-  const ecKeyFor = (r, date) => page2CompositeKey_([date, ecOutlet(r), r[8]]);
+  // Hanya KODE CUSTOMER valid yang dihitung. Kode placeholder OTHERSB,
+  // kode kosong, dan baris tanpa identitas outlet tidak masuk KPI AO maupun EC.
+  const outletCode = r => page2Key_(r[13]);
+  const validOutletCode = r => {
+    const code = outletCode(r);
+    return !!code && code !== 'OTHERSB';
+  };
+  // AO dihitung per kombinasi KODE CUSTOMER + SUBDIST agar total KPI
+  // konsisten dengan penjumlahan AO masing-masing subdist.
+  const outlet = r => validOutletCode(r)
+    ? page2CompositeKey_([outletCode(r), r[8]])
+    : '';
+  // EC = kombinasi TANGGAL (DD) + KODE CUSTOMER valid + SUBDIST.
+  // Hari yang sama pada outlet/subdist yang sama dihitung satu EC.
+  const ecKeyFor = (r, date) => page2CompositeKey_([
+    date.slice(8,10), outletCode(r), r[8]
+  ]);
 
   const addGroup = (bucket, dimension, label, outletKey, ecKey) => {
     if (!label) return;
@@ -293,6 +304,9 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if (!date) return;
 
     const outletKey = outlet(r);
+    // Baris tanpa kode customer valid (termasuk OTHERSB) dikeluarkan
+    // dari seluruh agregasi KPI, trend, dan komposisi.
+    if (!outletKey) return;
     const ecKey = ecKeyFor(r, date);
     const isCY = y === year;
     const totalBucket = isCY ? CY : LY;
