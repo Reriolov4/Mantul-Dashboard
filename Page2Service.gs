@@ -78,11 +78,11 @@ function page2Read_(sheet) {
   // Analytics index is already normalized to 14 columns and contains SOO only.
   // Convert it into the exact internal row shape consumed by existing KPI logic.
   if (sh.getName() === 'P2_EVENT_INDEX') {
-    const values = sh.getRange(2, 1, lastRow - 1, 14).getValues();
+    const values = sh.getRange(2, 1, lastRow - 1, 15).getValues();
     return values.map(r => [
       r[0], page2Month_(r[1]), r[2], r[8], r[7], r[4], r[6],
       r[11], r[5], page2Key_(r[13]) || 'SALESMAN', r[4], r[9],
-      r[10], r[3]
+      r[10], r[3], Number(r[14]) || 0
     ]);
   }
 
@@ -101,7 +101,8 @@ function page2Read_(sheet) {
     salesType: page2FindHeader_(headers, ['JENIS SALES','SALES TYPE'], 'JENIS SALES'),
     pic: page2FindHeader_(headers, ['PIC'], 'PIC'),
     tim: page2FindHeader_(headers, ['TIM','TEAM'], 'TIM'),
-    sbu: page2FindHeader_(headers, ['SBU'], 'SBU')
+    sbu: page2FindHeader_(headers, ['SBU'], 'SBU'),
+    value: page2FindHeader_(headers, ['VAL','VALUE'], 'VAL')
   };
 
   // Empat batch berurutan menggantikan banyak getRange kecil:
@@ -111,6 +112,7 @@ function page2Read_(sheet) {
     {start:0,end:2,values:sh.getRange(2,1,rowCount,3).getValues()},
     {start:5,end:6,values:sh.getRange(2,6,rowCount,2).getValues()},
     {start:8,end:10,values:sh.getRange(2,9,rowCount,3).getValues()},
+    {start:12,end:12,values:sh.getRange(2,13,rowCount,1).getValues()},
     {start:17,end:23,values:sh.getRange(2,18,rowCount,7).getValues()}
   ];
   // Bangun lookup kolom satu kali. Hindari Array.find() untuk setiap sel
@@ -143,7 +145,8 @@ function page2Read_(sheet) {
       read(i, fields.customer),                     // 10 Nama Akun
       read(i, fields.category),                     // 11 category
       read(i, fields.sbu),                          // 12 SBU
-      read(i, fields.customerCode)                  // 13 stable outlet identity
+      read(i, fields.customerCode),                 // 13 stable outlet identity
+      Number(read(i, fields.value)) || 0            // 14 VAL
     ];
   }
   return rows;
@@ -299,7 +302,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     return true;
   };
 
-  const makeBucket = () => ({ao:new Set(),ec:new Set(),groups:{subdist:{},account:{},category:{},sbu:{}}});
+  const makeBucket = () => ({ao:new Set(),ec:new Set(),groups:{subdist:{},account:{},category:{},sbu:{},team:{}}});
   const CY = makeBucket(), LY = makeBucket(), CHART_CY = makeBucket(), CHART_LY = makeBucket();
   const monthly = PAGE2_MONTHS_.map(month => ({month:month,ao:0,aoLy:0,ec:0,ecLy:0}));
   const monthlySets = PAGE2_MONTHS_.map(() => ({cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()}));
@@ -307,6 +310,11 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const orderedSelected = periodMonths.slice().sort((a,b) => PAGE2_MONTHS_.indexOf(a)-PAGE2_MONTHS_.indexOf(b));
   const mtdMonth = orderedSelected.length ? orderedSelected[orderedSelected.length - 1] : null;
   const mtd = {cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
+  const paretoByOutlet = new Map();
+  const mtdIndex = mtdMonth ? PAGE2_MONTHS_.indexOf(mtdMonth) : -1;
+  const paretoMonths = new Set(periodMonths);
+  for (let i = 1; i <= 3; i++) if (mtdIndex - i >= 0) paretoMonths.add(PAGE2_MONTHS_[mtdIndex - i]);
+  let paretoGrandTotalCY = 0;
   const customer = r => page2Key_(r[10] || r[5]);
   // Hanya KODE CUSTOMER valid yang dihitung. Kode placeholder OTHERSB,
   // kode kosong, dan baris tanpa identitas outlet tidak masuk KPI AO maupun EC.
@@ -343,7 +351,19 @@ function page2BuildDashboardData_(filters, sourceRows) {
     matchedRowCount++;
 
     const y = Number(r[0]), month = page2Month_(r[1]);
-    if ((y !== year && y !== ly) || !periodMonthSet.has(month)) return;
+    if (y !== year && y !== ly) return;
+    if (paretoMonths.has(month) && validOutletCode(r)) {
+      const pKey = outlet(r);
+      if (pKey) {
+        let item = paretoByOutlet.get(pKey);
+        if (!item) { item = {key:pKey,customerName:page2Text_(r[10] || r[5]),subdist:page2Text_(r[8]),cy:{},ly:{}}; paretoByOutlet.set(pKey,item); }
+        const val = Number(r[14]) || 0;
+        const target = y === year ? item.cy : item.ly;
+        target[month] = (target[month] || 0) + val;
+        if (y === year && periodMonthSet.has(month)) paretoGrandTotalCY += val;
+      }
+    }
+    if (!periodMonthSet.has(month)) return;
     const customerName = customer(r);
     if (!customerName) return;
     const dayKey = page2Day_(r[2]);
@@ -360,6 +380,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if (outletKey) totalBucket.ao.add(outletKey);
     totalBucket.ec.add(ecKey);
     addGroup(totalBucket, 'sbu', page2Key_(r[12]), outletKey, ecKey);
+    addGroup(totalBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey);
 
     if (month === mtdMonth) {
       if (outletKey) (isCY ? mtd.cyAO : mtd.lyAO).add(outletKey);
@@ -369,6 +390,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const chartBucket = isCY ? CHART_CY : CHART_LY;
     addGroup(chartBucket, 'subdist', page2Text_(r[8]), outletKey, ecKey);
     addGroup(chartBucket, 'account', page2Text_(r[10]), outletKey, ecKey);
+    addGroup(chartBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey);
     addGroup(chartBucket, 'category', page2Text_(r[11]), outletKey, ecKey);
 
     const monthIndex = PAGE2_MONTHS_.indexOf(month);
