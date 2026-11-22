@@ -17,7 +17,7 @@ function p2SelectAll(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').for
 function p2Clear(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);p2UpdateTriggers();}
 function p2ResetFilter(id){p2Clear(id);}
 function p2CloseMenus(){document.querySelectorAll('#page2View .p2-filter.open').forEach(x=>x.classList.remove('open'));p2UpdateTriggers();}
-function p2SetLoadingState_(label){
+function p2SetBusy_(busy,label){\n const view=p2$('page2View');if(!view)return;\n if(busy){view.setAttribute('aria-busy','true');const t=p2$('p2LoadingText');if(t)t.textContent=label||'Sedang memproses data Page 2...';}\n else view.removeAttribute('aria-busy');\n}\nfunction p2SetLoadingState_(label){
  document.querySelectorAll('#page2View .k-main, #page2View .p2-sbu-values b, #page2View .k-growth').forEach(el=>{el.textContent=label;});
 }
 function page2Init(){
@@ -28,7 +28,7 @@ function page2Init(){
  if(!window.google||!google.script||!google.script.run){
   if(status)status.textContent='Buka dashboard melalui Google Apps Script Web App.';
   if(!p2Data)p2SetLoadingState_('Tidak tersedia');
-  if(view)view.removeAttribute('aria-busy');
+  p2SetBusy_(false);
   return;
  }
  google.script.run.withSuccessHandler(payload=>{
@@ -61,7 +61,7 @@ function page2Init(){
   p2SetYtdMonths();
   p2SetDateDefaults();
   p2UpdateTriggers();
-  if(!data){if(view)view.removeAttribute('aria-busy');p2$('p2Status').textContent='Respons awal Page 2 tidak berisi data dashboard.';p2SetLoadingState_('Gagal memuat');return;}
+  if(!data){p2SetBusy_(false);p2$('p2Status').textContent='Respons awal Page 2 tidak berisi data dashboard.';p2SetLoadingState_('Gagal memuat');return;}
   // Jika tahun Page 1 berbeda dari payload awal server, ambil ulang
   // menggunakan tahun yang benar-benar tampil pada filter Page 2.
   if(Number(year.value)!==Number(data.kpi.year)){
