@@ -97,10 +97,17 @@ function page2Read_(sheet) {
     {start:8,end:10,values:sh.getRange(2,9,rowCount,3).getValues()},
     {start:17,end:23,values:sh.getRange(2,18,rowCount,7).getValues()}
   ];
+  // Bangun lookup kolom satu kali. Hindari Array.find() untuk setiap sel
+  // pada 132 ribu baris (lebih dari 1,8 juta pencarian blok).
+  const columnReaders = {};
+  blocks.forEach(block => {
+    for (let col = block.start; col <= block.end; col++) {
+      columnReaders[col] = {values:block.values, offset:col - block.start};
+    }
+  });
   const read = (rowIndex,colIndex) => {
-    const block = blocks.find(b => colIndex >= b.start && colIndex <= b.end);
-    if (!block) return '';
-    return block.values[rowIndex][colIndex - block.start];
+    const column = columnReaders[colIndex];
+    return column ? column.values[rowIndex][column.offset] : '';
   };
 
   const rows = new Array(rowCount);
@@ -234,24 +241,26 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const year = Number(filters.year) || new Date().getFullYear();
   const ly = year - 1;
   const selectedMonths = page2FilterList_(filters.months);
-  const pics = page2FilterList_(filters.pics);
-  const subdists = page2FilterList_(filters.subdists);
-  const brands = page2FilterList_(filters.brands);
-  const subbrands = page2FilterList_(filters.subbrands);
-  const categories = page2FilterList_(filters.categories);
-  const customers = page2FilterList_(filters.customers);
-  const selectedDates = page2FilterList_(filters.dates);
+  // Set.has() jauh lebih murah daripada Array.includes() di setiap baris.
+  const pics = new Set(page2FilterList_(filters.pics));
+  const subdists = new Set(page2FilterList_(filters.subdists));
+  const brands = new Set(page2FilterList_(filters.brands));
+  const subbrands = new Set(page2FilterList_(filters.subbrands));
+  const categories = new Set(page2FilterList_(filters.categories));
+  const customers = new Set(page2FilterList_(filters.customers));
+  const selectedDates = new Set(page2FilterList_(filters.dates));
   const hasDateFilter = Array.isArray(filters.dates);
   const periodMonths = Array.isArray(filters.months) ? selectedMonths : PAGE2_MONTHS_;
+  const periodMonthSet = new Set(periodMonths);
   const monthCount = periodMonths.length;
   const matches = r => {
     if (page2Key_(r[7]) !== 'SOO') return false;
-    if (pics.length && !pics.includes(page2Key_(r[6]))) return false;
-    if (subdists.length && !subdists.includes(page2Key_(r[8]))) return false;
-    if (brands.length && !brands.includes(page2Key_(r[4]))) return false;
-    if (subbrands.length && !subbrands.includes(page2Key_(r[3]))) return false;
-    if (categories.length && !categories.includes(page2Key_(r[11]))) return false;
-    if (customers.length && !customers.includes(page2Key_(r[10]))) return false;
+    if (pics.size && !pics.has(page2Key_(r[6]))) return false;
+    if (subdists.size && !subdists.has(page2Key_(r[8]))) return false;
+    if (brands.size && !brands.has(page2Key_(r[4]))) return false;
+    if (subbrands.size && !subbrands.has(page2Key_(r[3]))) return false;
+    if (categories.size && !categories.has(page2Key_(r[11]))) return false;
+    if (customers.size && !customers.has(page2Key_(r[10]))) return false;
     return true;
   };
 
@@ -297,7 +306,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     matchedRowCount++;
 
     const y = Number(r[0]), month = page2Month_(r[1]);
-    if ((y !== year && y !== ly) || periodMonths.indexOf(month) < 0) return;
+    if ((y !== year && y !== ly) || !periodMonthSet.has(month)) return;
     const customerName = customer(r);
     if (!customerName) return;
     const date = page2Date_(y, month, r[2]);
@@ -333,7 +342,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     }
 
     const dayKey = date.slice(8,10);
-    if (isCY && (!hasDateFilter || selectedDates.includes(dayKey))) {
+    if (isCY && (!hasDateFilter || selectedDates.has(dayKey))) {
       if (!dailyMap[dayKey]) dailyMap[dayKey] = {ao:new Set(),ec:new Set()};
       if (outletKey) dailyMap[dayKey].ao.add(outletKey);
       dailyMap[dayKey].ec.add(ecKey);
@@ -458,44 +467,91 @@ function getPage2DashboardData(filters) {
  * Versi cache memuat sheetId, jumlah baris/kolom, serta timestamp import,
  * sehingga append data baru tidak memakai hasil cache dataset sebelumnya.
  */
+function page2CachePutChunked_(cache, key, value, ttlSeconds) {
+  const chunkSize = 30000;
+  const count = Math.ceil(value.length / chunkSize);
+  // Batasi jumlah item agar cache tetap ringan; bila terlalu besar, cache dilewati.
+  if (!count || count > 20) return false;
+  for (let i = 0; i < count; i++) {
+    cache.put(key + '_' + i, value.slice(i * chunkSize, (i + 1) * chunkSize), ttlSeconds);
+  }
+  cache.put(key + '_manifest', String(count), ttlSeconds);
+  return true;
+}
+
+function page2CacheGetChunked_(cache, key) {
+  const manifest = cache.get(key + '_manifest');
+  if (!manifest) return null;
+  const count = Number(manifest);
+  if (!count || count > 20) return null;
+  let value = '';
+  for (let i = 0; i < count; i++) {
+    const part = cache.get(key + '_' + i);
+    if (part == null) return null;
+    value += part;
+  }
+  return value;
+}
+
 function getPage2InitialPayload() {
+  const totalStarted = Date.now();
   const sh = page2Source_();
   const version = page2SourceVersion_(sh);
-  const metaKey = page2CacheKey_('p2meta_schema2', 'initial', version);
-  const dataKey = page2CacheKey_('p2initial_schema2', 'initial', version);
+  const metaKey = page2CacheKey_('p2meta_schema3', 'initial', version);
+  const dataKey = page2CacheKey_('p2initial_schema3', 'initial', version);
   const cache = CacheService.getScriptCache();
-  const cachedMeta = cache.get(metaKey);
+  const cachedMeta = page2CacheGetChunked_(cache, metaKey);
   const cachedData = cache.get(dataKey);
   if (cachedMeta && cachedData) {
     try {
-      return {meta:JSON.parse(cachedMeta),data:JSON.parse(cachedData)};
+      return {
+        meta:JSON.parse(cachedMeta),
+        data:JSON.parse(cachedData),
+        diagnostics:{cacheHit:true,totalMs:Date.now()-totalStarted}
+      };
     } catch (err) {
-      cache.remove(metaKey);
+      cache.remove(metaKey + '_manifest');
       cache.remove(dataKey);
     }
   }
 
+  const readStarted = Date.now();
   const sourceRows = page2Read_(sh);
+  const readMs = Date.now() - readStarted;
+
+  const metaStarted = Date.now();
   const meta = page2BuildMeta_(sourceRows);
+  const metaMs = Date.now() - metaStarted;
   const years = meta.years || [];
   const year = Number(years.indexOf('2026') >= 0 ? '2026' : years[years.length - 1]) || new Date().getFullYear();
-  const monthSet = new Set();
-  sourceRows.forEach(r => {
-    if (Number(r[0]) === year && page2Key_(r[7]) === 'SOO') {
-      const month = page2Month_(r[1]);
-      if (PAGE2_MONTHS_.indexOf(month) >= 0) monthSet.add(month);
-    }
-  });
-  const initialMonths = PAGE2_MONTHS_.filter(month => monthSet.has(month));
+  // monthsByYear sudah dibangun dalam page2BuildMeta_; tidak perlu scan 132 ribu baris lagi.
+  const initialMonths = (meta.monthsByYear || {})[String(year)] || [];
+
+  const aggregateStarted = Date.now();
   const data = page2BuildDashboardData_({year:year,months:initialMonths}, sourceRows);
+  const aggregateMs = Date.now() - aggregateStarted;
 
   const metaJson = JSON.stringify(meta);
   const dataJson = JSON.stringify(data);
   try {
-    if (metaJson.length <= 90000) cache.put(metaKey, metaJson, 300);
+    page2CachePutChunked_(cache, metaKey, metaJson, 300);
     if (dataJson.length <= 90000) cache.put(dataKey, dataJson, 300);
   } catch (err) { /* Cache hanya optimasi, bukan dependensi. */ }
-  return {meta:meta,data:data};
+
+  return {
+    meta:meta,
+    data:data,
+    diagnostics:{
+      cacheHit:false,
+      sourceRows:sourceRows.length,
+      readMs:readMs,
+      metaMs:metaMs,
+      aggregateMs:aggregateMs,
+      totalMs:Date.now()-totalStarted,
+      metaBytes:metaJson.length,
+      dataBytes:dataJson.length
+    }
+  };
 }
 
 /**
