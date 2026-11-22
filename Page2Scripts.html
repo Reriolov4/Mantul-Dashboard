@@ -3,7 +3,7 @@ let p2Data=null,p2Meta=null,p2Charts={},p2RequestSeq=0,p2MetricValue='ao';
 let p2CustomerOptions=[],p2CustomerSelected=new Set();
 const p2$=id=>document.getElementById(id);
 const p2Fmt=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:1});
-const p2FmtValue=v=>{const n=Number(v||0),a=Math.abs(n);if(a>=1e9)return (n/1e9).toLocaleString('id-ID',{maximumFractionDigits:0})+' M';if(a>=1e6)return (n/1e6).toLocaleString('id-ID',{maximumFractionDigits:0})+' Jt';if(a>=1e3)return (n/1e3).toLocaleString('id-ID',{maximumFractionDigits:0})+' Rb';return n.toLocaleString('id-ID',{maximumFractionDigits:0});};
+const p2FmtValue=v=>{const n=Number(v||0),a=Math.abs(n),fmt=x=>x.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2});if(a>=1e9)return fmt(n/1e9)+' M';if(a>=1e6)return fmt(n/1e6)+' Jt';if(a>=1e3)return fmt(n/1e3)+' Rb';return fmt(n);};
 const p2FmtMetric=(v,metric=p2MetricValue)=>metric==='value'?p2FmtValue(v):p2Fmt(v);
 const p2Esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function p2Selected(id){const el=p2$(id);if(!el)return [];if(el.tagName==='SELECT')return [...el.selectedOptions].map(o=>o.value);return [...el.querySelectorAll('input[type="checkbox"]:checked')].map(o=>o.value);}
@@ -160,6 +160,36 @@ function page2RenderPareto(){
   '<td class="'+cls(totalAverage3?(totalCY/totalAverage3-1)*100:null)+'">'+growth(totalAverage3?(totalCY/totalAverage3-1)*100:null)+'</td>'+
   '<td class="'+p2CtrClass(totalCTR)+'"><b>'+totalCTR.toFixed(1)+'%</b></td><td><b>'+money(totalAverageMonth)+'</b></td></tr>');
 }
+function page2RenderParetoTrend(){
+ const head=p2$('p2ParetoTrendHead'),body=p2$('p2ParetoTrendBody');
+ if(!head||!body)return;
+ const rows=p2Data?.pareto||[],months=(p2Data?.kpi?.months||[]).slice();
+ const monthLabels={JAN:'Jan',FEB:'Feb',MAR:'Mar',APR:'Apr',MAY:'May',JUN:'Jun',JUL:'Jul',AUG:'Aug',SEP:'Sep',OCT:'Oct',NOV:'Nov',DEC:'Dec'};
+ const fmt=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:0});
+ const growth=v=>v===null||v===undefined?'—':(v>0?'+':'')+Number(v).toFixed(1)+'%';
+ const cls=v=>v===null||v===undefined?'p2-neutral':v>0?'p2-positive':v<0?'p2-negative':'p2-neutral';
+ const cols=['CUSTOMER NAME','SUBDIST',...months.map(m=>monthLabels[m]||m),'ACTUAL YTD','ACTUAL LY YTD','GRW YTD','GRW VS LM','GRW VS L3M','CTR','AVG / MONTH'];
+ head.innerHTML='<tr>'+cols.map(x=>'<th>'+p2Esc(x)+'</th>').join('')+'</tr>';
+ if(!rows.length){body.innerHTML='<tr><td colspan="'+cols.length+'" class="p2-empty">Tidak ada outlet Pareto pada filter terpilih.</td></tr>';return;}
+ const totalCY=rows.reduce((a,r)=>a+(Number(r.actualYTD)||0),0);
+ const totalLY=rows.reduce((a,r)=>a+(Number(r.actualLYYTD)||0),0);
+ const totalPrev=rows.reduce((a,r)=>a+(Number(r.previousValue)||0),0);
+ const totalAvg3=rows.reduce((a,r)=>a+(Number(r.averageLast3Value)||0),0);
+ const totalAvgMonth=rows.reduce((a,r)=>a+(Number(r.avgMonth)||0),0);
+ const monthTotals=months.map(m=>rows.reduce((a,r)=>a+(Number(r.monthValues?.[m])||0),0));
+ body.innerHTML=rows.map(r=>{
+  const tds=[ '<td>'+p2Esc(r.customerName)+'</td>','<td>'+p2Esc(r.subdist)+'</td>' ];
+  months.forEach(m=>tds.push('<td>'+fmt(r.monthValues?.[m])+'</td>'));
+  tds.push('<td><b>'+fmt(r.actualYTD)+'</b></td>','<td>'+fmt(r.actualLYYTD)+'</td>','<td class="'+cls(r.grwYTD)+'">'+growth(r.grwYTD)+'</td>','<td class="'+cls(r.grwVsLM)+'">'+growth(r.grwVsLM)+'</td>','<td class="'+cls(r.grwVsL3M)+'">'+growth(r.grwVsL3M)+'</td>','<td class="'+p2CtrClass(totalCY?r.actualYTD/totalCY*100:0)+'">'+(totalCY?(r.actualYTD/totalCY*100):0).toFixed(1)+'%</td>','<td>'+(r.avgMonth===null?'—':fmt(r.avgMonth))+'</td>');
+  return '<tr>'+tds.join('')+'</tr>';
+ }).join('');
+ const totalCtr=100;
+ const totalGrw=totalLY?(totalCY/totalLY-1)*100:null;
+ const totalPrevGrw=totalPrev?(totalCY/totalPrev-1)*100:null;
+ const total3Grw=totalAvg3?(totalCY/totalAvg3-1)*100:null;
+ const totalCells=['<td><b>GRAND TOTAL (25 OUTLET)</b></td>','<td>—</td>',...monthTotals.map(v=>'<td><b>'+fmt(v)+'</b></td>'),'<td><b>'+fmt(totalCY)+'</b></td>','<td><b>'+fmt(totalLY)+'</b></td>','<td class="'+cls(totalGrw)+'">'+growth(totalGrw)+'</td>','<td class="'+cls(totalPrevGrw)+'">'+growth(totalPrevGrw)+'</td>','<td class="'+cls(total3Grw)+'">'+growth(total3Grw)+'</td>','<td class="p2-ctr-blue"><b>'+totalCtr.toFixed(1)+'%</b></td>','<td><b>'+fmt(totalAvgMonth)+'</b></td>'];
+ body.insertAdjacentHTML('beforeend','<tr class="p2-grand-total">'+totalCells.join('')+'</tr>');
+}
 function page2Render(){
  if(!p2Data)return;const d=p2Data,k=d.kpi;
  p2SetText('p2AO',p2Fmt(k.ao));p2SetText('p2AOdesc',`Outlet unik ${k.year} • ${k.monthCount} bulan`);p2SetText('p2AOly',`AO LY (${k.ly}): ${p2Fmt(k.aoLy)}`);p2SetGrowth('p2AOgrowth',k.aoGrowth);p2$('p2AOgrowth').textContent='GRW '+p2Growth(k.aoGrowth);
@@ -171,6 +201,7 @@ function page2Render(){
  [['B7','b7'],['SAKA','saka']].forEach(([label,key])=>{const x=d.sbu[key];p2SetText('p2'+label,p2Fmt(x.aoCY));p2SetText('p2'+label+'desc',`Outlet unik ${k.year} • ${k.monthCount} bulan`);p2SetText('p2'+label+'LY',`AO LY (${k.ly}): ${p2Fmt(x.aoLY)}`);p2SetText('p2'+label+'GRW','GRW '+p2Growth(x.growth));p2SetGrowth('p2'+label+'GRW',x.growth);});
  page2DrawCharts();
  page2RenderPareto();
+ page2RenderParetoTrend();
 }
 const p2Palette=['#284b8f','#2f7775','#2f7139','#b87525','#76508d','#b23d42','#5986b7','#9b9b54','#5b6472','#c16d55'];
 const p2CenterText={id:'p2CenterText',afterDraw(chart){if(chart.config.type!=='doughnut')return;const total=(chart.data.datasets[0]?.data||[]).reduce((a,b)=>a+Number(b||0),0);const ctx=chart.ctx,area=chart.chartArea;if(!area)return;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#64748b';ctx.font='600 10px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(p2MetricValue==='ao'?'TOTAL AO':p2MetricValue==='ec'?'TOTAL EC':'TOTAL VALUE', (area.left+area.right)/2,(area.top+area.bottom)/2-9);ctx.fillStyle='#172b4d';ctx.font='800 19px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(p2FmtMetric(total),(area.left+area.right)/2,(area.top+area.bottom)/2+11);ctx.restore();}};
