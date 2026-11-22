@@ -490,6 +490,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const averageMonth = completedMonths.length ? sum(x.cy,completedMonths)/completedMonths.length : null;
     return {
       customerName:x.customerName,subdist:x.subdist,actualCY,actualLY,
+      monthValues:Object.fromEntries(periodMonths.map(month=>[month,Number(x.cy[month])||0])),
       grwMTD:page2Growth_(actualCY,actualLY),actualYTD,actualLYYTD,
       grwYTD:page2Growth_(actualYTD,actualLYYTD),
       grwVsLM:page2Growth_(actualCY,previous),
