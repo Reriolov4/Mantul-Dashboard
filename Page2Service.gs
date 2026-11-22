@@ -404,10 +404,11 @@ function page2BuildDashboardData_(filters, sourceRows) {
     }
 
     if (isCY && (!hasDateFilter || selectedDates.has(dayKey))) {
-      if (!dailyMap[dayKey]) dailyMap[dayKey] = {ao:new Set(),ec:new Set(),value:0};
-      if (outletKey) dailyMap[dayKey].ao.add(outletKey);
-      dailyMap[dayKey].ec.add(ecKey);
-      dailyMap[dayKey].value += Number(r[14]) || 0;
+      const dailyKey = month + '|' + dayKey;
+      if (!dailyMap[dailyKey]) dailyMap[dailyKey] = {ao:new Set(),ec:new Set(),value:0};
+      if (outletKey) dailyMap[dailyKey].ao.add(outletKey);
+      dailyMap[dailyKey].ec.add(ecKey);
+      dailyMap[dailyKey].value += Number(r[14]) || 0;
     }
   });
 
@@ -445,8 +446,14 @@ function page2BuildDashboardData_(filters, sourceRows) {
 
   const daily = Array.from({length:31},(_,index) => {
     const day = String(index + 1).padStart(2,'0');
-    const item = dailyMap[day];
-    return {day:day,ao:item ? item.ao.size : 0,ec:item ? item.ec.size : 0,value:item ? item.value || 0 : 0};
+    const items = periodMonths.map(month => dailyMap[month + '|' + day]).filter(Boolean);
+    const divisor = monthCount || 1;
+    return {
+      day:day,
+      ao:items.reduce((total,item)=>total+item.ao.size,0)/divisor,
+      ec:items.reduce((total,item)=>total+item.ec.size,0)/divisor,
+      value:items.reduce((total,item)=>total+(Number(item.value)||0),0)/divisor
+    };
   });
 
   const ao = CY.ao.size, aoLy = LY.ao.size, ec = CY.ec.size, ecLy = LY.ec.size;
@@ -487,6 +494,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
       grwYTD:page2Growth_(actualYTD,actualLYYTD),
       grwVsLM:page2Growth_(actualCY,previous),
       grwVsL3M:page2Growth_(actualCY,averageLast3),
+      previousValue:previous,averageLast3Value:averageLast3,
       ctr:paretoGrandTotalCY ? actualYTD/paretoGrandTotalCY*100 : 0,
       avgMonth:averageMonth
     };
