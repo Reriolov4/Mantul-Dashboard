@@ -11,6 +11,11 @@
 const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
 function page2Source_() {
+  // Prefer the verified normalized index. If it is missing or stale, keep the
+  // existing RAW_DATA_SALES route as a safe fallback.
+  const indexed = analyticsGetReadySheet_('P2_EVENT_INDEX', RAW_DATA_SHEET_NAME, 'P2');
+  if (indexed && indexed.getLastRow() > 1) return indexed;
+
   const ss = getDatabase_();
   const sh = ss.getSheetByName(RAW_DATA_SHEET_NAME || 'RAW_DATA_SALES');
   if (!sh || sh.getLastRow() < 2) {
@@ -69,6 +74,17 @@ function page2Read_(sheet) {
   const sh = sheet || page2Source_();
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
+
+  // Analytics index is already normalized to 14 columns and contains SOO only.
+  // Convert it into the exact internal row shape consumed by existing KPI logic.
+  if (sh.getName() === 'P2_EVENT_INDEX') {
+    const values = sh.getRange(2, 1, lastRow - 1, 14).getValues();
+    return values.map(r => [
+      r[0], page2Month_(r[1]), r[2], r[8], r[7], r[4], r[6],
+      r[11], r[5], page2Key_(r[13]) || 'SALESMAN', r[4], r[9],
+      r[10], r[3]
+    ]);
+  }
 
   // Header hanya A:AA. AH:AI merupakan helper formula workbook, bukan data dashboard.
   const headers = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getValues()[0];
@@ -434,7 +450,7 @@ function page2SourceVersion_(sheet) {
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    spreadsheetId, sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
+    spreadsheetId, sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');
 }
@@ -466,7 +482,12 @@ function page2GetMeta() {
   const version = page2SourceVersion_(sh);
   const key = page2CacheKey_('p2meta_schema2', 'soo-header-mapped', version);
   return page2Cached_(key, function() {
-    return page2BuildMeta_(page2Read_(sh));
+    const meta = page2BuildMeta_(page2Read_(sh));
+    if (sh.getName() === 'P2_EVENT_INDEX') {
+      const raw = getDatabase_().getSheetByName(RAW_DATA_SHEET_NAME);
+      meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
+    }
+    return meta;
   }, 300);
 }
 
@@ -539,6 +560,10 @@ function getPage2InitialPayload() {
 
   const metaStarted = Date.now();
   const meta = page2BuildMeta_(sourceRows);
+  if (sh.getName() === 'P2_EVENT_INDEX') {
+    const raw = getDatabase_().getSheetByName(RAW_DATA_SHEET_NAME);
+    meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
+  }
   const metaMs = Date.now() - metaStarted;
   const years = meta.years || [];
   const year = Number(years.indexOf('2026') >= 0 ? '2026' : years[years.length - 1]) || new Date().getFullYear();
