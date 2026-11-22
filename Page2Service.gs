@@ -313,7 +313,9 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const outletCode = r => page2Key_(r[13]);
   const validOutletCode = r => {
     const code = outletCode(r);
-    return !!code && code !== 'OTHERSB';
+    // Abaikan placeholder OTHERSB dan hasil error formula (#VALUE!)
+    // karena keduanya bukan identitas outlet/transaksi SOO yang valid.
+    return !!code && code !== 'OTHERSB' && code !== '#VALUE!';
   };
   // AO dihitung per kombinasi KODE CUSTOMER + SUBDIST agar total KPI
   // konsisten dengan penjumlahan AO masing-masing subdist.
