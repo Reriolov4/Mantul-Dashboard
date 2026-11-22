@@ -440,8 +440,15 @@ function cleanupOldBackups_(ss, keepCount) {
 }
 
 function cacheDashboardData_() {
-  CacheService.getScriptCache().remove('dashboard_rows_v2');
-  CacheService.getScriptCache().remove('dashboard_rows_v3');
+  const cache = CacheService.getScriptCache();
+  const props = PropertiesService.getScriptProperties();
+  const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || 'unconfigured').trim();
+
+  // Invalidate the exact current Page 1 cache key. The old v2/v3 keys are
+  // retained for cleanup, but getDashboardData() now reads dashboard_rows_v4.
+  cache.remove('dashboard_rows_v4_' + spreadsheetId);
+  cache.remove('dashboard_rows_v2');
+  cache.remove('dashboard_rows_v3');
 }
 
 function assertUploadPermission_() {
