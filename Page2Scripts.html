@@ -17,12 +17,17 @@ function p2SelectAll(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').for
 function p2Clear(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=false);p2UpdateTriggers();}
 function p2ResetFilter(id){p2Clear(id);}
 function p2CloseMenus(){document.querySelectorAll('#page2View .p2-filter.open').forEach(x=>x.classList.remove('open'));p2UpdateTriggers();}
-function p2SetBusy_(busy,label){\n const view=p2$('page2View');if(!view)return;\n if(busy){view.setAttribute('aria-busy','true');const t=p2$('p2LoadingText');if(t)t.textContent=label||'Sedang memproses data Page 2...';}\n else view.removeAttribute('aria-busy');\n}\nfunction p2SetLoadingState_(label){
+function p2SetBusy_(busy,label){
+ const view=p2$('page2View');if(!view)return;
+ if(busy){view.setAttribute('aria-busy','true');const t=p2$('p2LoadingText');if(t)t.textContent=label||'Sedang memproses data Page 2...';}
+ else view.removeAttribute('aria-busy');
+}
+function p2SetLoadingState_(label){
  document.querySelectorAll('#page2View .k-main, #page2View .p2-sbu-values b, #page2View .k-growth').forEach(el=>{el.textContent=label;});
 }
 function page2Init(){
  const view=p2$('page2View'),status=p2$('p2Status');
- if(view)view.setAttribute('aria-busy','true');
+ p2SetBusy_(true,'Mengambil data dan menyusun KPI Page 2...');
  if(status){status.setAttribute('aria-live','polite');status.textContent='Memuat metadata, KPI, dan grafik dari RAW_DATA_SALES...';}
  if(!p2Data)p2SetLoadingState_('Memuat…');
  if(!window.google||!google.script||!google.script.run){
@@ -71,7 +76,7 @@ function page2Init(){
   }
   p2Data=data;
   page2Render();
-  if(view)view.removeAttribute('aria-busy');
+  p2SetBusy_(false);
   const diag=payload.diagnostics||{};
   const timing=diag.cacheHit?'Cache awal aktif • '+(diag.totalMs||0)+' ms':
    'Server '+(diag.totalMs||0)+' ms (baca '+(diag.readMs||0)+' • metadata '+(diag.metaMs||0)+' • agregasi '+(diag.aggregateMs||0)+' ms)';
@@ -105,7 +110,7 @@ function page2Apply(){
  const requestId=++p2RequestSeq;
  const requestStarted=Date.now();
  const view=p2$('page2View'),status=p2$('p2Status');
- if(view)view.setAttribute('aria-busy','true');
+ p2SetBusy_(true,'Menerapkan filter dan menghitung ulang KPI...');
  if(status){status.setAttribute('aria-live','polite');status.textContent='Memuat KPI dan grafik SOO dari RAW_DATA_SALES...';}
  if(!p2Data)p2SetLoadingState_('Memuat…');
  const f=p2FilterValues();
