@@ -406,3 +406,110 @@ function testAnalyticsDashboardDataParity() {
   Logger.log(JSON.stringify(result, null, 2));
   return result;
 }
+
+
+/**
+ * Read-only audit for Page 2 EC discrepancies in 2026.
+ * Reports current production-rule EC keys and records excluded by each guard.
+ * Does not write to either spreadsheet or change dashboard calculations.
+ */
+function analyticsAuditEc2026Detail() {
+  const source = getDatabase__();
+  const sh = source.getSheetByName(RAW_DATA_SHEET_NAME);
+  if (!sh || sh.getLastRow() < 2) throw new Error('RAW_DATA_SALES tidak ditemukan atau kosong.');
+
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, RAW_SALES_COLUMN_COUNT).getValues();
+  const norm = value => String(value == null ? '' : value).trim().toUpperCase().replace(/\\s+/g, ' ');
+  const months = PAGE2_MONTHS_;
+  const overall = {
+    sooRows:0, blankCodeRows:0, othersbRows:0, validCodeRows:0,
+    blankCustomerNameRows:0, invalidDayRows:0, blankSubdistRows:0,
+    validEcRows:0, validAoRows:0
+  };
+  const ecKeys = new Set(), aoKeys = new Set();
+  const ecWithoutName = new Set(), ecWithoutSubdist = new Set();
+  const monthly = {};
+  months.forEach(m => monthly[m] = {rows:0,validCodeRows:0,ec:0,ao:0,blankCodeRows:0,othersbRows:0,blankCustomerNameRows:0,invalidDayRows:0});
+  const samples = {blankCustomerName:[],blankSubdist:[],invalidDay:[],othersb:[]};
+
+  rows.forEach((r, index) => {
+    if (Number(r[RAW_SALES_COL.YEAR]) !== 2026 || norm(r[RAW_SALES_COL.SALES_TYPE]) !== 'SOO') return;
+    overall.sooRows++;
+    const month = norm(r[RAW_SALES_COL.MONTH]).slice(0,3);
+    const m = monthly[month] ? monthly[month] : null;
+    if (m) m.rows++;
+
+    const code = norm(r[RAW_SALES_COL.CUSTOMER_CODE]);
+    const name = norm(r[RAW_SALES_COL.CUSTOMER_NAME]);
+    const subdist = norm(r[RAW_SALES_COL.SUBDIST]);
+    const day = page2Day_(r[RAW_SALES_COL.DAY]);
+    if (!code) {
+      overall.blankCodeRows++;
+      if (m) m.blankCodeRows++;
+      return;
+    }
+    if (code === 'OTHERSB') {
+      overall.othersbRows++;
+      if (m) m.othersbRows++;
+      if (samples.othersb.length < 10) samples.othersb.push({sheetRow:index+2,month:month,day:r[RAW_SALES_COL.DAY],customer:name,subdist:subdist,code:code});
+      return;
+    }
+
+    overall.validCodeRows++;
+    if (m) m.validCodeRows++;
+    const eventKey = page2CompositeKey_([day,code,subdist]);
+    const aoKey = page2CompositeKey_([code,subdist]);
+
+    if (!name) {
+      overall.blankCustomerNameRows++;
+      ecWithoutName.add(eventKey);
+      if (m) m.blankCustomerNameRows++;
+      if (samples.blankCustomerName.length < 10) samples.blankCustomerName.push({sheetRow:index+2,month:month,day:r[RAW_SALES_COL.DAY],code:code,subdist:subdist});
+    }
+    if (!day) {
+      overall.invalidDayRows++;
+      if (m) m.invalidDayRows++;
+      if (samples.invalidDay.length < 10) samples.invalidDay.push({sheetRow:index+2,month:month,customer:name,code:code,subdist:subdist,rawDay:r[RAW_SALES_COL.DAY]});
+      return;
+    }
+    ecKeys.add(eventKey);
+    aoKeys.add(aoKey);
+    if (!subdist) {
+      ecWithoutSubdist.add(eventKey);
+      overall.blankSubdistRows++;
+      if (m) m.blankSubdistRows = (m.blankSubdistRows || 0) + 1;
+      if (samples.blankSubdist.length < 10) samples.blankSubdist.push({sheetRow:index+2,month:month,day:day,customer:name,code:code});
+    }
+  });
+
+  overall.validEcRows = ecKeys.size;
+  overall.validAoRows = aoKeys.size;
+
+  months.forEach(month => {
+    const monthEc = new Set(), monthAo = new Set();
+    rows.forEach(r => {
+      if (Number(r[RAW_SALES_COL.YEAR]) !== 2026 ||
+          norm(r[RAW_SALES_COL.SALES_TYPE]) !== 'SOO' ||
+          norm(r[RAW_SALES_COL.MONTH]).slice(0,3) !== month) return;
+      const code = norm(r[RAW_SALES_COL.CUSTOMER_CODE]);
+      const subdist = norm(r[RAW_SALES_COL.SUBDIST]);
+      const day = page2Day_(r[RAW_SALES_COL.DAY]);
+      if (!code || code === 'OTHERSB' || !day) return;
+      monthEc.add(page2CompositeKey_([day,code,subdist]));
+      monthAo.add(page2CompositeKey_([code,subdist]));
+    });
+    monthly[month].ec = monthEc.size;
+    monthly[month].ao = monthAo.size;
+  });
+
+  const result = {
+    sourceSpreadsheetId:source.getId(),
+    year:2026,
+    rule:'SOO; valid KODE CUSTOMER (not blank/OTHERSB); EC distinct DD + KODE CUSTOMER + SUBDIST; day must be valid',
+    overall:overall,
+    monthly:monthly,
+    excludedOrEdgeCaseSamples:samples
+  };
+  Logger.log(JSON.stringify(result,null,2));
+  return result;
+}
