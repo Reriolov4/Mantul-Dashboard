@@ -1445,3 +1445,8 @@ body.page2-active main.wrap > #page2View{display:block!important}
 #page2View .p2-loading-spinner{width:27px;height:27px;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;animation:p2-loading-spin .75s linear infinite;flex:0 0 auto}
 @media(max-width:760px){.month-filter .month-menu{max-width:calc(100vw - 24px)}#page2View .p2-menu{max-width:calc(100vw - 24px)}} .month-filter .month-menu{width:min(300px,90vw)} #page2View .p2-menu{width:min(300px,90vw)} #page2View .p2-customer-menu{width:min(340px,90vw)}
 </style>
+
+/* Page 1 month selector: same single-column scroll pattern as Page 2 */
+#monthFilter .month-menu{width:min(260px,90vw);max-height:none;overflow:visible}
+#monthFilter .month-checks{display:flex;flex-direction:column;gap:5px;max-height:230px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding-right:4px}
+#monthFilter .month-checks label{width:100%;box-sizing:border-box;min-height:30px}
