@@ -336,14 +336,14 @@ function page2BuildDashboardData_(filters, sourceRows) {
     dayKey, outletCode(r), r[8]
   ]);
 
-  const addGroup = (bucket, dimension, label, outletKey, ecKey) => {
+  const addGroup = (bucket, dimension, label, outletKey, ecKey, value) => {
     if (!label) return;
     if (!bucket.groups[dimension][label]) {
       bucket.groups[dimension][label] = {name:label,ao:new Set(),ec:new Set(),value:0};
     }
     if (outletKey) bucket.groups[dimension][label].ao.add(outletKey);
     bucket.groups[dimension][label].ec.add(ecKey);
-    bucket.groups[dimension][label].value += Number(arguments.length > 5 ? arguments[5] : 0) || 0;
+    bucket.groups[dimension][label].value += Number(value) || 0;
   };
 
   let matchedRowCount = 0;
