@@ -312,3 +312,97 @@ function testAnalyticsDashboardRouting() {
   Logger.log(JSON.stringify(result, null, 2));
   return result;
 }
+
+
+/**
+ * Read-only parity test: compare the current analytics facts with the original
+ * DATA_SALES / RAW_DATA_SALES calculations before relying on the new route.
+ * This does not write to either spreadsheet.
+ */
+function testAnalyticsDashboardDataParity() {
+  const source = getDatabase_();
+  const analytics = analyticsOpenDb_();
+  const p1Source = source.getSheetByName(DATA_SHEET_NAME);
+  const p2Source = source.getSheetByName(RAW_DATA_SHEET_NAME);
+  const p1Fact = analytics.getSheetByName('P1_FACT');
+  const p2Index = analytics.getSheetByName('P2_EVENT_INDEX');
+  if (!p1Source || !p2Source || !p1Fact || !p2Index) {
+    throw new Error('Sheet sumber atau Analytics DB tidak lengkap.');
+  }
+
+  // PAGE 1: compare every normalized fact row and all 14 fields in order.
+  const p1Last = p1Source.getLastRow();
+  const p1Width = Math.max(p1Source.getLastColumn(), SALES_HEADERS.length);
+  const p1Headers = p1Source.getRange(1, 1, 1, p1Width).getValues()[0];
+  const p1Ix = analyticsResolveP1Columns_(p1Headers);
+  const p1RawValues = p1Last > 1
+    ? p1Source.getRange(2, 1, p1Last - 1, p1Width).getValues()
+    : [];
+  const p1Expected = [];
+  p1RawValues.forEach(r => {
+    if (!r.some(v => v !== '' && v !== null)) return;
+    const year = Number(r[p1Ix.y]), val = Number(r[p1Ix.v]);
+    if (!Number.isFinite(year) || !Number.isFinite(val)) return;
+    p1Expected.push([
+      year, String(r[p1Ix.m] || '').trim().toUpperCase(),
+      String(r[p1Ix.d] || ''), String(r[p1Ix.s] || ''),
+      String(r[p1Ix.b] || ''), String(r[p1Ix.c] || ''),
+      String(r[p1Ix.u] || ''), String(r[p1Ix.p] || ''),
+      String(r[p1Ix.fm] || ''), String(r[p1Ix.fq] || ''), val,
+      String(r[p1Ix.t] || '').trim().toUpperCase(),
+      p1Ix.tg < 0 || r[p1Ix.tg] === '' || r[p1Ix.tg] == null ? '' : Number(r[p1Ix.tg]),
+      p1Ix.be < 0 || r[p1Ix.be] === '' || r[p1Ix.be] == null ? '' : Number(r[p1Ix.be])
+    ]);
+  });
+  const p1Actual = p1Fact.getLastRow() > 1
+    ? p1Fact.getRange(2, 1, p1Fact.getLastRow() - 1, P1_FACT_HEADERS_.length).getValues()
+    : [];
+  let p1Mismatch = -1;
+  const p1Count = Math.min(p1Expected.length, p1Actual.length);
+  for (let i = 0; i < p1Count; i++) {
+    if (JSON.stringify(p1Expected[i]) !== JSON.stringify(p1Actual[i])) {
+      p1Mismatch = i + 1;
+      break;
+    }
+  }
+  const p1Pass = p1Expected.length === p1Actual.length && p1Mismatch < 0;
+
+  // PAGE 2: calculate the same KPI/chart payload from the live source and
+  // the normalized SOO index, using the existing production aggregation logic.
+  const p2SourceRows = page2Read_(p2Source);
+  const p2IndexRows = page2Read_(p2Index);
+  const years = Array.from(new Set(p2IndexRows.map(r => Number(r[0])).filter(Number.isFinite))).sort((a,b) => a-b);
+  const p2Checks = years.map(year => {
+    const live = page2BuildDashboardData_({year:year}, p2SourceRows);
+    const indexed = page2BuildDashboardData_({year:year}, p2IndexRows);
+    const sections = ['kpi','monthly','daily','donut','sbu','byTeam'];
+    const mismatches = sections.filter(key =>
+      JSON.stringify(live[key]) !== JSON.stringify(indexed[key])
+    );
+    return {
+      year:year,
+      status:mismatches.length ? 'MISMATCH' : 'PASS',
+      mismatchedSections:mismatches,
+      liveKpi:live.kpi,
+      indexedKpi:indexed.kpi
+    };
+  });
+  const result = {
+    sourceSpreadsheetId:source.getId(),
+    page1:{
+      status:p1Pass ? 'PASS' : 'MISMATCH',
+      sourceNormalizedRows:p1Expected.length,
+      analyticsRows:p1Actual.length,
+      firstMismatchRow:p1Mismatch < 0 ? null : p1Mismatch
+    },
+    page2:{
+      sourceRows:p2Source.getLastRow() - 1,
+      sourceSooRows:p2SourceRows.filter(r => page2Key_(r[7]) === 'SOO').length,
+      analyticsRows:p2IndexRows.length,
+      checks:p2Checks,
+      status:p2Checks.every(x => x.status === 'PASS') ? 'PASS' : 'MISMATCH'
+    }
+  };
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
