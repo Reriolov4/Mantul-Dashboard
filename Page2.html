@@ -89,6 +89,15 @@
 #page2View * {
   font-family: Inter, "Segoe UI", Arial, sans-serif !important;
 }
+
+#page2View .p2-section-title{margin:4px 0 9px;color:#173b70}#page2View .p2-section-title h2{font-size:13px;margin:0 0 3px}#page2View .p2-section-title p{font-size:9px;color:#77869a;margin:0}
+#page2View .p2-pareto-card{margin-top:11px}.p2-table-wrap{overflow:auto;max-width:100%;max-height:520px}
+#page2View .p2-pareto-table{border-collapse:separate;border-spacing:0;width:100%;min-width:1120px;font-size:9px;white-space:nowrap}
+#page2View .p2-pareto-table th{position:sticky;top:0;background:#f8e8eb;color:#173b70;padding:8px 7px;text-align:right;border-bottom:1px solid #d7dee9;z-index:2}
+#page2View .p2-pareto-table th:first-child,#page2View .p2-pareto-table th:nth-child(2),#page2View .p2-pareto-table td:first-child,#page2View .p2-pareto-table td:nth-child(2){text-align:left}
+#page2View .p2-pareto-table td{padding:7px;border-bottom:1px solid #e2e8f0;text-align:right;color:#243b5a}
+#page2View .p2-pareto-table tbody tr:hover{background:#f8fafc}
+#page2View .p2-pareto-table .p2-positive{color:#16803c;font-weight:800}#page2View .p2-pareto-table .p2-negative{color:#d12c2c;font-weight:800}#page2View .p2-pareto-table .p2-neutral{color:#64748b;font-weight:700}
 </style>
 <section id="page2View" class="p2-view" hidden>\n <div class="p2-loading-overlay" aria-hidden="true"><div class="p2-loading-card"><span class="p2-loading-spinner"></span><span id="p2LoadingText">Sedang memproses data Page 2...</span></div></div>
  <div class="p2-filters">
@@ -113,18 +122,23 @@
   <article class="p2-kpi"><div class="k-label">EC MTD</div><div class="k-main" id="p2ECMTD">—</div><div class="k-sub" id="p2ECMTDdesc">EC bulan terpilih</div><div class="k-growth" id="p2ECMTDgrowth">GRW MTD —</div><div class="k-sub" id="p2ECMTDLY">EC LY: —</div></article>
  </div>
  <div class="p2-control-row">
-  <div class="p2-filter"><label>METRIK GRAFIK & DONUT</label><div class="p2-switch" id="p2MetricSwitch" role="group" aria-label="Pilih metrik grafik"><button type="button" class="active" data-metric="ao" aria-pressed="true">Aktif Outlet (AO)</button><button type="button" data-metric="ec" aria-pressed="false">Effective Call (EC)</button></div></div>
+  <div class="p2-filter"><label>METRIK GRAFIK DAN TABEL</label><div class="p2-switch" id="p2MetricSwitch" role="group" aria-label="Pilih metrik grafik"><button type="button" class="active" data-metric="ao" aria-pressed="true">Aktif Outlet (AO)</button><button type="button" data-metric="ec" aria-pressed="false">Effective Call (EC)</button></div></div>
   <div class="p2-filter" id="p2CustomerFilter"><label>CUSTOMER</label><button class="p2-trigger" id="p2CustomerTrigger" type="button">Pilih Outlet</button><div class="p2-menu p2-customer-menu"><div class="p2-menu-actions"><button type="button" data-p2-action="customer-all">Pilih Semua</button><button type="button" data-p2-action="customer-reset">Reset</button><button type="button" class="p2-apply-menu" data-p2-action="customer-apply">Terapkan Pilihan</button></div><input id="p2CustomerSearch" type="search" placeholder="Cari nama outlet..." autocomplete="off" aria-label="Cari Customer" style="width:100%;height:34px;border:1px solid #dbe3ee;border-radius:8px;padding:0 9px;margin:0 0 8px;font:inherit;font-size:11px"><div id="p2CustomerCount" style="font-size:10px;color:#64748b;margin:0 0 6px">Belum ada outlet dipilih</div><div id="p2CustomerList" class="p2-checklist p2-customer-list"></div></div></div>
  </div>
+ <div class="p2-donuts">
+  <article class="p2-card"><div class="p2-chart-head"><div><h2>KOMPOSISI PER SUBDIST</h2><p>Kontribusi dan Growth vs LY pada periode terpilih.</p></div></div><div class="p2-donut-layout"><div class="p2-donutbox"><canvas id="p2SubdistChart"></canvas></div><div class="p2-donut-legend" id="p2SubdistLegend"></div></div></article>
+  <article class="p2-card"><div class="p2-chart-head"><div><h2>KOMPOSISI PER TEAM</h2><p>Kontribusi AO dan Growth vs LY pada periode terpilih.</p></div></div><div class="p2-donut-layout"><div class="p2-donutbox"><canvas id="p2TeamChart"></canvas></div><div class="p2-donut-legend" id="p2TeamLegend"></div></div></article>
+  <article class="p2-card"><div class="p2-chart-head"><div><h2>KOMPOSISI PER CATEGORY</h2><p>Kontribusi AO dan Growth vs LY pada periode terpilih.</p></div></div><div class="p2-donut-layout"><div class="p2-donutbox"><canvas id="p2CategoryChart"></canvas></div><div class="p2-donut-legend" id="p2CategoryLegend"></div></div></article>
+ </div>
+ <div class="p2-section-title"><h2>MATRIX GRAFIK DAN TABEL</h2><p>Tren kinerja berdasarkan periode terpilih.</p></div>
  <div class="p2-panel-grid">
   <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND BULANAN</h2><p>Perbandingan tahun berjalan dan tahun lalu.</p></div></div><div class="p2-chartbox"><canvas id="p2MonthlyChart"></canvas></div></article>
   <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND HARIAN</h2><p>Pergerakan berdasarkan tanggal dalam bulan.</p></div></div><div class="p2-chartbox"><canvas id="p2DailyChart"></canvas></div></article>
  </div>
- <div class="p2-donuts">
-  <article class="p2-card"><div class="p2-chart-head"><div><h2>KOMPOSISI PER SUBDIST</h2><p>Kontribusi dan Growth vs LY pada periode terpilih.</p></div></div><div class="p2-donut-layout"><div class="p2-donutbox"><canvas id="p2SubdistChart"></canvas></div><div class="p2-donut-legend" id="p2SubdistLegend"></div></div></article>
-  <article class="p2-card"><div class="p2-chart-head"><div><h2>KOMPOSISI PER NAMA AKUN</h2><p>Kontribusi AO dan Growth vs LY pada periode terpilih.</p></div></div><div class="p2-donut-layout"><div class="p2-donutbox"><canvas id="p2AccountChart"></canvas></div><div class="p2-donut-legend" id="p2AccountLegend"></div></div></article>
-  <article class="p2-card"><div class="p2-chart-head"><div><h2>KOMPOSISI PER CATEGORY</h2><p>Kontribusi AO dan Growth vs LY pada periode terpilih.</p></div></div><div class="p2-donut-layout"><div class="p2-donutbox"><canvas id="p2CategoryChart"></canvas></div><div class="p2-donut-legend" id="p2CategoryLegend"></div></div></article>
- </div>
+ <article class="p2-card p2-pareto-card">
+  <div class="p2-chart-head"><div><h2>25 OUTLET PARETO</h2><p>Ranking berdasarkan Actual YTD terbesar; nama akun tertentu dikecualikan sesuai daftar.</p></div></div>
+  <div class="p2-table-wrap"><table class="p2-pareto-table"><thead><tr><th>CUSTOMER NAME</th><th>SUBDIST</th><th>ACTUAL CY</th><th>ACTUAL LY</th><th>GRW MTD</th><th>ACTUAL YTD</th><th>ACTUAL LY</th><th>GRW YTD</th><th>GRW VS LM</th><th>GRW VS L3M</th><th>CTR</th><th>AVG / MONTH</th></tr></thead><tbody id="p2ParetoBody"><tr><td colspan="12" class="p2-empty">Menunggu data…</td></tr></tbody></table></div>
+ </article>
 </section>
 
 <style>#page2View #p2AOly,#page2View #p2ECly{font-size:12px!important;font-weight:800!important;color:#334155!important}</style>
