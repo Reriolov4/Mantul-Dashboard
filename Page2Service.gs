@@ -78,6 +78,18 @@ function page2Read_(sheet) {
   // Analytics index is already normalized to 15 columns (including VAL) and contains SOO only.
   // Convert it into the exact internal row shape consumed by existing KPI logic.
   if (sh.getName() === 'P2_EVENT_INDEX') {
+    const expectedHeaders = [
+      'YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC',
+      'BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL'
+    ];
+    const actualHeaders = sh.getRange(1, 1, 1, 15).getValues()[0].map(page2HeaderKey_);
+    if (actualHeaders.length !== expectedHeaders.length ||
+        !actualHeaders.every((header, index) => header === expectedHeaders[index])) {
+      throw new Error(
+        'Header P2_EVENT_INDEX tidak sesuai. Diperlukan: ' +
+        expectedHeaders.join(', ') + '. Terbaca: ' + actualHeaders.join(', ')
+      );
+    }
     const values = sh.getRange(2, 1, lastRow - 1, 15).getValues();
     return values.map(r => [
       r[0], page2Month_(r[1]), r[2], r[8], r[7], r[4], r[6],
