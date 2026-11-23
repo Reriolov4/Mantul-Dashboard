@@ -309,7 +309,18 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const monthlySets = PAGE2_MONTHS_.map(() => ({cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()}));
   const dailyMap = {cy:{},ly:{}};
   const orderedSelected = periodMonths.slice().sort((a,b) => PAGE2_MONTHS_.indexOf(a)-PAGE2_MONTHS_.indexOf(b));
-  const mtdMonth = orderedSelected.length ? orderedSelected[orderedSelected.length - 1] : null;
+  let mtdMonth = selectedMonths.length && orderedSelected.length ? orderedSelected[orderedSelected.length - 1] : null;
+  // Jika semua bulan dipilih (checkbox kosong = semua), gunakan bulan terakhir
+  // yang benar-benar memiliki data pada tahun dan filter dimensi terpilih.
+  if (!mtdMonth) {
+    let latestIndex = -1;
+    all.forEach(r => {
+      if (!matches(r) || Number(r[0]) !== year) return;
+      const index = PAGE2_MONTHS_.indexOf(page2Month_(r[1]));
+      if (index > latestIndex) latestIndex = index;
+    });
+    mtdMonth = latestIndex >= 0 ? PAGE2_MONTHS_[latestIndex] : null;
+  }
   const mtd = {cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
   const paretoByOutlet = new Map();
   const mtdIndex = mtdMonth ? PAGE2_MONTHS_.indexOf(mtdMonth) : -1;
