@@ -611,7 +611,7 @@ function page2SourceVersion_(sheet) {
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    'page2-value-matrix-subbrand-v4',
+    'page2-value-matrix-subbrand-v5',
     spreadsheetId, sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');
