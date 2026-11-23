@@ -239,10 +239,9 @@ function page2RenderChartInsights(){
  p2$('p2DailyBestValue').textContent=cy.bestDay?p2FmtValue(cy.bestValue)+' • '+(k.mtdMonth||''):'Belum ada data';
  p2$('p2DailyTotalMtd').textContent=p2SummaryMetric(cyTotal,metric);
  p2SetSummaryGrowth('p2DailyGrowthLy',lyTotal?(cyTotal/lyTotal-1)*100:(cyTotal?null:0));
- const labels=daily.map(x=>x.day);
- const bestIndex=cy.bestDay?Number(cy.bestDay)-1:-1;
- const bestValue=metric==='value'?cy.bestValue:Math.max(0,...daily.map(x=>Number(x[metric])||0));
- p2$('p2DailyBestValue').textContent=bestIndex>=0?p2FmtValue(cy.bestValue)+' • Tanggal '+cy.bestDay:'Belum ada data';
+ // Best Sales Day berasal dari agregasi MTD CY di service; tidak perlu membaca
+ // variabel daily lokal milik page2DrawCharts().
+ p2$('p2DailyBestValue').textContent=cy.bestDay?p2FmtValue(cy.bestValue)+' • Tanggal '+cy.bestDay:'Belum ada data';
 }
 function page2DrawCharts(){const d=p2Data,metric=p2MetricValue;
  const monthly=d.monthly.filter(x=>d.kpi.months.includes(x.month));
