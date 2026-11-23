@@ -556,7 +556,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     monthlyCY:Object.fromEntries(trendMonths.map(month=>[month,dailyPeriodStats(dailyMonthlyCYTotals,[month])])),
     monthlyLY:Object.fromEntries(trendMonths.map(month=>[month,dailyPeriodStats(dailyMonthlyLYTotals,[month])]))
   };
-  const dailyLYMTD = mtdMonth ? dailyMonthStats(dailyMap.ly,mtdMonth) : {ao:0,ec:0,value:0,days:0,bestDay:null,bestValue:0};
+  const dailyLYMTD = mtdMonth ? dailyMonthStats(dailyMonthlyLYTotals,mtdMonth) : emptyDailyMonth();
 
   const ao = CY.ao.size, aoLy = LY.ao.size, ec = CY.ec.size, ecLy = LY.ec.size;
   const aoMTD = mtd.cyAO.size, aoMTDLY = mtd.lyAO.size;
