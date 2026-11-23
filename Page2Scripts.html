@@ -119,9 +119,10 @@ function page2Apply(){
  google.script.run.withSuccessHandler(d=>{
   // Abaikan hasil request lama jika pengguna sudah menerapkan filter baru.
   if(requestId!==p2RequestSeq)return;
-  p2Data=d;page2Render();
+  p2Data=d;
+  try { page2Render(); } catch(err) { console.error('Page 2 render error:',err); p2$('p2Status').textContent='Kesalahan render Page 2: '+(err.message||String(err)); }
   if(view)view.removeAttribute('aria-busy');
-  p2$('p2Status').textContent=`${p2Fmt(d.kpi.rows)} baris SOO terpilih • Tahun ${d.kpi.year} • ${d.updatedAt||'Live Google Sheets'} • Respon filter ${((Date.now()-requestStarted)/1000).toFixed(1)} detik`;
+  if(!/gagal:|Kesalahan render/i.test(String(p2$('p2Status').textContent||'')))p2$('p2Status').textContent=`${p2Fmt(d.kpi.rows)} baris SOO terpilih • Tahun ${d.kpi.year} • ${d.updatedAt||'Live Google Sheets'} • Respon filter ${((Date.now()-requestStarted)/1000).toFixed(1)} detik`;
  }).withFailureHandler(e=>{
   if(requestId!==p2RequestSeq)return;
   if(view)view.removeAttribute('aria-busy');
@@ -200,9 +201,10 @@ function page2Render(){
  p2SetText('p2AOMTD',p2Fmt(k.aoMTD));p2SetText('p2AOMTDdesc','AO '+k.mtdMonth+' '+k.year);p2SetGrowth('p2AOMTDgrowth',aoMtdGrw);p2$('p2AOMTDgrowth').textContent='GRW MTD '+p2Growth(aoMtdGrw);p2SetText('p2AOMTDLY',`AO LY (${k.ly}): ${p2Fmt(k.aoMTDLY)}`);
  p2SetText('p2ECMTD',p2Fmt(k.ecMTD));p2SetText('p2ECMTDdesc','EC '+k.mtdMonth+' '+k.year);p2SetGrowth('p2ECMTDgrowth',ecMtdGrw);p2$('p2ECMTDgrowth').textContent='GRW MTD '+p2Growth(ecMtdGrw);p2SetText('p2ECMTDLY',`EC LY (${k.ly}): ${p2Fmt(k.ecMTDLY)}`);
  [['B7','b7'],['SAKA','saka']].forEach(([label,key])=>{const x=d.sbu[key];p2SetText('p2'+label,p2Fmt(x.aoCY));p2SetText('p2'+label+'desc',`Outlet unik ${k.year} • ${k.monthCount} bulan`);p2SetText('p2'+label+'LY',`AO LY (${k.ly}): ${p2Fmt(x.aoLY)}`);p2SetText('p2'+label+'GRW','GRW '+p2Growth(x.growth));p2SetGrowth('p2'+label+'GRW',x.growth);});
- page2DrawCharts();
+ // Render tabel lebih dahulu agar tidak ikut blank jika Chart.js gagal.
  page2RenderPareto();
  page2RenderParetoTrend();
+ page2DrawCharts();
 }
 const p2Palette=['#284b8f','#2f7775','#2f7139','#b87525','#76508d','#b23d42','#5986b7','#9b9b54','#5b6472','#c16d55'];
 const p2CenterText={id:'p2CenterText',afterDraw(chart){if(chart.config.type!=='doughnut')return;const total=(chart.data.datasets[0]?.data||[]).reduce((a,b)=>a+Number(b||0),0);const ctx=chart.ctx,area=chart.chartArea;if(!area)return;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#64748b';ctx.font='600 10px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(p2MetricValue==='ao'?'TOTAL AO':p2MetricValue==='ec'?'TOTAL EC':'TOTAL VALUE', (area.left+area.right)/2,(area.top+area.bottom)/2-9);ctx.fillStyle='#172b4d';ctx.font='800 19px Inter, Segoe UI, Arial, sans-serif';ctx.fillText(p2FmtMetric(total),(area.left+area.right)/2,(area.top+area.bottom)/2+11);ctx.restore();}};
@@ -220,40 +222,24 @@ function p2RenderDonut(key,canvasId,legendId){
 function p2SummaryMetric(v,metric){return metric==='value'?p2FmtValue(v):p2Fmt(v);}
 function p2SetSummaryGrowth(id,value){const el=p2$(id);if(!el)return;el.textContent=p2Growth(value);el.className='';el.style.color=value===null?'#718096':value>0?'#16834a':value<0?'#dc4242':'#718096';}
 function page2RenderChartInsights(){
- const d=p2Data,k=d.kpi,metric=p2MetricValue,lyKey=metric==='value'?'valueLy':metric==='ao'?'aoLy':'ecLy';
- const order=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+ const d=p2Data,k=d.kpi,metric=p2MetricValue,order=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
  const lastIndex=order.indexOf(k.mtdMonth),ytdMonths=lastIndex>=0?order.slice(0,lastIndex+1):[];
- const l3m=lastIndex>=0?order.slice(Math.max(0,lastIndex-2),lastIndex+1):[];
- const sum=(months,key)=>months.reduce((total,m)=>total+(Number((d.monthly.find(x=>x.month===m)||{})[key])||0),0);
- const ytdCy=sum(ytdMonths,metric),ytdLy=sum(ytdMonths,lyKey),l3mCy=sum(l3m,metric);
- p2$('p2MonthlyAvgYtd').textContent=p2SummaryMetric(ytdMonths.length?ytdCy/ytdMonths.length:0,metric);
- p2$('p2MonthlyAvgL3m').textContent=p2SummaryMetric(l3m.length?l3mCy/l3m.length:0,metric);
- p2SetSummaryGrowth('p2MonthlyGrowthYtd',ytdLy?(ytdCy/ytdLy-1)*100:(ytdCy?null:0));
- p2$('p2MonthlyTotalYtd').textContent=p2SummaryMetric(ytdCy,metric);
- const cy=k.dailyCYMTD||{},ly=k.dailyLYMTD||{},days=Number(cy.days)||0;
- const cyTotal=Number(cy[metric])||0,lyTotal=Number(ly[metric])||0;
- const avg=days?cyTotal/days:0,lyDays=Number(ly.days)||0,lyAvg=lyDays?lyTotal/lyDays:0;
- p2$('p2DailyAvgCy').textContent=p2SummaryMetric(avg,metric);
- p2$('p2DailyAvgLy').textContent=p2SummaryMetric(lyAvg,metric);
- p2$('p2DailyBestDay').textContent=metric==='value'?(cy.bestDay?'Tgl '+cy.bestDay:'—'):(cy.bestDay?'Tgl '+cy.bestDay:'—');
- p2$('p2DailyBestValue').textContent=cy.bestDay?p2FmtValue(cy.bestValue)+' • '+(k.mtdMonth||''):'Belum ada data';
- p2$('p2DailyTotalMtd').textContent=p2SummaryMetric(cyTotal,metric);
- p2SetSummaryGrowth('p2DailyGrowthLy',lyTotal?(cyTotal/lyTotal-1)*100:(cyTotal?null:0));
- // Best Sales Day berasal dari agregasi MTD CY di service; tidak perlu membaca
- // variabel daily lokal milik page2DrawCharts().
- p2$('p2DailyBestValue').textContent=cy.bestDay?p2FmtValue(cy.bestValue)+' • Tanggal '+cy.bestDay:'Belum ada data';
+ // L3M = tiga bulan penuh sebelum bulan aktif; bulan aktif tidak ikut.
+ const l3mMonths=lastIndex>=0?order.slice(Math.max(0,lastIndex-3),lastIndex):[];
+ const getMonth=m=>d.monthly.find(x=>x.month===m)||{},sum=(months,key)=>months.reduce((t,m)=>t+(Number(getMonth(m)[key])||0),0);
+ const current=lastIndex>=0?Number(getMonth(k.mtdMonth)[metric])||0:0,previous=lastIndex>0?Number(getMonth(order[lastIndex-1])[metric])||0:0;
+ const ytdCY=sum(ytdMonths,metric),lyKey=metric==='value'?'valueLy':metric==='ao'?'aoLy':'ecLy',ytdLY=sum(ytdMonths,lyKey);
+ const avgYtd=ytdMonths.length?ytdCY/ytdMonths.length:0,l3mTotal=sum(l3mMonths,metric),avgL3m=l3mMonths.length?l3mTotal/l3mMonths.length:0;
+ const growth=(now,base)=>base?(now/base-1)*100:(now?null:0);
+ const values={actMtd:p2SummaryMetric(current,metric),avgYtd:p2SummaryMetric(avgYtd,metric),avgL3m:p2SummaryMetric(avgL3m,metric),growthLm:growth(current,previous),growthL3m:growth(current,avgL3m),growthYtd:growth(ytdCY,ytdLY)};
+ ['p2Monthly','p2Daily'].forEach(prefix=>{p2$(prefix+'ActMtd').textContent=values.actMtd;p2$(prefix+'AvgYtd').textContent=values.avgYtd;p2$(prefix+'AvgL3m').textContent=values.avgL3m;p2SetSummaryGrowth(prefix+'GrowthLm',values.growthLm);p2SetSummaryGrowth(prefix+'GrowthL3m',values.growthL3m);p2SetSummaryGrowth(prefix+'GrowthYtd',values.growthYtd);});
 }
-function page2DrawCharts(){const d=p2Data,metric=p2MetricValue;
- const monthly=d.monthly.filter(x=>d.kpi.months.includes(x.month));
- const lyKey=metric==='value'?'valueLy':metric==='ao'?'aoLy':'ecLy';
- // Dataset LY lebih dulu agar batang CY biru selalu berada di sisi kanan.
- p2Chart('p2MonthlyChart','bar',{labels:monthly.map(x=>x.month),datasets:[{label:String(d.kpi.ly),data:monthly.map(x=>x[lyKey]),backgroundColor:'#a5afbd',borderRadius:5},{label:String(d.kpi.year),data:monthly.map(x=>x[metric]),backgroundColor:'#2563eb',borderRadius:5}]},{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9}}},p2ValueLabels:{enabled:true}}});
+function p2SafeRender_(label,render){try{render();return true;}catch(err){console.error('Page 2 '+label+' gagal dirender:',err);const status=p2$('p2Status');if(status)status.textContent='Data KPI dan tabel tetap dimuat; '+label+' gagal: '+(err.message||String(err));return false;}}
+function page2DrawCharts(){const d=p2Data,metric=p2MetricValue,monthly=d.monthly.filter(x=>d.kpi.months.includes(x.month)),lyKey=metric==='value'?'valueLy':metric==='ao'?'aoLy':'ecLy';
+ p2SafeRender_('grafik bulanan',()=>p2Chart('p2MonthlyChart','bar',{labels:monthly.map(x=>x.month),datasets:[{label:String(d.kpi.ly),data:monthly.map(x=>x[lyKey]),backgroundColor:'#a5afbd',borderRadius:5},{label:String(d.kpi.year),data:monthly.map(x=>x[metric]),backgroundColor:'#2563eb',borderRadius:5}]},{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:9}}},p2ValueLabels:{enabled:true}}}));
  const daily=d.daily||[];
- p2Chart('p2DailyChart','line',{labels:daily.map(x=>x.day),datasets:[{label:String(d.kpi.ly)+' • LY',data:daily.map(x=>Number(x[lyKey])||0),tension:.25,fill:false,borderColor:'#a5afbd',backgroundColor:'#a5afbd',pointRadius:2},{label:String(d.kpi.year)+' • CY',data:daily.map(x=>Number(x[metric])||0),tension:.25,fill:false,borderColor:'#2563eb',backgroundColor:'#2563eb',pointRadius:2}]},{plugins:{p2ValueLabels:{enabled:true}},scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,callback:(v,i)=>String(i+1).padStart(2,'0')}},y:{beginAtZero:true,grid:{display:false},ticks:{font:{size:9}}}}});
- page2RenderChartInsights();
- p2RenderDonut('subdist','p2SubdistChart','p2SubdistLegend');
- p2RenderDonut('team','p2TeamChart','p2TeamLegend');
- p2RenderDonut('subbrand','p2SubbrandChart','p2SubbrandLegend');
+ p2SafeRender_('grafik harian',()=>p2Chart('p2DailyChart','line',{labels:daily.map(x=>x.day),datasets:[{label:String(d.kpi.ly)+' • LY',data:daily.map(x=>Number(x[lyKey])||0),tension:.25,fill:false,borderColor:'#a5afbd',backgroundColor:'#a5afbd',pointRadius:2},{label:String(d.kpi.year)+' • CY',data:daily.map(x=>Number(x[metric])||0),tension:.25,fill:false,borderColor:'#2563eb',backgroundColor:'#2563eb',pointRadius:2}]},{plugins:{p2ValueLabels:{enabled:true}},scales:{x:{grid:{display:false},ticks:{font:{size:9},autoSkip:false,callback:(v,i)=>String(i+1).padStart(2,'0')}},y:{beginAtZero:true,grid:{display:false},ticks:{font:{size:9}}}}}));
+ p2SafeRender_('label insight',page2RenderChartInsights);p2SafeRender_('donut Subdist',()=>p2RenderDonut('subdist','p2SubdistChart','p2SubdistLegend'));p2SafeRender_('donut Team',()=>p2RenderDonut('team','p2TeamChart','p2TeamLegend'));p2SafeRender_('donut Subbrand',()=>p2RenderDonut('subbrand','p2SubbrandChart','p2SubbrandLegend'));
 }
 function page2SetMetric(metric){p2MetricValue=metric;document.querySelectorAll('#p2MetricSwitch button').forEach(b=>{const active=b.dataset.metric===metric;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});if(p2Data)page2DrawCharts();}
 document.addEventListener('click',e=>{const metricButton=e.target.closest('#p2MetricSwitch button[data-metric]');if(metricButton)page2SetMetric(metricButton.dataset.metric);});
