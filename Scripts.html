@@ -574,8 +574,15 @@ function gasCall(fn,arg){
   if(arg===undefined) runner[fn](); else runner[fn](arg);
  });
 }
+function setPage1Loading_(busy,message){
+ const overlay=$('p1LoadingOverlay'),label=$('p1LoadingText');
+ if(!overlay)return;
+ if(label&&message)label.textContent=message;
+ overlay.setAttribute('aria-hidden',busy?'false':'true');
+}
 async function loadDashboardData(){
  const status=$('status');
+ setPage1Loading_(true,'Sedang memuat Sales Performance...');
  try{
   status.textContent='Memuat data dari Google Sheets...';
   const result=await gasCall('getDashboardData');
@@ -583,7 +590,11 @@ async function loadDashboardData(){
   if(!rows.length){status.textContent='Database masih kosong • Upload Excel pertama untuk memulai';return;}
   init(); render();
   status.textContent='Database aktif • '+rows.length.toLocaleString('id-ID')+' baris • Update: '+(result.updatedAt||'');
- }catch(err){status.textContent='Gagal memuat database: '+err.message;}
+ }catch(err){
+  status.textContent='Gagal memuat database: '+err.message;
+ }finally{
+  setPage1Loading_(false);
+ }
 }
 function buildTargets(sourceRows){
  const grouped=new Map();
