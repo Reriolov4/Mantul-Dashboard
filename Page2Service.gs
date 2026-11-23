@@ -628,17 +628,20 @@ function page2CacheKey_(prefix, payload, sourceVersion) {
 
 function page2Cached_(key, builder, ttlSeconds) {
   const cache = CacheService.getScriptCache();
-  const cached = cache.get(key);
+  const cached = cache.get(key) || page2CacheGetChunked_(cache, key);
   if (cached) {
     try { return JSON.parse(cached); }
-    catch (err) { cache.remove(key); }
+    catch (err) {
+      cache.remove(key);
+      cache.remove(key + '_manifest');
+    }
   }
   const result = builder();
   const json = JSON.stringify(result);
-  if (json.length <= 90000) {
-    try { cache.put(key, json, ttlSeconds || 300); }
-    catch (err) { /* Cache hanya optimasi, bukan dependensi. */ }
-  }
+  try {
+    if (json.length <= 90000) cache.put(key, json, ttlSeconds || 300);
+    else page2CachePutChunked_(cache, key, json, ttlSeconds || 300);
+  } catch (err) { /* Cache hanya optimasi, bukan dependensi. */ }
   return result;
 }
 
@@ -657,13 +660,40 @@ function page2GetMeta() {
 }
 
 function getPage2DashboardData(filters) {
+  const started = Date.now();
   const sh = page2Source_();
   const safeFilters = filters || {};
   const version = page2SourceVersion_(sh);
-  const key = page2CacheKey_('p2data_schema2', JSON.stringify(safeFilters), version);
-  return page2Cached_(key, function() {
-    return page2BuildDashboardData_(safeFilters, page2Read_(sh));
-  }, 300);
+  const key = page2CacheKey_('p2data_schema3', JSON.stringify(safeFilters), version);
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(key) || page2CacheGetChunked_(cache, key);
+  if (cached) {
+    try {
+      const result = JSON.parse(cached);
+      result.diagnostics = {cacheHit:true,totalMs:Date.now()-started};
+      return result;
+    } catch (err) {
+      cache.remove(key);
+      cache.remove(key + '_manifest');
+    }
+  }
+
+  const readStarted = Date.now();
+  const sourceRows = page2Read_(sh);
+  const readMs = Date.now() - readStarted;
+  const aggregateStarted = Date.now();
+  const result = page2BuildDashboardData_(safeFilters, sourceRows);
+  const aggregateMs = Date.now() - aggregateStarted;
+  const json = JSON.stringify(result);
+  result.diagnostics = {
+    cacheHit:false,sourceRows:sourceRows.length,readMs:readMs,
+    aggregateMs:aggregateMs,serializeBytes:json.length,totalMs:Date.now()-started
+  };
+  try {
+    if (json.length <= 90000) cache.put(key, json, 300);
+    else page2CachePutChunked_(cache, key, json, 300);
+  } catch (err) { /* Cache hanya optimasi, bukan dependensi. */ }
+  return result;
 }
 
 /**
