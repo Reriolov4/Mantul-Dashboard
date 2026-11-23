@@ -70,6 +70,37 @@ function analyticsStartInitialBuild() {
   }
 }
 
+/**
+ * Satu kali klik untuk rebuild dan melanjutkan batch otomatis.
+ * Jika mendekati batas waktu Apps Script, trigger akan melanjutkan proses.
+ */
+function analyticsRebuildAll() {
+  analyticsStartInitialBuild();
+  return analyticsRunBuildWorker();
+}
+
+function analyticsRunBuildWorker() {
+  const started = Date.now();
+  const budgetMs = 4 * 60 * 1000;
+  let status = analyticsGetBuildStatus();
+  while (status.status === 'RUNNING' && Date.now() - started < budgetMs) {
+    status = analyticsBuildNextChunk();
+  }
+  if (status.status === 'COMPLETE') {
+    ScriptApp.getProjectTriggers().forEach(trigger => {
+      if (trigger.getHandlerFunction() === 'analyticsRunBuildWorker') ScriptApp.deleteTrigger(trigger);
+    });
+    return status;
+  }
+  const exists = ScriptApp.getProjectTriggers().some(trigger =>
+    trigger.getHandlerFunction() === 'analyticsRunBuildWorker'
+  );
+  if (!exists) {
+    ScriptApp.newTrigger('analyticsRunBuildWorker').timeBased().after(60 * 1000).create();
+  }
+  return Object.assign(status, {continuationScheduled:true});
+}
+
 /** Memproses satu batch 4.000 baris; aman dijalankan berulang. */
 function analyticsBuildNextChunk() {
   const lock = LockService.getScriptLock();
