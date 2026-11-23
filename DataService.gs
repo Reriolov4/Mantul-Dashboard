@@ -58,8 +58,8 @@ function getDashboardData() {
   const ss = getDatabase_();
   // Use only an index verified against the pinned source spreadsheet.
   // Otherwise read the current DATA_SALES sheet directly.
-  const analyticsSheet = analyticsGetReadySheet_('P1_FACT', DATA_SHEET_NAME, 'P1');
-  const sheet = analyticsSheet || ss.getSheetByName(DATA_SHEET_NAME);
+  const analyticsSheet = analyticsGetReadySheet_(P1_FACT_SHEET_NAME, P1_FACT_SHEET_NAME, 'P1');
+  const sheet = analyticsSheet || ss.getSheetByName(P1_FACT_SHEET_NAME) || ss.getSheetByName(DATA_SHEET_NAME);
   const usingAnalytics = !!analyticsSheet;
   if (!sheet || sheet.getLastRow() < 2) {
     return { rows: [], updatedAt: getLastUpdated_(), rowCount: 0 };
@@ -68,7 +68,7 @@ function getDashboardData() {
   // Source fingerprint prevents stale Page 1 cache after append-only updates.
   const lastRow = sheet.getLastRow();
   const lastColumn = sheet.getLastColumn();
-  const signature = [ss.getId(), sheet.getParent().getId(), sheet.getSheetId(), lastRow, lastColumn, getLastUpdated_(), usingAnalytics ? 'P1_FACT' : 'DATA_SALES'].join('|');
+  const signature = [ss.getId(), sheet.getParent().getId(), sheet.getSheetId(), lastRow, lastColumn, getLastUpdated_(), sheet.getName() === P1_FACT_SHEET_NAME ? 'P1_FACT' : 'DATA_SALES'].join('|');
   const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, signature, Utilities.Charset.UTF_8);
   const cacheKey = 'dashboard_rows_v6_' + Utilities.base64EncodeWebSafe(digest).replace(/=+$/g, '');
   const cache = CacheService.getScriptCache();
@@ -83,7 +83,7 @@ function getDashboardData() {
   // Translate its compact fact headers to the accepted source labels for the
   // existing field resolver; the dashboard row shape remains unchanged.
   const headers = values[0] || [];
-  if (!usingAnalytics) validateDatabaseHeaders_(headers);
+  if (sheet.getName() !== P1_FACT_SHEET_NAME) validateDatabaseHeaders_(headers);
 
   // Resolve DATA_SALES by header name. This supports the workbook's
   // human-readable 14-column schema and the compact internal schema.
