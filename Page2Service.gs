@@ -761,7 +761,7 @@ function getPage2InitialPayload() {
       return {
         meta:JSON.parse(cachedMeta),
         data:JSON.parse(cachedData),
-        diagnostics:{cacheHit:true,totalMs:Date.now()-totalStarted}
+        diagnostics:{cacheHit:true,source:sh.getName(),totalMs:Date.now()-totalStarted}
       };
     } catch (err) {
       cache.remove(metaKey + '_manifest');
@@ -803,6 +803,7 @@ function getPage2InitialPayload() {
     data:data,
     diagnostics:{
       cacheHit:false,
+      source:sh.getName(),
       sourceRows:sourceRows.length,
       readMs:readMs,
       metaMs:metaMs,
