@@ -306,7 +306,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const CY = makeBucket(), LY = makeBucket(), CHART_CY = makeBucket(), CHART_LY = makeBucket();
   const monthly = PAGE2_MONTHS_.map(month => ({month:month,ao:0,aoLy:0,ec:0,ecLy:0,value:0,valueLy:0}));
   const monthlySets = PAGE2_MONTHS_.map(() => ({cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()}));
-  const dailyMap = {};
+  const dailyMap = {cy:{},ly:{}};
   const orderedSelected = periodMonths.slice().sort((a,b) => PAGE2_MONTHS_.indexOf(a)-PAGE2_MONTHS_.indexOf(b));
   const mtdMonth = orderedSelected.length ? orderedSelected[orderedSelected.length - 1] : null;
   const mtd = {cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
@@ -405,12 +405,13 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (isCY ? ms.cyEC : ms.lyEC).add(ecKey);
     }
 
-    if (isCY && (!hasDateFilter || selectedDates.has(dayKey))) {
+    if (!hasDateFilter || selectedDates.has(dayKey)) {
       const dailyKey = month + '|' + dayKey;
-      if (!dailyMap[dailyKey]) dailyMap[dailyKey] = {ao:new Set(),ec:new Set(),value:0};
-      if (outletKey) dailyMap[dailyKey].ao.add(outletKey);
-      dailyMap[dailyKey].ec.add(ecKey);
-      dailyMap[dailyKey].value += Number(r[14]) || 0;
+      const dailyYear = isCY ? dailyMap.cy : dailyMap.ly;
+      if (!dailyYear[dailyKey]) dailyYear[dailyKey] = {ao:new Set(),ec:new Set(),value:0};
+      if (outletKey) dailyYear[dailyKey].ao.add(outletKey);
+      dailyYear[dailyKey].ec.add(ecKey);
+      dailyYear[dailyKey].value += Number(r[14]) || 0;
     }
   });
 
@@ -448,15 +449,33 @@ function page2BuildDashboardData_(filters, sourceRows) {
 
   const daily = Array.from({length:31},(_,index) => {
     const day = String(index + 1).padStart(2,'0');
-    const items = periodMonths.map(month => dailyMap[month + '|' + day]).filter(Boolean);
+    const cyItems = periodMonths.map(month => dailyMap.cy[month + '|' + day]).filter(Boolean);
+    const lyItems = periodMonths.map(month => dailyMap.ly[month + '|' + day]).filter(Boolean);
     const divisor = monthCount || 1;
     return {
       day:day,
-      ao:items.reduce((total,item)=>total+item.ao.size,0)/divisor,
-      ec:items.reduce((total,item)=>total+item.ec.size,0)/divisor,
-      value:items.reduce((total,item)=>total+(Number(item.value)||0),0)/divisor
+      ao:cyItems.reduce((total,item)=>total+item.ao.size,0)/divisor,
+      aoLy:lyItems.reduce((total,item)=>total+item.ao.size,0)/divisor,
+      ec:cyItems.reduce((total,item)=>total+item.ec.size,0)/divisor,
+      ecLy:lyItems.reduce((total,item)=>total+item.ec.size,0)/divisor,
+      value:cyItems.reduce((total,item)=>total+(Number(item.value)||0),0)/divisor,
+      valueLy:lyItems.reduce((total,item)=>total+(Number(item.value)||0),0)/divisor
     };
   });
+  const dailyMonthStats = (source, month) => {
+    const items = Object.keys(source).filter(key=>key.startsWith(month+'|')).map(key=>({day:key.split('|')[1],...source[key]}));
+    const total = key => items.reduce((sum,item)=>sum+(key==='value'?(Number(item.value)||0):item[key].size),0);
+    const best = items.reduce((winner,item)=>{
+      const value=Number(item.value)||0;
+      return !winner || value>winner.value ? {day:item.day,value:value} : winner;
+    },null);
+    return {
+      ao:total('ao'),ec:total('ec'),value:total('value'),
+      days:items.length,bestDay:best?best.day:null,bestValue:best?best.value:0
+    };
+  };
+  const dailyCYMTD = mtdMonth ? dailyMonthStats(dailyMap.cy,mtdMonth) : {ao:0,ec:0,value:0,days:0,bestDay:null,bestValue:0};
+  const dailyLYMTD = mtdMonth ? dailyMonthStats(dailyMap.ly,mtdMonth) : {ao:0,ec:0,value:0,days:0,bestDay:null,bestValue:0};
 
   const ao = CY.ao.size, aoLy = LY.ao.size, ec = CY.ec.size, ecLy = LY.ec.size;
   const aoMTD = mtd.cyAO.size, aoMTDLY = mtd.lyAO.size;
@@ -509,7 +528,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
       ao:ao,aoLy:aoLy,aoGrowth:page2Growth_(ao,aoLy),
       ec:ec,ecLy:ecLy,ecGrowth:page2Growth_(ec,ecLy),
       aoMTD:aoMTD,aoMTDLY:aoMTDLY,ecMTD:ecMTD,ecMTDLY:ecMTDLY,
-      mtdMonth:mtdMonth,rows:matchedRowCount
+      mtdMonth:mtdMonth,rows:matchedRowCount,
+      dailyCYMTD:dailyCYMTD,dailyLYMTD:dailyLYMTD
     },
     monthly:monthly,
     daily:daily,
