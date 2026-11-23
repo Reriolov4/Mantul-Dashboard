@@ -163,7 +163,7 @@ function page2RenderPareto(){
 function page2RenderParetoTrend(){
  const head=p2$('p2ParetoTrendHead'),body=p2$('p2ParetoTrendBody');
  if(!head||!body)return;
- const rows=p2Data?.pareto||[],months=(p2Data?.kpi?.months||[]).slice();
+ const rows=p2Data?.pareto||[],months=(p2Data?.kpi?.trendMonths||p2Data?.kpi?.months||[]).slice();
  const monthLabels={JAN:'Jan',FEB:'Feb',MAR:'Mar',APR:'Apr',MAY:'May',JUN:'Jun',JUL:'Jul',AUG:'Aug',SEP:'Sep',OCT:'Oct',NOV:'Nov',DEC:'Dec'};
  const fmt=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:0});
  const growth=v=>v===null||v===undefined?'—':(v>0?'+':'')+Number(v).toFixed(1)+'%';
