@@ -1,7 +1,7 @@
 // ============================================================
 // MANTUL DASHBOARD — CONFIGURATION / SOURCE OF TRUTH
-// Acuan diverifikasi dari workbook SALES PERFORMANCE DATABASE 2026(4).xlsx
-// Sheet: DATA_SALES, RAW_DATA_SALES, SKU
+// Database aktif: P1_FACT, P2_EVENT_INDEX, RAW_DATA_SALES, SKU,
+// dan MAPPING TEAM. P1_FACT/P2_EVENT_INDEX adalah sumber analitik utama.
 // ============================================================
 
 // ID spreadsheet utama. Script Property SPREADSHEET_ID boleh override.
@@ -24,9 +24,9 @@ const SKU_SHEET_NAME = 'SKU';
 // dipakai proses import lama; jangan ubah tanpa mengubah importer.
 // ------------------------------------------------------------
 const DATA_SALES_SOURCE_HEADERS = [
-  'YEAR', 'MONTH', 'SUBDIST', 'Subbrand', 'Brand', 'CATEGORY',
-  'SBU', 'PIC', 'PF Bulanan', 'PF Triwulan', 'VAL',
-  'JENIS SALES', 'TARGET', 'BE'
+  'YEAR', 'MONTH', 'SUBDIST', 'SUBBRAND', 'BRAND', 'CATEGORY',
+  'SBU', 'PIC', 'PF_MONTHLY', 'PF_QUARTERLY', 'VAL',
+  'SALES_TYPE', 'TARGET', 'BE'
 ];
 
 const SALES_HEADERS = [
