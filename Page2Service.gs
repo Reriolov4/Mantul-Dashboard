@@ -287,10 +287,11 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const categories = new Set(page2FilterList_(filters.categories));
   const customers = new Set(page2FilterList_(filters.customers));
   const selectedDates = new Set(page2FilterList_(filters.dates));
-  const hasDateFilter = Array.isArray(filters.dates);
-  const periodMonths = Array.isArray(filters.months) ? selectedMonths : PAGE2_MONTHS_;
+  // Bulan kosong bermakna semua bulan, konsisten dengan filter dimensi lain.
+  const periodMonths = selectedMonths.length ? selectedMonths : PAGE2_MONTHS_.slice();
   const periodMonthSet = new Set(periodMonths);
   const monthCount = periodMonths.length;
+  const hasDateFilter = Array.isArray(filters.dates) && selectedDates.size > 0;
   const matches = r => {
     if (page2Key_(r[7]) !== 'SOO') return false;
     if (pics.size && !pics.has(page2Key_(r[6]))) return false;
@@ -355,6 +356,23 @@ function page2BuildDashboardData_(filters, sourceRows) {
 
     const y = Number(r[0]), month = page2Month_(r[1]);
     if (y !== year && y !== ly) return;
+    // Agregasi bulanan untuk insight YTD/L3M membaca seluruh bulan Jan–Des,
+    // tidak terpotong oleh pilihan bulan pada grafik.
+    const isCY = y === year;
+    const monthIndex = PAGE2_MONTHS_.indexOf(month);
+    if (monthIndex >= 0) {
+      const monthlyOutletKey = outlet(r);
+      const monthlyDay = page2Day_(r[2]);
+      const monthlyEcKey = monthlyDay && monthlyOutletKey ? ecKeyFor(r, monthlyDay) : '';
+      // Gunakan guard yang sama dengan KPI: kode outlet valid, nama akun,
+      // dan tanggal harus tersedia sebelum nilai/EC/AO masuk agregasi.
+      if (monthlyOutletKey && customer(r) && monthlyDay) {
+        monthly[monthIndex][isCY ? 'value' : 'valueLy'] += Number(r[14]) || 0;
+        const ms = monthlySets[monthIndex];
+        (isCY ? ms.cyAO : ms.lyAO).add(monthlyOutletKey);
+        (isCY ? ms.cyEC : ms.lyEC).add(monthlyEcKey);
+      }
+    }
     if (paretoMonths.has(month) && validOutletCode(r)) {
       const pKey = outlet(r);
       if (pKey) {
@@ -363,7 +381,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
         const val = Number(r[14]) || 0;
         const target = y === year ? item.cy : item.ly;
         target[month] = (target[month] || 0) + val;
-        if (y === year && periodMonthSet.has(month)) paretoGrandTotalCY += val;
+        if (y === year && paretoMonths.has(month)) paretoGrandTotalCY += val;
       }
     }
     if (!periodMonthSet.has(month)) return;
@@ -377,7 +395,6 @@ function page2BuildDashboardData_(filters, sourceRows) {
     // dari seluruh agregasi KPI, trend, dan komposisi.
     if (!outletKey) return;
     const ecKey = ecKeyFor(r, dayKey);
-    const isCY = y === year;
     const totalBucket = isCY ? CY : LY;
 
     if (outletKey) totalBucket.ao.add(outletKey);
@@ -397,13 +414,6 @@ function page2BuildDashboardData_(filters, sourceRows) {
     addGroup(chartBucket, 'category', page2Text_(r[11]), outletKey, ecKey, Number(r[14]) || 0);
     addGroup(chartBucket, 'subbrand', page2Text_(r[3]), outletKey, ecKey, Number(r[14]) || 0);
 
-    const monthIndex = PAGE2_MONTHS_.indexOf(month);
-    if (monthIndex >= 0) {
-      monthly[monthIndex][isCY ? 'value' : 'valueLy'] += Number(r[14]) || 0;
-      const ms = monthlySets[monthIndex];
-      if (outletKey) (isCY ? ms.cyAO : ms.lyAO).add(outletKey);
-      (isCY ? ms.cyEC : ms.lyEC).add(ecKey);
-    }
 
     if (!hasDateFilter || selectedDates.has(dayKey)) {
       const dailyKey = month + '|' + dayKey;
@@ -497,7 +507,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const normParetoName = value => page2Key_(value).replace(/[^A-Z0-9]/g,'');
   const previousMonth = mtdIndex > 0 ? PAGE2_MONTHS_[mtdIndex - 1] : null;
   const last3Months = mtdIndex > 0 ? PAGE2_MONTHS_.slice(Math.max(0,mtdIndex-3),mtdIndex) : [];
-  const completedMonths = periodMonths.filter(m => PAGE2_MONTHS_.indexOf(m) < mtdIndex);
+  const completedMonths = trendMonths.filter(m => PAGE2_MONTHS_.indexOf(m) < mtdIndex);
   const pareto = Array.from(paretoByOutlet.values()).filter(x =>
     x.customerName && !paretoExclude.has(normParetoName(x.customerName))
   ).map(x => {
@@ -729,4 +739,16 @@ function testPage2SourceSchema() {
     salesmanNamaAkunOptions:meta.salesmen.length,
     updatedAt:data.updatedAt
   };
+}
+
+
+/** Diagnostik Page 2 read-only; tanpa nama/kode customer. */
+function testPage2FullDiagnostics() {
+  const sh=page2Source_(),rows=page2Read_(sh),meta=page2BuildMeta_(rows);
+  const year=Number(meta.years.indexOf('2026')>=0?'2026':meta.years[meta.years.length-1])||new Date().getFullYear();
+  const months=(meta.monthsByYear||{})[String(year)]||[];
+  const counts={sourceRows:rows.length,sooRows:0,rowsWithYearMonth:0,rowsWithValidCustomerCode:0,rowsWithCustomerName:0,rowsWithSubdist:0,rowsWithValidDate:0,rowsWithPositiveValue:0,years:{},months:{},codeTypes:{},valueTypes:{}};
+  rows.forEach(r=>{if(page2Key_(r[7])!=='SOO')return;counts.sooRows++;const y=String(r[0]||'').trim(),m=page2Month_(r[1]);if(y&&m)counts.rowsWithYearMonth++;counts.years[y]=(counts.years[y]||0)+1;if(m)counts.months[m]=(counts.months[m]||0)+1;const code=page2Key_(r[13]),valid=!!code&&code!=='OTHERSB'&&code!=='#VALUE!';if(valid)counts.rowsWithValidCustomerCode++;const type=!code?'BLANK':code==='OTHERSB'?'OTHERSB':code==='#VALUE!'?'#VALUE!':'VALID';counts.codeTypes[type]=(counts.codeTypes[type]||0)+1;if(page2Text_(r[10]||r[5]))counts.rowsWithCustomerName++;if(page2Text_(r[8]))counts.rowsWithSubdist++;if(page2Day_(r[2]))counts.rowsWithValidDate++;if(Number(r[14])>0)counts.rowsWithPositiveValue++;const vt=typeof r[14];counts.valueTypes[vt]=(counts.valueTypes[vt]||0)+1;});
+  const data=page2BuildDashboardData_({year:year,months:months},rows);
+  return {ok:true,sourceSheet:sh.getName(),sourceSpreadsheet:sh.getParent().getName(),lastRow:sh.getLastRow(),lastColumn:sh.getLastColumn(),selectedYear:year,availableMonths:months,counts:counts,payload:{kpi:data.kpi,donutCounts:{subdist:data.donut.subdist.length,team:data.donut.team.length,subbrand:data.donut.subbrand.length},paretoRows:data.pareto.length,monthlyPositive:data.monthly.filter(x=>x.ao>0||x.ec>0||x.value>0).length},updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED')||'not set'};
 }
