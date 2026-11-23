@@ -82,7 +82,7 @@ function page2Init(){
   const diag=payload.diagnostics||{};
   const timing=diag.cacheHit?'Cache awal aktif • '+(diag.totalMs||0)+' ms':
    'Server '+(diag.totalMs||0)+' ms (baca '+(diag.readMs||0)+' • metadata '+(diag.metaMs||0)+' • agregasi '+(diag.aggregateMs||0)+' ms)';
-  p2$('p2Status').textContent=`${p2Fmt(data.kpi.rows)} baris SOO terpilih • Sumber RAW_DATA_SALES: ${p2Fmt(meta.sourceRowCount||0)} baris (SOO: ${p2Fmt(meta.sooRowCount||0)}) • Tahun ${data.kpi.year} • ${data.updatedAt||'Live Google Sheets'} • ${timing}${p2RenderErrors.length?' • Grafik: '+p2RenderErrors.join(' | '):''}`;
+  p2$('p2Status').textContent=`${p2Fmt(data.kpi.rows)} baris SOO terpilih • Sumber ${diag.source||'tidak diketahui'} • RAW_DATA_SALES ${p2Fmt(meta.sourceRowCount||0)} baris (SOO: ${p2Fmt(meta.sooRowCount||0)}) • Tahun ${data.kpi.year} • ${data.updatedAt||'Live Google Sheets'} • ${timing}${p2RenderErrors.length?' • Grafik: '+p2RenderErrors.join(' | '):''}`;
   } catch(err) {
    if(view)view.removeAttribute('aria-busy');
    p2$('p2Status').textContent='Kesalahan tampilan Page 2: '+(err.message||String(err));
