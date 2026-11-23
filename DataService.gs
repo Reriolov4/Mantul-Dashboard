@@ -43,6 +43,21 @@ function testMantulDatabaseConnection() {
   return result;
 }
 
+/**
+ * Select the optimized fact/index sheet when it is populated.
+ * Legacy sheet names remain fallback-only for older workbook copies.
+ */
+function analyticsGetReadySheet_(preferredName, fallbackName) {
+  const ss = getDatabase_();
+  const preferred = preferredName ? ss.getSheetByName(preferredName) : null;
+  if (preferred && preferred.getLastRow() > 1) return preferred;
+
+  const fallback = fallbackName ? ss.getSheetByName(fallbackName) : null;
+  if (fallback && fallback.getLastRow() > 1) return fallback;
+
+  return preferred || fallback || null;
+}
+
 function getOrCreateSheet_(name) {
   const ss = getDatabase_();
   return ss.getSheetByName(name) || ss.insertSheet(name);
@@ -74,14 +89,12 @@ function getDashboardData() {
   // P1_FACT is already normalized and follows DATA_SALES_SOURCE_HEADERS order.
   // Translate its compact fact headers to the accepted source labels for the
   // existing field resolver; the dashboard row shape remains unchanged.
-  const headers = usingAnalytics
-    ? DATA_SALES_SOURCE_HEADERS.slice()
-    : (values[0] || []);
+  const headers = values[0] || [];
   if (!usingAnalytics) validateDatabaseHeaders_(headers);
 
   // Resolve DATA_SALES by header name. This supports the workbook's
   // human-readable 14-column schema and the compact internal schema.
-  const headerKey = value => String(value == null ? '' : value).trim().toLowerCase().replace(/[_\\s]+/g, ' ');
+  const headerKey = value => String(value == null ? '' : value).trim().toLowerCase().replace(/[_\s]+/g, ' ');
   const headerIndex = {};
   headers.forEach((value, index) => { headerIndex[headerKey(value)] = index; });
   const col = (aliases, required) => {
@@ -97,8 +110,8 @@ function getDashboardData() {
     d:col(['SUBDIST','d'],true), s:col(['Subbrand','SUBBRAND','s'],true),
     b:col(['Brand','BRAND','b'],true), c:col(['CATEGORY','c'],true),
     u:col(['SBU','u'],true), p:col(['PIC','p'],true),
-    fm:col(['PF Bulanan','fm'],true), fq:col(['PF Triwulan','fq'],true),
-    v:col(['VAL','v'],true), t:col(['JENIS SALES','t'],true),
+    fm:col(['PF Bulanan','PF_MONTHLY','fm'],true), fq:col(['PF Triwulan','PF_QUARTERLY','fq'],true),
+    v:col(['VAL','v'],true), t:col(['JENIS SALES','SALES_TYPE','t'],true),
     tg:col(['TARGET','tg'],false), be:col(['BE','be'],false)
   };
 
