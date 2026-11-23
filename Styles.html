@@ -1449,4 +1449,42 @@ body.page2-active main.wrap > #page2View{display:block!important}
 #monthFilter .month-menu{width:min(300px,90vw);max-height:390px;overflow:hidden!important}
 #monthFilter .month-checks{display:flex!important;flex-direction:column!important;gap:5px;max-height:230px!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain;padding:0 4px 0 0;min-height:0}
 #monthFilter .month-checks label{width:100%;box-sizing:border-box;min-height:30px}
+
+
+/* =========================================================
+   MANTUL RESPONSIVE / ACCESSIBILITY / LOADING PATCH
+   ========================================================= */
+/* Header: trim 25% from the lower padding without changing its top spacing. */
+header{padding-bottom:17px!important}
+@media(max-width:700px){header{padding-bottom:14px!important}.head{align-items:flex-start}.header-utilities{max-width:100%}.header-utilities button{font-size:11px;padding:9px 10px}}
+/* Page 2 subdist picker: approximately two extra checklist rows. */
+#page2View #p2SubdistFilter .p2-menu{max-height:400px!important;overflow:hidden!important}
+#page2View #p2Subdists{max-height:300px!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain}
+/* Freeze Customer Name + Subdist in the main Pareto table. */
+#page2View .p2-pareto-table th:first-child,
+#page2View .p2-pareto-table td:first-child{
+  position:sticky!important;left:0!important;z-index:8!important;
+  width:200px!important;min-width:200px!important;max-width:200px!important;
+  background:#fff!important;box-sizing:border-box;box-shadow:1px 0 0 #dbe3ee;
+}
+#page2View .p2-pareto-table th:nth-child(2),
+#page2View .p2-pareto-table td:nth-child(2){
+  position:sticky!important;left:200px!important;z-index:7!important;
+  width:120px!important;min-width:120px!important;max-width:120px!important;
+  background:#fff!important;box-sizing:border-box;box-shadow:1px 0 0 #dbe3ee;
+}
+#page2View .p2-pareto-table thead th:first-child,
+#page2View .p2-pareto-table thead th:nth-child(2){
+  background:#f8e8eb!important;z-index:12!important;
+}
+#page2View .p2-pareto-table tbody tr:hover td:first-child,
+#page2View .p2-pareto-table tbody tr:hover td:nth-child(2){background:#f8fafc!important}
+/* Page 1 initial-load overlay mirrors Page 2's blur/loading treatment. */
+#p1LoadingOverlay{position:fixed;inset:0;z-index:5000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(241,245,249,.48);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+#p1LoadingOverlay[aria-hidden="false"]{display:flex}
+#p1LoadingOverlay .p1-loading-card{display:flex;align-items:center;gap:13px;max-width:min(92vw,380px);padding:17px 20px;background:#fff;border:1px solid #dbe3ee;border-radius:14px;box-shadow:0 14px 40px rgba(15,23,42,.18);color:#173b70;font-size:12px;font-weight:750}
+#p1LoadingOverlay .p1-loading-spinner{width:27px;height:27px;flex:0 0 auto;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;animation:p1-loading-spin .75s linear infinite}
+@keyframes p1-loading-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){#p1LoadingOverlay .p1-loading-spinner{animation:none}}
+
 </style>
