@@ -312,8 +312,10 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const mtd = {cyAO:new Set(),lyAO:new Set(),cyEC:new Set(),lyEC:new Set()};
   const paretoByOutlet = new Map();
   const mtdIndex = mtdMonth ? PAGE2_MONTHS_.indexOf(mtdMonth) : -1;
-  const paretoMonths = new Set(periodMonths);
-  for (let i = 1; i <= 3; i++) if (mtdIndex - i >= 0) paretoMonths.add(PAGE2_MONTHS_[mtdIndex - i]);
+  // Trend Sales selalu kumulatif Januari sampai bulan terakhir yang dipilih.
+  // Contoh NOV => JAN-NOV; YTD OCT => JAN-OCT (NOV-DES tidak ditampilkan).
+  const trendMonths = mtdIndex >= 0 ? PAGE2_MONTHS_.slice(0,mtdIndex+1) : []; 
+  const paretoMonths = new Set(trendMonths);
   let paretoGrandTotalCY = 0;
   const customer = r => page2Key_(r[10] || r[5]);
   // Hanya KODE CUSTOMER valid yang dihitung. Kode placeholder OTHERSB,
@@ -483,14 +485,14 @@ function page2BuildDashboardData_(filters, sourceRows) {
     const sum = (obj,months) => months.reduce((v,m)=>v+(Number(obj[m])||0),0);
     const actualCY = Number(x.cy[mtdMonth]) || 0;
     const actualLY = Number(x.ly[mtdMonth]) || 0;
-    const actualYTD = sum(x.cy,periodMonths);
-    const actualLYYTD = sum(x.ly,periodMonths);
+    const actualYTD = sum(x.cy,trendMonths);
+    const actualLYYTD = sum(x.ly,trendMonths);
     const previous = previousMonth ? Number(x.cy[previousMonth]) || 0 : 0;
     const averageLast3 = last3Months.length ? sum(x.cy,last3Months)/last3Months.length : 0;
     const averageMonth = completedMonths.length ? sum(x.cy,completedMonths)/completedMonths.length : null;
     return {
       customerName:x.customerName,subdist:x.subdist,actualCY,actualLY,
-      monthValues:Object.fromEntries(periodMonths.map(month=>[month,Number(x.cy[month])||0])),
+      monthValues:Object.fromEntries(trendMonths.map(month=>[month,Number(x.cy[month])||0])),
       grwMTD:page2Growth_(actualCY,actualLY),actualYTD,actualLYYTD,
       grwYTD:page2Growth_(actualYTD,actualLYYTD),
       grwVsLM:page2Growth_(actualCY,previous),
@@ -503,7 +505,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
 
   return {
     kpi:{
-      year:year,ly:ly,months:periodMonths,monthCount:monthCount,
+      year:year,ly:ly,months:periodMonths,trendMonths:trendMonths,monthCount:monthCount,
       ao:ao,aoLy:aoLy,aoGrowth:page2Growth_(ao,aoLy),
       ec:ec,ecLy:ecLy,ecGrowth:page2Growth_(ec,ecLy),
       aoMTD:aoMTD,aoMTDLY:aoMTDLY,ecMTD:ecMTD,ecMTDLY:ecMTDLY,
