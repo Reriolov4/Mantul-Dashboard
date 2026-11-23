@@ -30,7 +30,10 @@ function analyticsStartInitialBuild() {
 
   analyticsAssertHeaders_(p1, P1_FACT_HEADERS_);
   analyticsAssertHeaders_(p2, P2_EVENT_HEADERS_);
-  analyticsAssertHeaders_(raw, RAW_SALES_HEADERS);
+  // RAW_DATA_SALES memiliki skema transaksi aktual yang berbeda dari template
+  // impor legacy RAW_SALES_HEADERS. Sheet ini hanya diverifikasi keberadaan,
+  // isi, dan keberadaan baris header; jangan paksa urutan/header template lama.
+  analyticsAssertRawSheet_(raw);
   if (!sku) console.warn('Sheet SKU belum tersedia; fitur Halaman 3 belum dapat memakai referensi SKU.');
   if (!mapping) console.warn('Sheet MAPPING TEAM belum tersedia; mapping team harus diperiksa.');
 
@@ -75,6 +78,22 @@ function analyticsGetBuildStatus() {
     p1:{sourceRows:Number(props.getProperty(p+'P1_SOURCE_ROWS')||0),writtenRows:Number(props.getProperty(p+'P1_WRITTEN')||0)},
     p2:{sourceRows:Number(props.getProperty(p+'P2_SOURCE_ROWS')||0),writtenRows:Number(props.getProperty(p+'P2_WRITTEN')||0)}
   };
+}
+
+function analyticsAssertRawSheet_(sheet) {
+  const lastColumn = sheet.getLastColumn();
+  if (lastColumn < 1) {
+    throw new Error('RAW_DATA_SALES tidak memiliki header pada baris pertama.');
+  }
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0]
+    .map(v => String(v == null ? '' : v).trim());
+  const nonEmpty = headers.filter(Boolean);
+  if (!nonEmpty.length) {
+    throw new Error('Baris header RAW_DATA_SALES kosong.');
+  }
+  // Struktur detail RAW_DATA_SALES dipertahankan apa adanya. P1_FACT dan
+  // P2_EVENT_INDEX adalah index analitik resmi yang divalidasi secara ketat.
+  return { columns:lastColumn, headers:headers };
 }
 
 function analyticsAssertHeaders_(sheet, expected) {
