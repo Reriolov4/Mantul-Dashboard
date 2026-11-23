@@ -500,41 +500,61 @@ function page2BuildDashboardData_(filters, sourceRows) {
       valueLy:lyItems.reduce((total,item)=>total+(Number(item.value)||0),0)/divisor
     };
   });
+  // Ringkas dailyMap sekali per sumber (CY/LY). Sebelumnya setiap metrik
+  // insight memindai Object.keys(dailyMap) berulang kali hingga puluhan kali.
+  // Satu pass per tahun menjaga hasil identik sambil mengurangi kerja agregasi.
+  const buildDailyMonthTotals = source => {
+    const totals = Object.create(null);
+    Object.keys(source).forEach(key => {
+      const month = key.slice(0,3);
+      const item = source[key];
+      let bucket = totals[month];
+      if (!bucket) {
+        bucket = totals[month] = {ao:0,ec:0,value:0,days:0,bestDay:null,bestValue:0};
+      }
+      const value = Number(item.value) || 0;
+      bucket.ao += item.ao.size;
+      bucket.ec += item.ec.size;
+      bucket.value += value;
+      bucket.days++;
+      if (bucket.bestDay === null || value > bucket.bestValue) {
+        bucket.bestDay = key.slice(4);
+        bucket.bestValue = value;
+      }
+    });
+    return totals;
+  };
+  const dailyMonthlyCYTotals = buildDailyMonthTotals(dailyMap.cy);
+  const dailyMonthlyLYTotals = buildDailyMonthTotals(dailyMap.ly);
+  const emptyDailyMonth = () => ({ao:0,ec:0,value:0,days:0,bestDay:null,bestValue:0});
   const dailyMonthStats = (source, month) => {
-    const items = Object.keys(source).filter(key=>key.startsWith(month+'|')).map(key=>({day:key.split('|')[1],...source[key]}));
-    const total = key => items.reduce((sum,item)=>sum+(key==='value'?(Number(item.value)||0):item[key].size),0);
-    const best = items.reduce((winner,item)=>{
-      const value=Number(item.value)||0;
-      return !winner || value>winner.value ? {day:item.day,value:value} : winner;
-    },null);
-    return {
-      ao:total('ao'),ec:total('ec'),value:total('value'),
-      days:items.length,bestDay:best?best.day:null,bestValue:best?best.value:0
-    };
+    const totals = source[month];
+    return totals ? {
+      ao:totals.ao,ec:totals.ec,value:totals.value,
+      days:totals.days,bestDay:totals.bestDay,bestValue:totals.bestValue
+    } : emptyDailyMonth();
   };
-  const dailyCYMTD = mtdMonth ? dailyMonthStats(dailyMap.cy,mtdMonth) : {ao:0,ec:0,value:0,days:0,bestDay:null,bestValue:0};
-  const dailyPeriodStats = (source, months) => {
-    const monthSet = new Set(months || []);
-    const items = Object.keys(source).filter(key => monthSet.has(key.split('|')[0])).map(key => source[key]);
-    return {
-      ao:items.reduce((total,item)=>total+item.ao.size,0),
-      ec:items.reduce((total,item)=>total+item.ec.size,0),
-      value:items.reduce((total,item)=>total+(Number(item.value)||0),0),
-      days:items.length
-    };
-  };
+  const dailyCYMTD = mtdMonth ? dailyMonthStats(dailyMonthlyCYTotals,mtdMonth) : emptyDailyMonth();
+  const dailyPeriodStats = (source, months) => (months || []).reduce((total,month) => {
+    const item = source[month];
+    if (!item) return total;
+    total.ao += item.ao;
+    total.ec += item.ec;
+    total.value += item.value;
+    total.days += item.days;
+    return total;
+  }, {ao:0,ec:0,value:0,days:0});
   const previousDailyMonth = mtdIndex > 0 ? PAGE2_MONTHS_[mtdIndex-1] : null;
   const dailyL3MMonths = mtdIndex > 0 ? PAGE2_MONTHS_.slice(Math.max(0,mtdIndex-3),mtdIndex) : [];
   const dailyInsight = {
-    cyMtd:dailyPeriodStats(dailyMap.cy,mtdMonth?[mtdMonth]:[]),
-    cyLm:dailyPeriodStats(dailyMap.cy,previousDailyMonth?[previousDailyMonth]:[]),
-    cyL3M:dailyPeriodStats(dailyMap.cy,dailyL3MMonths),
-    cyYtd:dailyPeriodStats(dailyMap.cy,trendMonths),
-    lyYtd:dailyPeriodStats(dailyMap.ly,trendMonths),
-    // Simpan ringkasan per bulan agar AVG YTD/L3M memberi bobot setara
-    // untuk setiap bulan (Aug, Sep, Oct = (Aug+Sep+Oct)/3).
-    monthlyCY:Object.fromEntries(trendMonths.map(month=>[month,dailyPeriodStats(dailyMap.cy,[month])])),
-    monthlyLY:Object.fromEntries(trendMonths.map(month=>[month,dailyPeriodStats(dailyMap.ly,[month])]))
+    cyMtd:dailyPeriodStats(dailyMonthlyCYTotals,mtdMonth?[mtdMonth]:[]),
+    cyLm:dailyPeriodStats(dailyMonthlyCYTotals,previousDailyMonth?[previousDailyMonth]:[]),
+    cyL3M:dailyPeriodStats(dailyMonthlyCYTotals,dailyL3MMonths),
+    cyYtd:dailyPeriodStats(dailyMonthlyCYTotals,trendMonths),
+    lyYtd:dailyPeriodStats(dailyMonthlyLYTotals,trendMonths),
+    // Bobot bulanan setara; format ini tetap kompatibel dengan renderer.
+    monthlyCY:Object.fromEntries(trendMonths.map(month=>[month,dailyPeriodStats(dailyMonthlyCYTotals,[month])])),
+    monthlyLY:Object.fromEntries(trendMonths.map(month=>[month,dailyPeriodStats(dailyMonthlyLYTotals,[month])]))
   };
   const dailyLYMTD = mtdMonth ? dailyMonthStats(dailyMap.ly,mtdMonth) : {ao:0,ec:0,value:0,days:0,bestDay:null,bestValue:0};
 
