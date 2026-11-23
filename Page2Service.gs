@@ -1,7 +1,7 @@
 /**
  * HALAMAN 2 — OUTLETS | SALES FORCE
- * Membaca RAW_DATA_SALES berdasarkan NAMA HEADER, bukan posisi kolom lama.
- * Skema aktif workbook: A:AA transaksi; AH:AI catatan dan tabel mapping terpisah.
+ * Mengutamakan P2_EVENT_INDEX yang sudah tersedia; fallback ke RAW_DATA_SALES.
+ * SKU dan MAPPING TEAM tetap menjadi tabel referensi untuk pengembangan berikutnya.
  *
  * Definisi:
  * - AO = distinct KODE CUSTOMER valid pada periode; baris tanpa kode (termasuk OTHERS) tidak dihitung sebagai outlet.
@@ -13,7 +13,7 @@ const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OC
 function page2Source_() {
   // Prefer the verified normalized index. If it is missing or stale, keep the
   // existing RAW_DATA_SALES route as a safe fallback.
-  const indexed = analyticsGetReadySheet_('P2_EVENT_INDEX', RAW_DATA_SHEET_NAME, 'P2');
+  const indexed = analyticsGetReadySheet_('P2_EVENT_INDEX', 'P2_EVENT_INDEX', 'P2');
   if (indexed && indexed.getLastRow() > 1) return indexed;
 
   const ss = getDatabase_();
