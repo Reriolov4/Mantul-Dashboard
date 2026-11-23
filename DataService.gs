@@ -5,8 +5,14 @@
  */
 
 function getDatabase_() {
+  // Dashboard database is pinned to the upgraded source spreadsheet.
+  // Ignore a leftover SPREADSHEET_ID Script Property from the previous project:
+  // silently honoring it can make the new dashboard display old records.
   const configuredId = String(PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || '').trim();
-  const spreadsheetId = configuredId || String(DEFAULT_SPREADSHEET_ID || '').trim();
+  const spreadsheetId = String(DEFAULT_SPREADSHEET_ID || '').trim();
+  if (configuredId && configuredId !== spreadsheetId) {
+    console.warn('SPREADSHEET_ID Script Property berbeda dari database aktif dan diabaikan. Gunakan DEFAULT_SPREADSHEET_ID di Config.gs.');
+  }
   if (!spreadsheetId) {
     throw new Error('ID Spreadsheet belum dikonfigurasi. Isi Script Properties SPREADSHEET_ID atau DEFAULT_SPREADSHEET_ID di Config.gs.');
   }
@@ -43,21 +49,6 @@ function testMantulDatabaseConnection() {
   return result;
 }
 
-/**
- * Select the optimized fact/index sheet when it is populated.
- * Legacy sheet names remain fallback-only for older workbook copies.
- */
-function analyticsGetReadySheet_(preferredName, fallbackName) {
-  const ss = getDatabase_();
-  const preferred = preferredName ? ss.getSheetByName(preferredName) : null;
-  if (preferred && preferred.getLastRow() > 1) return preferred;
-
-  const fallback = fallbackName ? ss.getSheetByName(fallbackName) : null;
-  if (fallback && fallback.getLastRow() > 1) return fallback;
-
-  return preferred || fallback || null;
-}
-
 function getOrCreateSheet_(name) {
   const ss = getDatabase_();
   return ss.getSheetByName(name) || ss.insertSheet(name);
@@ -65,6 +56,8 @@ function getOrCreateSheet_(name) {
 
 function getDashboardData() {
   const ss = getDatabase_();
+  // Use only an index verified against the pinned source spreadsheet.
+  // Otherwise read the current DATA_SALES sheet directly.
   const analyticsSheet = analyticsGetReadySheet_('P1_FACT', DATA_SHEET_NAME, 'P1');
   const sheet = analyticsSheet || ss.getSheetByName(DATA_SHEET_NAME);
   const usingAnalytics = !!analyticsSheet;
@@ -77,7 +70,7 @@ function getDashboardData() {
   const lastColumn = sheet.getLastColumn();
   const signature = [ss.getId(), sheet.getParent().getId(), sheet.getSheetId(), lastRow, lastColumn, getLastUpdated_(), usingAnalytics ? 'P1_FACT' : 'DATA_SALES'].join('|');
   const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, signature, Utilities.Charset.UTF_8);
-  const cacheKey = 'dashboard_rows_v5_' + Utilities.base64EncodeWebSafe(digest).replace(/=+$/g, '');
+  const cacheKey = 'dashboard_rows_v6_' + Utilities.base64EncodeWebSafe(digest).replace(/=+$/g, '');
   const cache = CacheService.getScriptCache();
   const cached = cache.get(cacheKey);
   if (cached) {
