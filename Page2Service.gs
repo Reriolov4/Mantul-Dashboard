@@ -347,7 +347,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const outlet = r => validOutletCode(r)
     ? page2CompositeKey_([outletCode(r), r[8]])
     : '';
-  // EC = kombinasi TANGGAL (DD) + KODE CUSTOMER valid + SUBDIST.
+  // EC = kombinasi TANGGAL lengkap (YYYY-MM-DD) + KODE CUSTOMER valid + SUBDIST.
   // Hari yang sama pada outlet/subdist yang sama dihitung satu EC.
   // EC memakai tanggal kalender lengkap (YYYY-MM-DD), bukan DD saja;
   // jika hanya memakai DD, tanggal 10 pada bulan berbeda akan saling terduplikasi.
