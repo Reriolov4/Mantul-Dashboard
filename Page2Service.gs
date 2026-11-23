@@ -327,6 +327,9 @@ function page2BuildDashboardData_(filters, sourceRows) {
   // Trend Sales selalu kumulatif Januari sampai bulan terakhir yang dipilih.
   // Contoh NOV => JAN-NOV; YTD OCT => JAN-OCT (NOV-DES tidak ditampilkan).
   const trendMonths = mtdIndex >= 0 ? PAGE2_MONTHS_.slice(0,mtdIndex+1) : []; 
+  const trendMonthSet = new Set(trendMonths);
+  const trendCY = {ao:new Set(),ec:new Set(),value:0};
+  const trendLY = {ao:new Set(),ec:new Set(),value:0};
   const paretoMonths = new Set(trendMonths);
   let paretoGrandTotalCY = 0;
   const customer = r => page2Key_(r[10] || r[5]);
@@ -346,8 +349,10 @@ function page2BuildDashboardData_(filters, sourceRows) {
     : '';
   // EC = kombinasi TANGGAL (DD) + KODE CUSTOMER valid + SUBDIST.
   // Hari yang sama pada outlet/subdist yang sama dihitung satu EC.
+  // EC memakai tanggal kalender lengkap (YYYY-MM-DD), bukan DD saja;
+  // jika hanya memakai DD, tanggal 10 pada bulan berbeda akan saling terduplikasi.
   const ecKeyFor = (r, dayKey) => page2CompositeKey_([
-    dayKey, outletCode(r), r[8]
+    page2Date_(r[0], r[1], r[2]) || dayKey, outletCode(r), r[8]
   ]);
 
   const addGroup = (bucket, dimension, label, outletKey, ecKey, value) => {
@@ -382,6 +387,17 @@ function page2BuildDashboardData_(filters, sourceRows) {
         const ms = monthlySets[monthIndex];
         (isCY ? ms.cyAO : ms.lyAO).add(monthlyOutletKey);
         (isCY ? ms.cyEC : ms.lyEC).add(monthlyEcKey);
+      }
+    }
+    // YTD AO/EC memakai identitas unik sepanjang Jan–bulan aktif;
+    // Value dijumlahkan, bukan dihitung dari jumlah outlet per bulan.
+    if (trendMonthSet.has(month)) {
+      const ytdOutletKey = outlet(r), ytdDay = page2Day_(r[2]);
+      if (ytdOutletKey && customer(r) && ytdDay) {
+        const bucket = isCY ? trendCY : trendLY;
+        bucket.ao.add(ytdOutletKey);
+        bucket.ec.add(ecKeyFor(r, ytdDay));
+        bucket.value += Number(r[14]) || 0;
       }
     }
     if (paretoMonths.has(month) && validOutletCode(r)) {
@@ -550,6 +566,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
       ec:ec,ecLy:ecLy,ecGrowth:page2Growth_(ec,ecLy),
       aoMTD:aoMTD,aoMTDLY:aoMTDLY,ecMTD:ecMTD,ecMTDLY:ecMTDLY,
       mtdMonth:mtdMonth,rows:matchedRowCount,
+      trendYtdCY:{ao:trendCY.ao.size,ec:trendCY.ec.size,value:trendCY.value},
+      trendYtdLY:{ao:trendLY.ao.size,ec:trendLY.ec.size,value:trendLY.value},
       dailyCYMTD:dailyCYMTD,dailyLYMTD:dailyLYMTD
     },
     monthly:monthly,
