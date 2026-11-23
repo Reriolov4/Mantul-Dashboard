@@ -411,7 +411,6 @@ function page2BuildDashboardData_(filters, sourceRows) {
         if (y === year && paretoMonths.has(month)) paretoGrandTotalCY += val;
       }
     }
-    if (!periodMonthSet.has(month)) return;
     const customerName = customer(r);
     if (!customerName) return;
     const dayKey = page2Day_(r[2]);
@@ -442,14 +441,17 @@ function page2BuildDashboardData_(filters, sourceRows) {
     addGroup(chartBucket, 'subbrand', page2Text_(r[3]), outletKey, ecKey, Number(r[14]) || 0);
 
 
-    if (!hasDateFilter || selectedDates.has(dayKey)) {
+    // Simpan hanya bulan YTD sampai bulan aktif agar insight harian bisa
+    // menghitung MTD, LM, L3M, dan YTD tanpa memuat seluruh histori.
+    if (trendMonthSet.has(month) && (!hasDateFilter || selectedDates.has(dayKey))) {
       const dailyKey = month + '|' + dayKey;
       const dailyYear = isCY ? dailyMap.cy : dailyMap.ly;
       if (!dailyYear[dailyKey]) dailyYear[dailyKey] = {ao:new Set(),ec:new Set(),value:0};
-      if (outletKey) dailyYear[dailyKey].ao.add(outletKey);
+      dailyYear[dailyKey].ao.add(outletKey);
       dailyYear[dailyKey].ec.add(ecKey);
       dailyYear[dailyKey].value += Number(r[14]) || 0;
     }
+    if (!periodMonthSet.has(month)) return;
   });
 
   monthlySets.forEach((sets,index) => {
@@ -512,6 +514,25 @@ function page2BuildDashboardData_(filters, sourceRows) {
     };
   };
   const dailyCYMTD = mtdMonth ? dailyMonthStats(dailyMap.cy,mtdMonth) : {ao:0,ec:0,value:0,days:0,bestDay:null,bestValue:0};
+  const dailyPeriodStats = (source, months) => {
+    const monthSet = new Set(months || []);
+    const items = Object.keys(source).filter(key => monthSet.has(key.split('|')[0])).map(key => source[key]);
+    return {
+      ao:items.reduce((total,item)=>total+item.ao.size,0),
+      ec:items.reduce((total,item)=>total+item.ec.size,0),
+      value:items.reduce((total,item)=>total+(Number(item.value)||0),0),
+      days:items.length
+    };
+  };
+  const previousDailyMonth = mtdIndex > 0 ? PAGE2_MONTHS_[mtdIndex-1] : null;
+  const dailyL3MMonths = mtdIndex > 0 ? PAGE2_MONTHS_.slice(Math.max(0,mtdIndex-3),mtdIndex) : [];
+  const dailyInsight = {
+    cyMtd:dailyPeriodStats(dailyMap.cy,mtdMonth?[mtdMonth]:[]),
+    cyLm:dailyPeriodStats(dailyMap.cy,previousDailyMonth?[previousDailyMonth]:[]),
+    cyL3M:dailyPeriodStats(dailyMap.cy,dailyL3MMonths),
+    cyYtd:dailyPeriodStats(dailyMap.cy,trendMonths),
+    lyYtd:dailyPeriodStats(dailyMap.ly,trendMonths)
+  };
   const dailyLYMTD = mtdMonth ? dailyMonthStats(dailyMap.ly,mtdMonth) : {ao:0,ec:0,value:0,days:0,bestDay:null,bestValue:0};
 
   const ao = CY.ao.size, aoLy = LY.ao.size, ec = CY.ec.size, ecLy = LY.ec.size;
@@ -529,7 +550,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
     'GUNAWAN MMTW BAC MEULABOH','AFRIZAL MMTW BAC MEULABOH','SALMAN MMTW BAC MEULABOH',
     'MUHAMMAD YATIM MMTW BAC MEULABOH','RAHMAD ZULFAHMY MMTW BAC MEULABOH',
     'MMTW BANDA ACEH ACEH KOTA','MMTW LSE LHOKSEUMAWE','MMTW LSE MUARA DUA','MPR LSE LHOKSEUMAWE',
-    'MPR LSE BIREUEN','MMTW LSE LANGSA','MPR LSE IDI','MOTORIS KCH SAKA FARMA','MOTORIS KCH LSE'
+    'MPR LSE BIREUEN','MMTW LSE LANGSA','MPR LSE IDI','MOTORIS KCH SAKA FARMA','MOTORIS KCH LSE',
+    'IAN VAN ROY M'
   ].map(v => page2Key_(v).replace(/[^A-Z0-9]/g,'')));
   const normParetoName = value => page2Key_(value).replace(/[^A-Z0-9]/g,'');
   const previousMonth = mtdIndex > 0 ? PAGE2_MONTHS_[mtdIndex - 1] : null;
@@ -568,7 +590,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
       mtdMonth:mtdMonth,rows:matchedRowCount,
       trendYtdCY:{ao:trendCY.ao.size,ec:trendCY.ec.size,value:trendCY.value},
       trendYtdLY:{ao:trendLY.ao.size,ec:trendLY.ec.size,value:trendLY.value},
-      dailyCYMTD:dailyCYMTD,dailyLYMTD:dailyLYMTD
+      dailyCYMTD:dailyCYMTD,dailyLYMTD:dailyLYMTD,dailyInsight:dailyInsight
     },
     monthly:monthly,
     daily:daily,
