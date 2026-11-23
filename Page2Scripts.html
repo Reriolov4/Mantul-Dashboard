@@ -169,7 +169,7 @@ function page2RenderParetoTrend(){
  const growth=v=>v===null||v===undefined?'—':(v>0?'+':'')+Number(v).toFixed(1)+'%';
  const cls=v=>v===null||v===undefined?'p2-neutral':v>0?'p2-positive':v<0?'p2-negative':'p2-neutral';
  const cols=['CUSTOMER NAME','SUBDIST',...months.map(m=>monthLabels[m]||m),'ACTUAL YTD','ACTUAL LY YTD','GRW YTD','GRW VS LM','GRW VS L3M','CTR','AVG / MONTH'];
- const colClass=i=>i>=2+months.length&&i<2+months.length+5?'p2-col-growth':i===2+months.length+6?'p2-col-growth-long':''; 
+ const colClass=i=>i>=4+months.length&&i<=6+months.length?'p2-col-growth':i===7+months.length?'p2-col-growth-long':''; 
  head.innerHTML='<tr>'+cols.map((x,i)=>'<th class="'+colClass(i)+'">'+p2Esc(x)+'</th>').join('')+'</tr>';
  if(!rows.length){body.innerHTML='<tr><td colspan="'+cols.length+'" class="p2-empty">Tidak ada outlet Pareto pada filter terpilih.</td></tr>';return;}
  const totalCY=rows.reduce((a,r)=>a+(Number(r.actualYTD)||0),0);
@@ -181,14 +181,14 @@ function page2RenderParetoTrend(){
  body.innerHTML=rows.map(r=>{
   const tds=[ '<td>'+p2Esc(r.customerName)+'</td>','<td>'+p2Esc(r.subdist)+'</td>' ];
   months.forEach(m=>tds.push('<td>'+fmt(r.monthValues?.[m])+'</td>'));
-  tds.push('<td><b>'+fmt(r.actualYTD)+'</b></td>','<td>'+fmt(r.actualLYYTD)+'</td>','<td class="'+colClass(2+months.length)+' '+cls(r.grwYTD)+'">'+growth(r.grwYTD)+'</td>','<td class="'+colClass(3+months.length)+' '+cls(r.grwVsLM)+'">'+growth(r.grwVsLM)+'</td>','<td class="'+colClass(4+months.length)+' '+cls(r.grwVsL3M)+'">'+growth(r.grwVsL3M)+'</td>','<td class="'+colClass(5+months.length)+' '+p2CtrClass(totalCY?r.actualYTD/totalCY*100:0)+'">'+(totalCY?(r.actualYTD/totalCY*100):0).toFixed(1)+'%</td>','<td>'+(r.avgMonth===null?'—':fmt(r.avgMonth))+'</td>');
+  tds.push('<td><b>'+fmt(r.actualYTD)+'</b></td>','<td>'+fmt(r.actualLYYTD)+'</td>','<td class="'+colClass(4+months.length)+' '+cls(r.grwYTD)+'">'+growth(r.grwYTD)+'</td>','<td class="'+colClass(5+months.length)+' '+cls(r.grwVsLM)+'">'+growth(r.grwVsLM)+'</td>','<td class="'+colClass(6+months.length)+' '+cls(r.grwVsL3M)+'">'+growth(r.grwVsL3M)+'</td>','<td class="'+colClass(7+months.length)+' '+p2CtrClass(totalCY?r.actualYTD/totalCY*100:0)+'">'+(totalCY?(r.actualYTD/totalCY*100):0).toFixed(1)+'%</td>','<td>'+(r.avgMonth===null?'—':fmt(r.avgMonth))+'</td>');
   return '<tr>'+tds.join('')+'</tr>';
  }).join('');
  const totalCtr=100;
  const totalGrw=totalLY?(totalCY/totalLY-1)*100:null;
  const totalPrevGrw=totalPrev?(totalCY/totalPrev-1)*100:null;
  const total3Grw=totalAvg3?(totalCY/totalAvg3-1)*100:null;
- const totalCells=['<td><b>GRAND TOTAL (25 OUTLET)</b></td>','<td>—</td>',...monthTotals.map(v=>'<td><b>'+fmt(v)+'</b></td>'),'<td><b>'+fmt(totalCY)+'</b></td>','<td><b>'+fmt(totalLY)+'</b></td>','<td class="'+colClass(2+months.length)+' '+cls(totalGrw)+'">'+growth(totalGrw)+'</td>','<td class="'+colClass(3+months.length)+' '+cls(totalPrevGrw)+'">'+growth(totalPrevGrw)+'</td>','<td class="'+colClass(4+months.length)+' '+cls(total3Grw)+'">'+growth(total3Grw)+'</td>','<td class="'+colClass(5+months.length)+' p2-ctr-blue"><b>'+totalCtr.toFixed(1)+'%</b></td>','<td><b>'+fmt(totalAvgMonth)+'</b></td>'];
+ const totalCells=['<td><b>GRAND TOTAL (25 OUTLET)</b></td>','<td>—</td>',...monthTotals.map(v=>'<td><b>'+fmt(v)+'</b></td>'),'<td><b>'+fmt(totalCY)+'</b></td>','<td><b>'+fmt(totalLY)+'</b></td>','<td class="'+colClass(4+months.length)+' '+cls(totalGrw)+'">'+growth(totalGrw)+'</td>','<td class="'+colClass(5+months.length)+' '+cls(totalPrevGrw)+'">'+growth(totalPrevGrw)+'</td>','<td class="'+colClass(6+months.length)+' '+cls(total3Grw)+'">'+growth(total3Grw)+'</td>','<td class="'+colClass(7+months.length)+' p2-ctr-blue"><b>'+totalCtr.toFixed(1)+'%</b></td>','<td><b>'+fmt(totalAvgMonth)+'</b></td>'];
  body.insertAdjacentHTML('beforeend','<tr class="p2-grand-total">'+totalCells.join('')+'</tr>');
 }
 function page2Render(){
@@ -235,13 +235,13 @@ function page2RenderChartInsights(){
  const avg=days?cyTotal/days:0;
  p2$('p2DailyAvgCy').textContent=p2SummaryMetric(avg,metric);
  p2$('p2DailyBestDay').textContent=metric==='value'?(cy.bestDay?'Tgl '+cy.bestDay:'—'):(cy.bestDay?'Tgl '+cy.bestDay:'—');
- p2$('p2DailyBestValue').textContent=cy.bestDay?p2SummaryMetric(metric==='value'?cy.bestValue:0,metric)+' • '+(k.mtdMonth||''):'Belum ada data';
+ p2$('p2DailyBestValue').textContent=cy.bestDay?p2FmtValue(cy.bestValue)+' • '+(k.mtdMonth||''):'Belum ada data';
  p2$('p2DailyTotalMtd').textContent=p2SummaryMetric(cyTotal,metric);
  p2SetSummaryGrowth('p2DailyGrowthLy',lyTotal?(cyTotal/lyTotal-1)*100:(cyTotal?null:0));
  const labels=daily.map(x=>x.day);
  const bestIndex=cy.bestDay?Number(cy.bestDay)-1:-1;
  const bestValue=metric==='value'?cy.bestValue:Math.max(0,...daily.map(x=>Number(x[metric])||0));
- p2$('p2DailyBestValue').textContent=bestIndex>=0?p2SummaryMetric(bestValue,metric)+' • Tanggal '+cy.bestDay:'Belum ada data';
+ p2$('p2DailyBestValue').textContent=bestIndex>=0?p2FmtValue(cy.bestValue)+' • Tanggal '+cy.bestDay:'Belum ada data';
 }
 function page2DrawCharts(){const d=p2Data,metric=p2MetricValue;
  const monthly=d.monthly.filter(x=>d.kpi.months.includes(x.month));
