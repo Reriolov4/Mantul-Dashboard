@@ -70,6 +70,12 @@
 #page2View .p2-card h2{font-size:12px;color:#173b70;margin:0 0 4px}
 #page2View .p2-card p{font-size:9px;color:#77869a;margin:0 0 9px}
 #page2View .p2-chartbox{height:265px;position:relative;width:100%}
+#page2View .p2-insight-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:10px}
+#page2View .p2-insight{min-width:0;padding:9px 8px;background:#f6f8fc;border:1px solid #e8edf5;border-radius:8px}
+#page2View .p2-insight small{display:block;font-size:8px;font-weight:800;letter-spacing:.25px;color:#718096}
+#page2View .p2-insight b{display:block;margin:5px 0 3px;font-size:clamp(12px,1.2vw,17px);line-height:1.2;color:#173b70;overflow-wrap:anywhere}
+#page2View .p2-insight span{display:block;font-size:8px;line-height:1.3;color:#77869a}
+@media(max-width:760px){#page2View .p2-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #page2View .p2-chart-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 #page2View .p2-switch{display:flex;gap:3px;background:#f0f4f9;border-radius:20px;padding:3px}
 #page2View .p2-switch button{border:0;background:transparent;color:#53657c;border-radius:18px;padding:5px 10px;font-size:9px;font-weight:800}
@@ -100,7 +106,14 @@
 #page2View .p2-pareto-table th{position:sticky;top:0;height:34px;line-height:1.25;vertical-align:middle;background:#f8e8eb;color:#173b70;padding:9px 7px;text-align:right;border-bottom:1px solid #cbd5e1;z-index:5;overflow:hidden;text-overflow:ellipsis}
 #page2View .p2-pareto-table th:first-child,#page2View .p2-pareto-table td:first-child{width:205px;min-width:205px;max-width:205px;box-sizing:border-box;text-align:left}
 #page2View .p2-pareto-table th:nth-child(2),#page2View .p2-pareto-table td:nth-child(2){width:115px;min-width:115px;max-width:115px;box-sizing:border-box;text-align:left}
-#page2View .p2-pareto-table th:nth-child(n+3),#page2View .p2-pareto-table td:nth-child(n+3){width:96px}
+#page2View .p2-pareto-table th:nth-child(n+3),#page2View .p2-pareto-table td:nth-child(n+3){width:108px;min-width:108px;max-width:108px}
+#page2View .p2-pareto-table th:nth-child(5),#page2View .p2-pareto-table td:nth-child(5),
+#page2View .p2-pareto-table th:nth-child(8),#page2View .p2-pareto-table td:nth-child(8),
+#page2View .p2-pareto-table th:nth-child(9),#page2View .p2-pareto-table td:nth-child(9),
+#page2View .p2-pareto-table th:nth-child(10),#page2View .p2-pareto-table td:nth-child(10),
+#page2View .p2-pareto-table th:nth-child(11),#page2View .p2-pareto-table td:nth-child(11){width:76px;min-width:76px;max-width:76px;padding-left:3px;padding-right:3px;font-size:8px}
+#page2View .p2-pareto-table th:nth-child(9),#page2View .p2-pareto-table td:nth-child(9),
+#page2View .p2-pareto-table th:nth-child(10),#page2View .p2-pareto-table td:nth-child(10){width:80px;min-width:80px;max-width:80px}
 #page2View .p2-pareto-table td{height:30px;line-height:1.35;padding:7px;border-bottom:1px solid #e2e8f0;text-align:right;color:#243b5a;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
 #page2View .p2-pareto-table tbody tr:hover{background:#f8fafc}
 #page2View .p2-pareto-table .p2-positive{color:#16803c;font-weight:800}#page2View .p2-pareto-table .p2-negative{color:#d12c2c;font-weight:800}#page2View .p2-pareto-table .p2-neutral{color:#64748b;font-weight:700}
@@ -150,8 +163,8 @@
  </div>
  <div class="p2-section-title"><h2>MATRIX GRAFIK DAN TABEL</h2><p>Tren kinerja berdasarkan periode terpilih.</p></div>
  <div class="p2-panel-grid">
-  <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND BULANAN</h2><p>Perbandingan tahun berjalan dan tahun lalu.</p></div></div><div class="p2-chartbox"><canvas id="p2MonthlyChart"></canvas></div></article>
-  <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND HARIAN</h2><p>Pergerakan berdasarkan tanggal dalam bulan.</p></div></div><div class="p2-chartbox"><canvas id="p2DailyChart"></canvas></div></article>
+  <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND BULANAN</h2><p>Perbandingan tahun berjalan dan tahun lalu.</p></div></div><div class="p2-chartbox"><canvas id="p2MonthlyChart"></canvas></div><div class="p2-insight-grid" id="p2MonthlyInsights"><div class="p2-insight"><small>AVERAGE YTD</small><b id="p2MonthlyAvgYtd">—</b><span>Rata-rata per bulan</span></div><div class="p2-insight"><small>AVERAGE L3M</small><b id="p2MonthlyAvgL3m">—</b><span>3 bulan terakhir</span></div><div class="p2-insight"><small>GROWTH YTD</small><b id="p2MonthlyGrowthYtd">—</b><span>Dibanding periode LY</span></div><div class="p2-insight"><small>TOTAL YTD</small><b id="p2MonthlyTotalYtd">—</b><span>Akumulasi tahun berjalan</span></div></div></article>
+  <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND HARIAN</h2><p>Pergerakan berdasarkan tanggal dalam bulan.</p></div></div><div class="p2-chartbox"><canvas id="p2DailyChart"></canvas></div><div class="p2-insight-grid" id="p2DailyInsights"><div class="p2-insight"><small>AVERAGE DAILY CY</small><b id="p2DailyAvgCy">—</b><span>Per hari dengan data</span></div><div class="p2-insight"><small>BEST SALES DAY</small><b id="p2DailyBestDay">—</b><span id="p2DailyBestValue">Hari penjualan tertinggi</span></div><div class="p2-insight"><small>TOTAL SALES MTD</small><b id="p2DailyTotalMtd">—</b><span>Bulan terakhir terpilih</span></div><div class="p2-insight"><small>GROWTH VS LY</small><b id="p2DailyGrowthLy">—</b><span>Dibanding periode LY setara</span></div></div></article>
  </div>
  <article class="p2-card p2-pareto-card">
   <div class="p2-chart-head"><div><h2>25 OUTLET PARETO</h2><p>Ranking berdasarkan Actual YTD terbesar; nama akun tertentu dikecualikan sesuai daftar.</p></div></div>
@@ -170,6 +183,8 @@
 #page2View .p2-trend-table th:nth-child(2),#page2View .p2-trend-table td:nth-child(2){width:115px;min-width:115px;max-width:115px;text-align:left;position:sticky;left:205px;background:#fff;z-index:6;box-sizing:border-box}
 #page2View .p2-trend-table th:first-child,#page2View .p2-trend-table th:nth-child(2){background:#f8e8eb;z-index:10}
 #page2View .p2-trend-table th:nth-child(n+3),#page2View .p2-trend-table td:nth-child(n+3){width:110px;min-width:110px;max-width:110px}
+#page2View .p2-trend-table .p2-col-growth{width:76px;min-width:76px;max-width:76px;padding-left:3px;padding-right:3px;font-size:8px}
+#page2View .p2-trend-table .p2-col-growth-long{width:80px;min-width:80px;max-width:80px;padding-left:3px;padding-right:3px;font-size:8px}
 #page2View .p2-trend-table td:first-child,#page2View .p2-trend-table td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #page2View .p2-trend-table .p2-grand-total td:first-child,#page2View .p2-trend-table .p2-grand-total td:nth-child(2){background:#e8eef8;z-index:9}
 #page2View .p2-trend-table tbody td:first-child,#page2View .p2-trend-table tbody td:nth-child(2){box-shadow:1px 0 0 #e2e8f0}
