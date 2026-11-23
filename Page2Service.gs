@@ -531,7 +531,11 @@ function page2BuildDashboardData_(filters, sourceRows) {
     cyLm:dailyPeriodStats(dailyMap.cy,previousDailyMonth?[previousDailyMonth]:[]),
     cyL3M:dailyPeriodStats(dailyMap.cy,dailyL3MMonths),
     cyYtd:dailyPeriodStats(dailyMap.cy,trendMonths),
-    lyYtd:dailyPeriodStats(dailyMap.ly,trendMonths)
+    lyYtd:dailyPeriodStats(dailyMap.ly,trendMonths),
+    // Simpan ringkasan per bulan agar AVG YTD/L3M memberi bobot setara
+    // untuk setiap bulan (Aug, Sep, Oct = (Aug+Sep+Oct)/3).
+    monthlyCY:Object.fromEntries(trendMonths.map(month=>[month,dailyPeriodStats(dailyMap.cy,[month])])),
+    monthlyLY:Object.fromEntries(trendMonths.map(month=>[month,dailyPeriodStats(dailyMap.ly,[month])]))
   };
   const dailyLYMTD = mtdMonth ? dailyMonthStats(dailyMap.ly,mtdMonth) : {ao:0,ec:0,value:0,days:0,bestDay:null,bestValue:0};
 
@@ -611,7 +615,7 @@ function page2SourceVersion_(sheet) {
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    'page2-value-matrix-subbrand-v5',
+    'page2-value-matrix-subbrand-v6',
     spreadsheetId, sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');
