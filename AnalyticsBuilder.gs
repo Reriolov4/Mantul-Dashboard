@@ -281,7 +281,10 @@ function analyticsGetReadySheet_(analyticsSheetName, sourceSheetName, phase) {
   if (phase === 'P2') {
     const indexedUpdatedAt = String(props.getProperty(prefix + 'P2_SOURCE_UPDATED_AT') || '');
     const currentUpdatedAt = String(props.getProperty('PAGE2_RAW_UPDATED') || '');
-    if (!indexedUpdatedAt || indexedUpdatedAt !== currentUpdatedAt) return null;
+    // Bila kedua timestamp kosong, gunakan validasi row-count di atas.
+    // Ini penting untuk build lama yang tidak pernah mengisi PAGE2_RAW_UPDATED.
+    // Jika hanya salah satu terisi atau nilainya berbeda, index tetap dianggap stale.
+    if (indexedUpdatedAt !== currentUpdatedAt && (indexedUpdatedAt || currentUpdatedAt)) return null;
   }
 
   let analytics;
