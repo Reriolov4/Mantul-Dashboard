@@ -228,7 +228,9 @@ function page2RenderChartInsights(){
  const l3mMonths=lastIndex>=0?order.slice(Math.max(0,lastIndex-3),lastIndex):[];
  const getMonth=m=>d.monthly.find(x=>x.month===m)||{},sum=(months,key)=>months.reduce((t,m)=>t+(Number(getMonth(m)[key])||0),0);
  const current=lastIndex>=0?Number(getMonth(k.mtdMonth)[metric])||0:0,previous=lastIndex>0?Number(getMonth(order[lastIndex-1])[metric])||0:0;
- const ytdCY=sum(ytdMonths,metric),lyKey=metric==='value'?'valueLy':metric==='ao'?'aoLy':'ecLy',ytdLY=sum(ytdMonths,lyKey);
+ const lyKey=metric==='value'?'valueLy':metric==='ao'?'aoLy':'ecLy';
+ // GRW YTD memakai distinct AO/EC YTD atau total Value YTD dari service.
+ const ytdCY=Number((k.trendYtdCY||{})[metric])||0,ytdLY=Number((k.trendYtdLY||{})[metric])||0;
  const avgYtd=ytdMonths.length?ytdCY/ytdMonths.length:0,l3mTotal=sum(l3mMonths,metric),avgL3m=l3mMonths.length?l3mTotal/l3mMonths.length:0;
  const growth=(now,base)=>base?(now/base-1)*100:(now?null:0);
  const values={actMtd:p2SummaryMetric(current,metric),avgYtd:p2SummaryMetric(avgYtd,metric),avgL3m:p2SummaryMetric(avgL3m,metric),growthLm:growth(current,previous),growthL3m:growth(current,avgL3m),growthYtd:growth(ytdCY,ytdLY)};
