@@ -11,7 +11,7 @@ const DEFAULT_SPREADSHEET_ID = '1I8gESqZUkgpn-9yvQpWOmTFGWkW-3E06SG94a7UiZjI';
 // SPREADSHEET_ID
 // UPLOAD_ALLOWED_EMAILS (daftar email dipisahkan koma)
 
-const DATA_SHEET_NAME = 'DATA_SALES';
+const DATA_SHEET_NAME = 'P1_FACT';
 const STAGING_SHEET_NAME = 'IMPORT_STAGING';
 const RAW_STAGING_SHEET_NAME = 'RAW_IMPORT_STAGING';
 const RAW_DATA_SHEET_NAME = 'RAW_DATA_SALES';
@@ -19,9 +19,9 @@ const IMPORT_LOG_SHEET_NAME = 'IMPORT_LOG';
 const SKU_SHEET_NAME = 'SKU';
 
 // ------------------------------------------------------------
-// DATA_SALES — 14 kolom sumber (A:N) pada workbook terbaru.
+// P1_FACT — 14 kolom fakta analitik (A:N) pada workbook terbaru.
 // SALES_HEADERS tetap merupakan format internal ringkas yang
-// dipakai proses import lama; jangan ubah tanpa mengubah importer.
+// dipakai layanan dashboard; format ini mengikuti header P1_FACT.
 // ------------------------------------------------------------
 const DATA_SALES_SOURCE_HEADERS = [
   'YEAR', 'MONTH', 'SUBDIST', 'SUBBRAND', 'BRAND', 'CATEGORY',
