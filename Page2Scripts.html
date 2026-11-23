@@ -232,8 +232,9 @@ function page2RenderChartInsights(){
  p2$('p2MonthlyTotalYtd').textContent=p2SummaryMetric(ytdCy,metric);
  const cy=k.dailyCYMTD||{},ly=k.dailyLYMTD||{},days=Number(cy.days)||0;
  const cyTotal=Number(cy[metric])||0,lyTotal=Number(ly[metric])||0;
- const avg=days?cyTotal/days:0;
+ const avg=days?cyTotal/days:0,lyDays=Number(ly.days)||0,lyAvg=lyDays?lyTotal/lyDays:0;
  p2$('p2DailyAvgCy').textContent=p2SummaryMetric(avg,metric);
+ p2$('p2DailyAvgLy').textContent=p2SummaryMetric(lyAvg,metric);
  p2$('p2DailyBestDay').textContent=metric==='value'?(cy.bestDay?'Tgl '+cy.bestDay:'—'):(cy.bestDay?'Tgl '+cy.bestDay:'—');
  p2$('p2DailyBestValue').textContent=cy.bestDay?p2FmtValue(cy.bestValue)+' • '+(k.mtdMonth||''):'Belum ada data';
  p2$('p2DailyTotalMtd').textContent=p2SummaryMetric(cyTotal,metric);
