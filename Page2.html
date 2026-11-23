@@ -11,14 +11,7 @@
 #page2View .p2-menu{display:none;position:absolute;top:calc(100% + 5px);left:0;width:min(290px,90vw);max-height:330px;overflow:auto;background:#fff;border:1px solid #dbe3ee;border-radius:10px;box-shadow:0 12px 28px #14213d24;z-index:80;padding:9px}
 #page2View .p2-filter.open .p2-menu{display:block}
 #page2View .p2-filter.open{z-index:100}
-#page2View #p2SubdistFilter.open .p2-menu{
-  top:auto;
-  bottom:calc(100% + 5px);
-  max-height:min(330px,calc(100vh - 150px));
-}
-#page2View #p2SubdistFilter.open .p2-checklist{
-  max-height:min(230px,calc(100vh - 260px));
-}
+/* SUBDIST menu follows Page 1 dropdown behavior: open below its trigger. */
 #page2View .p2-menu-actions{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
 #page2View .p2-menu-actions button{border:1px solid #dbe3ee;background:#f8fafc;color:#1d4ed8;border-radius:7px;padding:6px 8px;font-size:10px;font-weight:700;cursor:pointer}
 #page2View .p2-menu-actions .p2-apply-menu{background:#2563eb;color:#fff;border-color:#2563eb;width:100%}
