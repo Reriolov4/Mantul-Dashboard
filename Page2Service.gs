@@ -444,12 +444,16 @@ function page2BuildDashboardData_(filters, sourceRows) {
       (isCY ? mtd.cyEC : mtd.lyEC).add(ecKey);
     }
 
-    const chartBucket = isCY ? CHART_CY : CHART_LY;
-    addGroup(chartBucket, 'subdist', page2Text_(r[8]), outletKey, ecKey, Number(r[14]) || 0);
-    addGroup(chartBucket, 'account', page2Text_(r[10]), outletKey, ecKey, Number(r[14]) || 0);
-    addGroup(chartBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey, Number(r[14]) || 0);
-    addGroup(chartBucket, 'category', page2Text_(r[11]), outletKey, ecKey, Number(r[14]) || 0);
-    addGroup(chartBucket, 'subbrand', page2Text_(r[3]), outletKey, ecKey, Number(r[14]) || 0);
+    // Donut composition follows the selected month period, not the entire year.
+    // This prevents Value from showing a full-year total when only NOV is selected.
+    if (periodMonthSet.has(month)) {
+      const chartBucket = isCY ? CHART_CY : CHART_LY;
+      addGroup(chartBucket, 'subdist', page2Text_(r[8]), outletKey, ecKey, value);
+      addGroup(chartBucket, 'account', page2Text_(r[10]), outletKey, ecKey, value);
+      addGroup(chartBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey, value);
+      addGroup(chartBucket, 'category', page2Text_(r[11]), outletKey, ecKey, value);
+      addGroup(chartBucket, 'subbrand', page2Text_(r[3]), outletKey, ecKey, value);
+    }
 
 
     // Simpan hanya bulan YTD sampai bulan aktif agar insight harian bisa
