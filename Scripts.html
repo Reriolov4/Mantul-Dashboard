@@ -21,7 +21,7 @@ function p1AvailableMonths(){const y=Number($('year').value),typ=$('sales').valu
 function p1SetYtdMonths(shouldRender=false){const available=p1AvailableMonths();const last=available.length?months.indexOf(available[available.length-1]):-1;setMonths(months.slice(0,last+1),shouldRender);}
 function selectedSubdists(){return [...document.querySelectorAll('#subdistChecks input:checked')].map(x=>x.value);}
 function selectedPics(){return [...document.querySelectorAll('#picChecks input:checked')].map(x=>x.value);}
-function isPicSelected(value){return selectedPics().includes(String(value||''));}
+function isPicSelected(value){const key=String(value||'');return renderFilterCache?renderFilterCache.pics.has(key):selectedPics().includes(key);}
 function updatePicLabel(){const chosen=selectedPics(),all=[...document.querySelectorAll('#picChecks input')].map(x=>x.value),btn=$('picTrigger');btn.textContent=chosen.length===all.length?'Semua PIC':chosen.length===0?'Tidak ada PIC':chosen.length===1?chosen[0]:chosen.length+' PIC dipilih';btn.title=chosen.join(', ');$('pic').value=chosen.length===all.length?'ALL':chosen.length===1?chosen[0]:'';}
 function setPics(list){document.querySelectorAll('#picChecks input').forEach(x=>x.checked=list.includes(x.value));updatePicLabel();}
 function isSubdistSelected(value){
@@ -38,6 +38,7 @@ function refreshRenderFilterCache(){
  });
  renderFilterCache={
   subdists:new Set(selectedSubdists().map(String)),
+  pics:new Set(selectedPics().map(String)),
   productSets:productSets
  };
 }
