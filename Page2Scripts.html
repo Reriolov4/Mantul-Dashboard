@@ -237,7 +237,10 @@ function page2RenderChartInsights(){
  // Insight harian: semua nilai adalah rata-rata per hari aktif, sehingga
  // perbandingan LM/L3M/YTD konsisten dengan konteks grafik harian.
  const ds=k.dailyInsight||{},avg=(bucket)=>{const b=bucket||{},days=Number(b.days)||0;return days?(Number(b[metric])||0)/days:0;};
- const dailyMtd=avg(ds.cyMtd),dailyLm=avg(ds.cyLm),dailyL3m=avg(ds.cyL3M),dailyYtd=avg(ds.cyYtd),dailyLyYtd=avg(ds.lyYtd);
+ const dailyMonthly=ds.monthlyCY||{},dailyMonthlyLY=ds.monthlyLY||{};
+ const monthDailyAverage=(source,months)=>{const values=months.map(m=>source[m]).filter(b=>b&&Number(b.days)>0).map(avg);return values.length?values.reduce((a,b)=>a+b,0)/values.length:0;};
+ const dailyMtd=avg(dailyMonthly[k.mtdMonth]||ds.cyMtd),dailyLm=lastIndex>0?avg(dailyMonthly[order[lastIndex-1]]||ds.cyLm):0;
+ const dailyL3m=monthDailyAverage(dailyMonthly,l3mMonths),dailyYtd=monthDailyAverage(dailyMonthly,ytdMonths),dailyLyYtd=monthDailyAverage(dailyMonthlyLY,ytdMonths);
  const dailyValues={actMtd:p2SummaryMetric(dailyMtd,metric),avgYtd:p2SummaryMetric(dailyYtd,metric),avgL3m:p2SummaryMetric(dailyL3m,metric),growthLm:growth(dailyMtd,dailyLm),growthL3m:growth(dailyMtd,dailyL3m),growthYtd:growth(dailyYtd,dailyLyYtd)};
  const prefix='p2Daily';p2$(prefix+'ActMtd').textContent=dailyValues.actMtd;p2$(prefix+'AvgYtd').textContent=dailyValues.avgYtd;p2$(prefix+'AvgL3m').textContent=dailyValues.avgL3m;p2SetSummaryGrowth(prefix+'GrowthLm',dailyValues.growthLm);p2SetSummaryGrowth(prefix+'GrowthL3m',dailyValues.growthL3m);p2SetSummaryGrowth(prefix+'GrowthYtd',dailyValues.growthYtd);
 }
