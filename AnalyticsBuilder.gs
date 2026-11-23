@@ -67,6 +67,7 @@ function analyticsStartInitialBuild() {
       [ANALYTICS_BUILD_PREFIX_ + 'P2_SOURCE_ROWS']: String(p2.getLastRow()-1),
       [ANALYTICS_BUILD_PREFIX_ + 'P1_WRITTEN']: '0',
       [ANALYTICS_BUILD_PREFIX_ + 'P2_WRITTEN']: '0',
+      [ANALYTICS_BUILD_PREFIX_ + 'P2_SOURCE_UPDATED_AT']: String(props.getProperty('PAGE2_RAW_UPDATED') || ''),
       [ANALYTICS_BUILD_PREFIX_ + 'STARTED_AT']: now,
       [ANALYTICS_BUILD_PREFIX_ + 'SOURCE_ID']: source.getId()
     });
@@ -276,6 +277,12 @@ function analyticsGetReadySheet_(analyticsSheetName, sourceSheetName, phase) {
   const expectedSourceRows = Number(props.getProperty(sourceCountKey) || 0);
   const expectedWrittenRows = Number(props.getProperty(writtenKey) || 0);
   if (sourceSheet.getLastRow() - 1 !== expectedSourceRows) return null;
+  // Jangan gunakan indeks P2 dari sebelum upload terbaru, meski jumlah baris sama.
+  if (phase === 'P2') {
+    const indexedUpdatedAt = String(props.getProperty(prefix + 'P2_SOURCE_UPDATED_AT') || '');
+    const currentUpdatedAt = String(props.getProperty('PAGE2_RAW_UPDATED') || '');
+    if (!indexedUpdatedAt || indexedUpdatedAt !== currentUpdatedAt) return null;
+  }
 
   let analytics;
   try {
