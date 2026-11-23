@@ -370,57 +370,56 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if (!matches(r)) return;
     matchedRowCount++;
 
-    const y = Number(r[0]), month = page2Month_(r[1]);
+    const y = Number(r[0]);
     if (y !== year && y !== ly) return;
-    // Agregasi bulanan untuk insight YTD/L3M membaca seluruh bulan Jan–Des,
-    // tidak terpotong oleh pilihan bulan pada grafik.
+    const month = page2Month_(r[1]);
     const isCY = y === year;
     const monthIndex = PAGE2_MONTHS_.indexOf(month);
-    if (monthIndex >= 0) {
-      const monthlyOutletKey = outlet(r);
-      const monthlyDay = page2Day_(r[2]);
-      const monthlyEcKey = monthlyDay && monthlyOutletKey ? ecKeyFor(r, monthlyDay) : '';
-      // Gunakan guard yang sama dengan KPI: kode outlet valid, nama akun,
-      // dan tanggal harus tersedia sebelum nilai/EC/AO masuk agregasi.
-      if (monthlyOutletKey && customer(r) && monthlyDay) {
-        monthly[monthIndex][isCY ? 'value' : 'valueLy'] += Number(r[14]) || 0;
-        const ms = monthlySets[monthIndex];
-        (isCY ? ms.cyAO : ms.lyAO).add(monthlyOutletKey);
-        (isCY ? ms.cyEC : ms.lyEC).add(monthlyEcKey);
-      }
-    }
-    // YTD AO/EC memakai identitas unik sepanjang Jan–bulan aktif;
-    // Value dijumlahkan, bukan dihitung dari jumlah outlet per bulan.
-    if (trendMonthSet.has(month)) {
-      const ytdOutletKey = outlet(r), ytdDay = page2Day_(r[2]);
-      if (ytdOutletKey && customer(r) && ytdDay) {
-        const bucket = isCY ? trendCY : trendLY;
-        bucket.ao.add(ytdOutletKey);
-        bucket.ec.add(ecKeyFor(r, ytdDay));
-        bucket.value += Number(r[14]) || 0;
-      }
-    }
-    if (paretoMonths.has(month) && validOutletCode(r)) {
-      const pKey = outlet(r);
-      if (pKey) {
-        let item = paretoByOutlet.get(pKey);
-        if (!item) { item = {key:pKey,customerName:page2Text_(r[10] || r[5]),subdist:page2Text_(r[8]),cy:{},ly:{}}; paretoByOutlet.set(pKey,item); }
-        const val = Number(r[14]) || 0;
-        const target = y === year ? item.cy : item.ly;
-        target[month] = (target[month] || 0) + val;
-        if (y === year && paretoMonths.has(month)) paretoGrandTotalCY += val;
-      }
-    }
-    const customerName = customer(r);
-    if (!customerName) return;
-    const dayKey = page2Day_(r[2]);
-    if (!dayKey) return;
+    const value = Number(r[14]) || 0;
 
-    const outletKey = outlet(r);
-    // Baris tanpa kode customer valid (termasuk OTHERSB) dikeluarkan
-    // dari seluruh agregasi KPI, trend, dan komposisi.
-    if (!outletKey) return;
-    const ecKey = ecKeyFor(r, dayKey);
+    // Normalisasi identitas dan tanggal cukup sekali per transaksi.
+    // Sebelumnya page2Day_, page2Date_, outlet(), dan customer() dipanggil
+    // berulang untuk agregasi bulanan, YTD, KPI, dan dailyMap.
+    const customerName = page2Key_(r[10] || r[5]);
+    const code = page2Key_(r[13]);
+    const hasValidCode = !!code && code !== 'OTHERSB' && code !== '#VALUE!';
+    const outletKey = hasValidCode ? page2CompositeKey_([code, r[8]]) : '';
+    const dayKey = page2Day_(r[2]);
+    const dateKey = dayKey && monthIndex >= 0
+      ? String(y) + '-' + String(monthIndex + 1).padStart(2,'0') + '-' + dayKey
+      : '';
+    const ecKey = outletKey && dayKey
+      ? page2CompositeKey_([dateKey || dayKey, code, r[8]])
+      : '';
+
+    // Agregasi bulanan untuk insight YTD/L3M membaca seluruh bulan Jan–Des.
+    if (monthIndex >= 0 && outletKey && customerName && dayKey) {
+      monthly[monthIndex][isCY ? 'value' : 'valueLy'] += value;
+      const ms = monthlySets[monthIndex];
+      (isCY ? ms.cyAO : ms.lyAO).add(outletKey);
+      (isCY ? ms.cyEC : ms.lyEC).add(ecKey);
+    }
+
+    // YTD AO/EC memakai identitas unik sepanjang Jan–bulan aktif.
+    if (trendMonthSet.has(month) && outletKey && customerName && dayKey) {
+      const bucket = isCY ? trendCY : trendLY;
+      bucket.ao.add(outletKey);
+      bucket.ec.add(ecKey);
+      bucket.value += value;
+    }
+
+    if (paretoMonths.has(month) && hasValidCode && outletKey) {
+      let item = paretoByOutlet.get(outletKey);
+      if (!item) {
+        item = {key:outletKey,customerName:page2Text_(r[10] || r[5]),subdist:page2Text_(r[8]),cy:{},ly:{}};
+        paretoByOutlet.set(outletKey,item);
+      }
+      const target = isCY ? item.cy : item.ly;
+      target[month] = (target[month] || 0) + value;
+      if (isCY) paretoGrandTotalCY += value;
+    }
+
+    if (!customerName || !dayKey || !outletKey) return;
     const totalBucket = isCY ? CY : LY;
 
     if (outletKey) totalBucket.ao.add(outletKey);
@@ -449,7 +448,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
       if (!dailyYear[dailyKey]) dailyYear[dailyKey] = {ao:new Set(),ec:new Set(),value:0};
       dailyYear[dailyKey].ao.add(outletKey);
       dailyYear[dailyKey].ec.add(ecKey);
-      dailyYear[dailyKey].value += Number(r[14]) || 0;
+      dailyYear[dailyKey].value += value;
     }
     if (!periodMonthSet.has(month)) return;
   });
@@ -615,7 +614,7 @@ function page2SourceVersion_(sheet) {
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    'page2-value-matrix-subbrand-v6',
+    'page2-value-matrix-subbrand-v7',
     spreadsheetId, sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');
@@ -689,13 +688,13 @@ function page2CacheGetChunked_(cache, key) {
   if (!manifest) return null;
   const count = Number(manifest);
   if (!count || count > 20) return null;
-  let value = '';
+  const parts = [];
   for (let i = 0; i < count; i++) {
     const part = cache.get(key + '_' + i);
     if (part == null) return null;
-    value += part;
+    parts.push(part);
   }
-  return value;
+  return parts.join('');
 }
 
 function getPage2InitialPayload() {
@@ -706,7 +705,7 @@ function getPage2InitialPayload() {
   const dataKey = page2CacheKey_('p2initial_schema3', 'initial', version);
   const cache = CacheService.getScriptCache();
   const cachedMeta = page2CacheGetChunked_(cache, metaKey);
-  const cachedData = cache.get(dataKey);
+  const cachedData = cache.get(dataKey) || page2CacheGetChunked_(cache, dataKey);
   if (cachedMeta && cachedData) {
     try {
       return {
@@ -716,6 +715,7 @@ function getPage2InitialPayload() {
       };
     } catch (err) {
       cache.remove(metaKey + '_manifest');
+      cache.remove(dataKey + '_manifest');
       cache.remove(dataKey);
     }
   }
@@ -745,6 +745,7 @@ function getPage2InitialPayload() {
   try {
     page2CachePutChunked_(cache, metaKey, metaJson, 300);
     if (dataJson.length <= 90000) cache.put(dataKey, dataJson, 300);
+    else page2CachePutChunked_(cache, dataKey, dataJson, 300);
   } catch (err) { /* Cache hanya optimasi, bukan dependensi. */ }
 
   return {
