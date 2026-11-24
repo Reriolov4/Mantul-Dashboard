@@ -964,8 +964,8 @@ function page3GetDataset_(sh,cache) {
   const key=page3RowsCacheKey_(sh),cached=page3GetCachedRows_(cache,key);
   if(cached&&Array.isArray(cached.rows))return {dataset:cached,cacheHit:true};
   const dataset=page3ReadIndex_(sh);
-  page3CacheRows_(cache,key,dataset);
-  return {dataset:dataset,cacheHit:false};
+  const cacheStored=page3CacheRows_(cache,key,dataset);
+  return {dataset:dataset,cacheHit:false,cacheStored:cacheStored};
 }
 function page3BuildMeta_(dataset) {
   const rows=dataset.rows||[],years=new Set(),subdists=new Set();let monthCount=0;
@@ -1011,7 +1011,7 @@ function getPage3OutletInitialPayload() {
   const aggregateMs=Date.now()-aggregateStarted,diag=dataset.diagnostics||{};
   const result={meta:meta,data:data,diagnostics:{cacheHit:loaded.cacheHit,source:sh.getName(),sourceRows:meta.rowCount,
     indexRows:meta.rawRowCount,readMs:diag.readMs||0,aggregateMs:aggregateMs,totalMs:Date.now()-started,
-    cacheStored:!!page3GetCachedRows_(cache,page3RowsCacheKey_(sh))}};
+    cacheStored:!!loaded.cacheStored}};
   try{page2CachePutChunked_(cache,initialKey,JSON.stringify(result),300);}catch(err){}
   return result;
 }
