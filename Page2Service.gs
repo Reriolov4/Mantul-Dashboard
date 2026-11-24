@@ -915,14 +915,16 @@ function page3ReadRaw_(sh) {
   const sheet=sh||page3RawSheet_(),lastRow=sheet.getLastRow();
   if(lastRow<2)return [];
 
-  // RAW_DATA_SALES mengikuti skema aktif 27 kolom A:AA (Config.gs).
-  // Jangan memakai posisi lama 25 kolom: JENIS SALES ada di S,
-  // SUBDIST di I, TANGGAL di C (hari dalam bulan), bukan DATE.
-  const headers=sheet.getRange(1,1,1,RAW_SALES_COLUMN_COUNT).getDisplayValues()[0];
+  // Gunakan header aktual dari workbook. Skema yang dikonfirmasi pengguna:
+  // A TAHUN, B BULAN, C DATE, H KARTON, I DISTRIBUTORS,
+  // J KODE CUSTOMER, K CUSTOMER NAME, M VAL, O JENIS SALES, P SUBDIST.
+  // Jangan mengandalkan posisi kolom Config lama karena urutannya berbeda.
+  const lastCol=Math.max(sheet.getLastColumn(),RAW_SALES_COLUMN_COUNT);
+  const headers=sheet.getRange(1,1,1,lastCol).getDisplayValues()[0];
   const field={
     year:page2FindHeader_(headers,['TAHUN','YEAR'],'TAHUN'),
     month:page2FindHeader_(headers,['BULAN','MONTH'],'BULAN'),
-    day:page2FindHeader_(headers,['TANGGAL','DATE','DAY'],'TANGGAL'),
+    day:page2FindHeader_(headers,['DATE','TANGGAL','DAY'],'DATE'),
     carton:page2FindHeader_(headers,['KARTON','CARTON'],'KARTON'),
     subdist:page2FindHeader_(headers,['SUBDIST','DISTRIBUTORS','DISTRIBUTOR'],'SUBDIST'),
     customerCode:page2FindHeader_(headers,['KODE CUSTOMER','CUSTOMER CODE','KODE AKUN'],'KODE CUSTOMER'),
@@ -931,23 +933,26 @@ function page3ReadRaw_(sh) {
     salesType:page2FindHeader_(headers,['JENIS SALES','SALES TYPE'],'JENIS SALES')
   };
 
-  // Four bulk reads, only 10 required columns per transaction.
+  // Baca hanya kolom yang diperlukan, dikelompokkan ke rentang berurutan.
+  // Untuk susunan aktual pengguna, rentangnya A:C, H:K, M:M, O:P.
+  const required=Array.from(new Set(Object.keys(field).map(k=>field[k]))).sort((a,b)=>a-b);
+  const groups=[];
+  required.forEach(col=>{
+    const last=groups[groups.length-1];
+    if(last&&col===last.end+1)last.end=col;
+    else groups.push({start:col,end:col});
+  });
+  const columns={};
   const n=lastRow-1;
-  const blocks=[
-    {start:0,values:sheet.getRange(2,1,n,3).getValues()},       // A:C
-    {start:7,values:sheet.getRange(2,8,n,2).getValues()},       // H:I
-    {start:9,values:sheet.getRange(2,10,n,4).getValues()},      // J:M
-    {start:18,values:sheet.getRange(2,19,n,1).getValues()}     // S
-  ];
-  const readers={};
-  blocks.forEach(block=>{
-    const width=block.values.length?block.values[0].length:0;
-    for(let j=0;j<width;j++)readers[block.start+j]={values:block.values,offset:j};
+  groups.forEach(group=>{
+    const values=sheet.getRange(2,group.start+1,n,group.end-group.start+1).getValues();
+    for(let col=group.start;col<=group.end;col++){
+      columns[col]=values.map(row=>row[col-group.start]);
+    }
   });
   const read=(row,col)=>{
-    const source=readers[col];
-    if(!source)throw new Error('Kolom RAW_DATA_SALES tidak termasuk batch baca: '+headers[col]);
-    return source.values[row][source.offset];
+    if(!columns[col])throw new Error('Kolom tidak terbaca dari RAW_DATA_SALES: '+headers[col]);
+    return columns[col][row];
   };
 
   const rows=[],salesTypeCounts={};
@@ -957,10 +962,10 @@ function page3ReadRaw_(sh) {
     if(type!=='SOO')continue;
     const name=page2Text_(read(i,field.customerName));
     if(!name)continue;
-    const year=page3Year_(read(i,field.year),null);
-    const month=page3Month_(read(i,field.month),null);
     rows.push({
-      year:year,month:month,day:page2Day_(read(i,field.day)),
+      year:page3Year_(read(i,field.year),null),
+      month:page3Month_(read(i,field.month),null),
+      day:page2Day_(read(i,field.day)),
       karton:Number(read(i,field.carton))||0,
       customerCode:page2Text_(read(i,field.customerCode)),
       customerName:name,
@@ -968,7 +973,7 @@ function page3ReadRaw_(sh) {
       subdist:page2Text_(read(i,field.subdist))
     });
   }
-  rows._diagnostics={rawRowCount:n,salesTypeCounts:salesTypeCounts};
+  rows._diagnostics={rawRowCount:n,salesTypeCounts:salesTypeCounts,columnsRead:groups.map(g=>(g.start+1)+'-'+(g.end+1))};
   return rows;
 }
 function page3BuildMeta_(rows) {
