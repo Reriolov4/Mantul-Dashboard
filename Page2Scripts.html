@@ -1,6 +1,6 @@
 <script>
 let p2Data=null,p2Meta=null,p2Charts={},p2RequestSeq=0,p2MetricValue='ao',p2RenderErrors=[],p2InitStarted=false,p2NeedsRender=false;
-let p2CustomerOptions=[],p2CustomerSelected=new Set(),p2SubdistActive='SEMUA',p2SubdistOptions=[];
+let p2SubdistActive='SEMUA',p2SubdistOptions=[];
 const p2$=id=>document.getElementById(id);
 const p2Fmt=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:1});
 const p2FmtValue=v=>{const n=Number(v||0),a=Math.abs(n),fmt=x=>x.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2});if(a>=1e9)return fmt(n/1e9)+' M';if(a>=1e6)return fmt(n/1e6)+' Jt';if(a>=1e3)return fmt(n/1e3)+' Rb';return fmt(n);};
@@ -8,12 +8,10 @@ const p2FmtMetric=(v,metric=p2MetricValue)=>metric==='value'?p2FmtValue(v):p2Fmt
 const p2Esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function p2Selected(id){const el=p2$(id);if(!el)return [];if(el.tagName==='SELECT')return [...el.selectedOptions].map(o=>o.value);return [...el.querySelectorAll('input[type="checkbox"]:checked')].map(o=>o.value);}
 function p2Fill(id,values,selectAll=true){const el=p2$(id);if(!el)return;const old=new Set(p2Selected(id));el.innerHTML='';(values||[]).forEach(v=>{const label=document.createElement('label');label.className='p2-checkitem';const cb=document.createElement('input');cb.type='checkbox';cb.value=String(v);cb.checked=selectAll||old.has(String(v));const text=document.createElement('span');text.textContent=String(v);label.append(cb,text);el.appendChild(label);});}
-function p2FilterValues(){return {year:p2$('p2Year').value,months:p2Selected('p2Months'),dates:p2Selected('p2Dates'),pics:p2Selected('p2Pics'),subdists:p2SubdistActive==='SEMUA'?[]:[p2SubdistActive],brands:p2Selected('p2Brands'),subbrands:p2Selected('p2Subbrands'),categories:p2Selected('p2Categories'),customers:[...p2CustomerSelected]};}
+function p2FilterValues(){return {year:p2$('p2Year').value,months:p2Selected('p2Months'),dates:p2Selected('p2Dates'),pics:p2Selected('p2Pics'),subdists:p2SubdistActive==='SEMUA'?[]:[p2SubdistActive],brands:p2Selected('p2Brands'),subbrands:p2Selected('p2Subbrands'),categories:p2Selected('p2Categories')};}
 function p2UpdateTrigger(id,triggerId,allText){const selected=p2Selected(id),el=p2$(triggerId);if(!el)return;const total=p2$(id)?.querySelectorAll('input[type="checkbox"]').length||0;el.textContent=selected.length===total||selected.length===0?allText:selected.length===1?selected[0]:selected.length+' dipilih';}
-function p2UpdateCustomerTrigger(){const el=p2$('p2CustomerTrigger');if(el)el.textContent=p2CustomerSelected.size?p2CustomerSelected.size.toLocaleString('id-ID')+' outlet dipilih':'Pilih Outlet';const count=p2$('p2CustomerCount');if(count)count.textContent=p2CustomerSelected.size?p2CustomerSelected.size.toLocaleString('id-ID')+' outlet dipilih':'Tidak ada pilihan = semua outlet';}
-function p2RenderSubdistPills(){const box=p2$('p2SubdistPills');if(!box)return;const options=['SEMUA',...p2SubdistOptions];box.innerHTML='';options.forEach(name=>{const b=document.createElement('button');b.type='button';b.className='p2-subdist-pill'+(p2SubdistActive===name?' active':'');b.textContent=name;b.setAttribute('aria-pressed',p2SubdistActive===name?'true':'false');b.addEventListener('click',()=>{if(p2SubdistActive===name)return;p2SubdistActive=name;p2CustomerSelected.clear();p2RenderSubdistPills();p2RenderCustomerList();p2CloseMenus();page2Apply();});box.appendChild(b);});}
- function p2RenderCustomerList(){const box=p2$('p2CustomerList');if(!box)return;const q=String(p2$('p2CustomerSearch')?.value||'').trim().toLocaleLowerCase('id');const matches=p2CustomerOptions.filter(v=>!q||v.toLocaleLowerCase('id').includes(q));box.innerHTML='';matches.slice(0,120).forEach(v=>{const label=document.createElement('label');label.className='p2-checkitem';const cb=document.createElement('input');cb.type='checkbox';cb.value=v;cb.checked=p2CustomerSelected.has(v);const span=document.createElement('span');span.textContent=v;label.append(cb,span);box.appendChild(label);});const count=p2$('p2CustomerCount');if(count)count.textContent=matches.length.toLocaleString('id-ID')+' outlet ditemukan'+(matches.length>120?' • tampil 120 pertama':'');p2UpdateCustomerTrigger();}
-function p2UpdateTriggers(){p2UpdateCustomerTrigger();p2UpdateTrigger('p2Months','p2MonthsTrigger','Semua Bulan');p2UpdateTrigger('p2Pics','p2PicsTrigger','Semua PIC');p2UpdateTrigger('p2Brands','p2BrandsTrigger','Semua Brand');p2UpdateTrigger('p2Subbrands','p2SubbrandsTrigger','Semua Subbrand');p2UpdateTrigger('p2Categories','p2CategoriesTrigger','Semua Category');p2UpdateTrigger('p2Dates','p2DatesTrigger','Semua Tanggal');const months=p2Selected('p2Months'),total=p2$('p2Months')?.querySelectorAll('input[type="checkbox"]').length||0;p2$('p2MonthsTrigger').textContent=!months.length?'Tidak ada bulan dipilih':months.length===total?'Semua Bulan':months.length===1?months[0]:months.length+' bulan dipilih';}
+function p2RenderSubdistPills(){const box=p2$('p2SubdistPills');if(!box)return;const options=['SEMUA',...p2SubdistOptions];box.innerHTML='';options.forEach(name=>{const b=document.createElement('button');b.type='button';b.className='p2-subdist-pill'+(p2SubdistActive===name?' active':'');b.textContent=name;b.setAttribute('aria-pressed',p2SubdistActive===name?'true':'false');b.addEventListener('click',()=>{if(p2SubdistActive===name)return;p2SubdistActive=name;p2RenderSubdistPills();p2CloseMenus();page2Apply();});box.appendChild(b);});}
+function p2UpdateTriggers(){p2UpdateTrigger('p2Months','p2MonthsTrigger','Semua Bulan');p2UpdateTrigger('p2Pics','p2PicsTrigger','Semua PIC');p2UpdateTrigger('p2Brands','p2BrandsTrigger','Semua Brand');p2UpdateTrigger('p2Subbrands','p2SubbrandsTrigger','Semua Subbrand');p2UpdateTrigger('p2Categories','p2CategoriesTrigger','Semua Category');p2UpdateTrigger('p2Dates','p2DatesTrigger','Semua Tanggal');const months=p2Selected('p2Months'),total=p2$('p2Months')?.querySelectorAll('input[type="checkbox"]').length||0;p2$('p2MonthsTrigger').textContent=!months.length?'Tidak ada bulan dipilih':months.length===total?'Semua Bulan':months.length===1?months[0]:months.length+' bulan dipilih';}
 function p2SetYtdMonths(){const year=p2$('p2Year')?.value,available=(p2Meta?.monthsByYear||{})[String(year)]||[];const order=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];let last=-1;available.forEach(m=>{const i=order.indexOf(m);if(i>last)last=i;});const selected=new Set(order.slice(0,last+1));p2$('p2Months')?.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=selected.has(x.value));p2SetDateDefaults();p2UpdateTriggers();}
 function p2SetDateDefaults(){const box=p2$('p2Dates');if(!box)return;const year=String(p2$('p2Year')?.value||''),months=p2Selected('p2Months'),order=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];const days=(p2Meta?.dateKeys||[]).filter(k=>k.startsWith(year+'-')&&(!months.length||months.includes(order[Number(k.slice(5,7))-1]))).map(k=>Number(k.slice(8,10)));const maxDay=days.length?Math.max(...days):new Date().getDate();box.innerHTML='';for(let d=1;d<=31;d++){const v=String(d).padStart(2,'0'),label=document.createElement('label');label.className='p2-checkitem';const cb=document.createElement('input');cb.type='checkbox';cb.value=v;cb.checked=d<=maxDay;const span=document.createElement('span');span.textContent=v;label.append(cb,span);box.appendChild(label);}}
 function p2SelectAll(id){p2$(id)?.querySelectorAll('input[type="checkbox"]').forEach(x=>x.checked=true);p2UpdateTriggers();}
@@ -67,9 +65,6 @@ function page2Init(){
   p2Fill('p2Brands',meta.brands||[]);
   p2Fill('p2Subbrands',meta.subbrands||[]);
   p2Fill('p2Categories',meta.categories||[]);
-  p2CustomerOptions=(meta.accounts||[]).slice().sort((a,b)=>a.localeCompare(b,'id'));
-  p2CustomerSelected.clear();
-  p2RenderCustomerList();
   p2SetYtdMonths();
   p2SetDateDefaults();
   p2UpdateTriggers();
@@ -102,10 +97,9 @@ function page2Init(){
   if(!p2Data)p2SetLoadingState_('Gagal memuat');
  }).getPage2InitialPayload();
 }
-document.addEventListener('click',e=>{const action=e.target.closest('#page2View [data-p2-action]');if(action){e.preventDefault();e.stopPropagation();const act=action.dataset.p2Action,target=action.dataset.p2Target;if(act==='all')p2SelectAll(target);else if(act==='reset')p2ResetFilter(target);else if(act==='ytd')p2SetYtdMonths();else if(act==='customer-all'){p2CustomerSelected=new Set(p2CustomerOptions);p2RenderCustomerList();}else if(act==='customer-reset'){p2CustomerSelected.clear();p2RenderCustomerList();}else if(act==='customer-apply'){p2CloseMenus();page2Apply();}else if(act==='apply'){p2CloseMenus();page2Apply();}return;}const trigger=e.target.closest('#page2View .p2-trigger');if(trigger){const filter=trigger.closest('.p2-filter');const wasOpen=filter.classList.contains('open');p2CloseMenus();if(!wasOpen)filter.classList.add('open');return;}if(!e.target.closest('#page2View .p2-menu'))p2CloseMenus();});
-document.addEventListener('change',e=>{if(e.target?.closest('#page2View .p2-checklist')){if(e.target.closest('#p2CustomerList')){if(e.target.checked)p2CustomerSelected.add(e.target.value);else p2CustomerSelected.delete(e.target.value);p2UpdateCustomerTrigger();}else{p2UpdateTriggers();if(e.target?.closest('#p2Months'))p2SetDateDefaults();}}if(e.target?.id==='p2Year'){p2SetYtdMonths();if(p2Meta)page2Apply();}});
+document.addEventListener('click',e=>{const action=e.target.closest('#page2View [data-p2-action]');if(action){e.preventDefault();e.stopPropagation();const act=action.dataset.p2Action,target=action.dataset.p2Target;if(act==='all')p2SelectAll(target);else if(act==='reset')p2ResetFilter(target);else if(act==='ytd')p2SetYtdMonths();else if(act==='apply'){p2CloseMenus();page2Apply();}return;}const trigger=e.target.closest('#page2View .p2-trigger');if(trigger){const filter=trigger.closest('.p2-filter');const wasOpen=filter.classList.contains('open');p2CloseMenus();if(!wasOpen)filter.classList.add('open');return;}if(!e.target.closest('#page2View .p2-menu'))p2CloseMenus();});
+document.addEventListener('change',e=>{if(e.target?.closest('#page2View .p2-checklist')){p2UpdateTriggers();if(e.target?.closest('#p2Months'))p2SetDateDefaults();}if(e.target?.id==='p2Year'){p2SetYtdMonths();if(p2Meta)page2Apply();}});
 document.addEventListener('input',e=>{
- if(e.target?.id==='p2CustomerSearch'){p2RenderCustomerList();return;}
  const search=e.target?.closest('[data-p2-search]');
  if(!search)return;
  const target=p2$(search.dataset.p2Search);
@@ -142,68 +136,13 @@ function page2Apply(){
   if(!p2Data)p2SetLoadingState_('Gagal memuat');
  }).getPage2DashboardData(f);
 }
-function page2Reset(){if(!p2Meta)return;p2$('p2Year').value=(p2Meta.years||[]).includes('2026')?'2026':(p2Meta.years||[]).slice(-1)[0];p2SetYtdMonths();['p2Pics','p2Brands','p2Subbrands','p2Categories'].forEach(p2SelectAll);p2SetDateDefaults();p2CustomerSelected.clear();p2SubdistActive='SEMUA';p2RenderSubdistPills();p2RenderCustomerList();if(p2$('p2MetricSwitch'))page2SetMetric('ao');p2CloseMenus();page2Apply();}
+function page2Reset(){if(!p2Meta)return;p2$('p2Year').value=(p2Meta.years||[]).includes('2026')?'2026':(p2Meta.years||[]).slice(-1)[0];p2SetYtdMonths();['p2Pics','p2Brands','p2Subbrands','p2Categories'].forEach(p2SelectAll);p2SetDateDefaults();p2SubdistActive='SEMUA';p2RenderSubdistPills();if(p2$('p2MetricSwitch'))page2SetMetric('ao');p2CloseMenus();page2Apply();}
 function p2Growth(v){if(v===null||v===undefined)return '—';return (v>0?'+':'')+Number(v).toFixed(1)+'%';}
 function p2SetGrowth(id,v){const el=p2$(id);el.textContent=p2Growth(v);el.className='k-growth '+(v===null||!Number.isFinite(Number(v))?'p2-neutral':v>0?'p2-positive':v<0?'p2-negative':'p2-neutral');}
 function p2IndicatorClass(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return 'p2-neutral';return v>0?'p2-positive':v<0?'p2-negative':'p2-neutral';}
 function p2CtrClass(v){if(v===null||v===undefined||!Number.isFinite(Number(v)))return 'p2-ctr-neutral';return v>=25?'p2-ctr-blue':v>=10?'p2-ctr-darkgreen':v>=5?'p2-ctr-lightgreen':v>=3?'p2-ctr-orange':'p2-ctr-red';}
 function p2SetIndicator(id,v,kind){const el=p2$(id);el.className=kind==='ctr'?'k-ctr '+p2CtrClass(v):p2IndicatorClass(v);}
 function p2SetText(id,v){p2$(id).textContent=v;}
-function page2RenderPareto(){
- const body=p2$('p2ParetoBody');if(!body)return;
- const rows=p2Data?.pareto||[];
- if(!rows.length){body.innerHTML='<tr><td colspan="12" class="p2-empty">Tidak ada outlet pada filter terpilih.</td></tr>';return;}
- const money=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:0});
- const growth=v=>v===null||v===undefined?'—':(v>0?'+':'')+Number(v).toFixed(1)+'%';
- const cls=v=>v===null||v===undefined?'p2-neutral':v>0?'p2-positive':v<0?'p2-negative':'p2-neutral';
- body.innerHTML=rows.map(r=>'<tr>'+
-  '<td>'+p2Esc(r.customerName)+'</td><td>'+p2Esc(r.subdist)+'</td>'+
-  '<td>'+money(r.actualCY)+'</td><td>'+money(r.actualLY)+'</td><td class="'+cls(r.grwMTD)+'">'+growth(r.grwMTD)+'</td>'+
-  '<td><b>'+money(r.actualYTD)+'</b></td><td>'+money(r.actualLYYTD)+'</td><td class="'+cls(r.grwYTD)+'">'+growth(r.grwYTD)+'</td>'+
-  '<td class="'+cls(r.grwVsLM)+'">'+growth(r.grwVsLM)+'</td><td class="'+cls(r.grwVsL3M)+'">'+growth(r.grwVsL3M)+'</td>'+
-  '<td class="'+p2CtrClass(Number(r.ctr||0))+'">'+Number(r.ctr||0).toFixed(1)+'%</td><td>'+(r.avgMonth===null?'—':money(r.avgMonth))+'</td></tr>').join('');
- const sum=key=>rows.reduce((total,r)=>total+(Number(r[key])||0),0);
- const totalCY=sum('actualCY'),totalLY=sum('actualLY'),totalYTD=sum('actualYTD'),totalLYYTD=sum('actualLYYTD');
- const totalPrevious=sum('previousValue'),totalAverage3=sum('averageLast3Value');
- const totalCTR=sum('ctr'),totalAverageMonth=sum('avgMonth');
- body.insertAdjacentHTML('beforeend','<tr class="p2-grand-total"><td><b>GRAND TOTAL (25 OUTLET)</b></td><td>—</td>'+
-  '<td><b>'+money(totalCY)+'</b></td><td><b>'+money(totalLY)+'</b></td><td class="'+cls(totalLY?(totalCY/totalLY-1)*100:null)+'">'+growth(totalLY?(totalCY/totalLY-1)*100:null)+'</td>'+
-  '<td><b>'+money(totalYTD)+'</b></td><td><b>'+money(totalLYYTD)+'</b></td><td class="'+cls(totalLYYTD?(totalYTD/totalLYYTD-1)*100:null)+'">'+growth(totalLYYTD?(totalYTD/totalLYYTD-1)*100:null)+'</td>'+
-  '<td class="'+cls(totalPrevious?(totalCY/totalPrevious-1)*100:null)+'">'+growth(totalPrevious?(totalCY/totalPrevious-1)*100:null)+'</td>'+
-  '<td class="'+cls(totalAverage3?(totalCY/totalAverage3-1)*100:null)+'">'+growth(totalAverage3?(totalCY/totalAverage3-1)*100:null)+'</td>'+
-  '<td class="'+p2CtrClass(totalCTR)+'"><b>'+totalCTR.toFixed(1)+'%</b></td><td><b>'+money(totalAverageMonth)+'</b></td></tr>');
-}
-function page2RenderParetoTrend(){
- const head=p2$('p2ParetoTrendHead'),body=p2$('p2ParetoTrendBody');
- if(!head||!body)return;
- const rows=p2Data?.pareto||[],months=(p2Data?.kpi?.trendMonths||p2Data?.kpi?.months||[]).slice();
- const monthLabels={JAN:'Jan',FEB:'Feb',MAR:'Mar',APR:'Apr',MAY:'May',JUN:'Jun',JUL:'Jul',AUG:'Aug',SEP:'Sep',OCT:'Oct',NOV:'Nov',DEC:'Dec'};
- const fmt=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:0});
- const growth=v=>v===null||v===undefined?'—':(v>0?'+':'')+Number(v).toFixed(1)+'%';
- const cls=v=>v===null||v===undefined?'p2-neutral':v>0?'p2-positive':v<0?'p2-negative':'p2-neutral';
- const cols=['CUSTOMER NAME','SUBDIST',...months.map(m=>monthLabels[m]||m),'ACTUAL YTD','ACTUAL LY YTD','GRW YTD','GRW VS LM','GRW VS L3M','CTR','AVG / MONTH'];
- const colClass=i=>i>=4+months.length&&i<=6+months.length?'p2-col-growth':i===7+months.length?'p2-col-growth-long':''; 
- head.innerHTML='<tr>'+cols.map((x,i)=>'<th class="'+colClass(i)+'">'+p2Esc(x)+'</th>').join('')+'</tr>';
- if(!rows.length){body.innerHTML='<tr><td colspan="'+cols.length+'" class="p2-empty">Tidak ada outlet Pareto pada filter terpilih.</td></tr>';return;}
- const totalCY=rows.reduce((a,r)=>a+(Number(r.actualYTD)||0),0);
- const totalLY=rows.reduce((a,r)=>a+(Number(r.actualLYYTD)||0),0);
- const totalPrev=rows.reduce((a,r)=>a+(Number(r.previousValue)||0),0);
- const totalAvg3=rows.reduce((a,r)=>a+(Number(r.averageLast3Value)||0),0);
- const totalAvgMonth=rows.reduce((a,r)=>a+(Number(r.avgMonth)||0),0);
- const monthTotals=months.map(m=>rows.reduce((a,r)=>a+(Number(r.monthValues?.[m])||0),0));
- body.innerHTML=rows.map(r=>{
-  const tds=[ '<td>'+p2Esc(r.customerName)+'</td>','<td>'+p2Esc(r.subdist)+'</td>' ];
-  months.forEach(m=>tds.push('<td>'+fmt(r.monthValues?.[m])+'</td>'));
-  tds.push('<td><b>'+fmt(r.actualYTD)+'</b></td>','<td>'+fmt(r.actualLYYTD)+'</td>','<td class="'+colClass(4+months.length)+' '+cls(r.grwYTD)+'">'+growth(r.grwYTD)+'</td>','<td class="'+colClass(5+months.length)+' '+cls(r.grwVsLM)+'">'+growth(r.grwVsLM)+'</td>','<td class="'+colClass(6+months.length)+' '+cls(r.grwVsL3M)+'">'+growth(r.grwVsL3M)+'</td>','<td class="'+colClass(7+months.length)+' '+p2CtrClass(totalCY?r.actualYTD/totalCY*100:0)+'">'+(totalCY?(r.actualYTD/totalCY*100):0).toFixed(1)+'%</td>','<td>'+(r.avgMonth===null?'—':fmt(r.avgMonth))+'</td>');
-  return '<tr>'+tds.join('')+'</tr>';
- }).join('');
- const totalCtr=100;
- const totalGrw=totalLY?(totalCY/totalLY-1)*100:null;
- const totalPrevGrw=totalPrev?(totalCY/totalPrev-1)*100:null;
- const total3Grw=totalAvg3?(totalCY/totalAvg3-1)*100:null;
- const totalCells=['<td><b>GRAND TOTAL (25 OUTLET)</b></td>','<td>—</td>',...monthTotals.map(v=>'<td><b>'+fmt(v)+'</b></td>'),'<td><b>'+fmt(totalCY)+'</b></td>','<td><b>'+fmt(totalLY)+'</b></td>','<td class="'+colClass(4+months.length)+' '+cls(totalGrw)+'">'+growth(totalGrw)+'</td>','<td class="'+colClass(5+months.length)+' '+cls(totalPrevGrw)+'">'+growth(totalPrevGrw)+'</td>','<td class="'+colClass(6+months.length)+' '+cls(total3Grw)+'">'+growth(total3Grw)+'</td>','<td class="'+colClass(7+months.length)+' p2-ctr-blue"><b>'+totalCtr.toFixed(1)+'%</b></td>','<td><b>'+fmt(totalAvgMonth)+'</b></td>'];
- body.insertAdjacentHTML('beforeend','<tr class="p2-grand-total">'+totalCells.join('')+'</tr>');
-}
 function page2Render(){
  if(!p2Data)return;const d=p2Data,k=d.kpi;
  p2SetText('p2AO',p2Fmt(k.ao));p2SetText('p2AOdesc',`Outlet unik ${k.year} • ${k.monthCount} bulan`);p2SetText('p2AOly',`AO LY (${k.ly}): ${p2Fmt(k.aoLy)}`);p2SetGrowth('p2AOgrowth',k.aoGrowth);p2$('p2AOgrowth').textContent='GRW '+p2Growth(k.aoGrowth);
@@ -214,7 +153,6 @@ function page2Render(){
  p2SetText('p2ECMTD',p2Fmt(k.ecMTD));p2SetText('p2ECMTDdesc','EC '+k.mtdMonth+' '+k.year);p2SetGrowth('p2ECMTDgrowth',ecMtdGrw);p2$('p2ECMTDgrowth').textContent='GRW MTD '+p2Growth(ecMtdGrw);p2SetText('p2ECMTDLY',`EC LY (${k.ly}): ${p2Fmt(k.ecMTDLY)}`);
  [['B7','b7'],['SAKA','saka']].forEach(([label,key])=>{const x=d.sbu[key];p2SetText('p2'+label,p2Fmt(x.aoCY));p2SetText('p2'+label+'desc',`Outlet unik ${k.year} • ${k.monthCount} bulan`);p2SetText('p2'+label+'LY',`AO LY (${k.ly}): ${p2Fmt(x.aoLY)}`);p2SetText('p2'+label+'GRW','GRW '+p2Growth(x.growth));p2SetGrowth('p2'+label+'GRW',x.growth);});
  // Render tabel lebih dahulu agar tidak ikut blank jika Chart.js gagal.
- page2RenderParetoTrend();
  page2DrawCharts();
 }
 const p2Palette=['#284b8f','#2f7775','#2f7139','#b87525','#76508d','#b23d42','#5986b7','#9b9b54','#5b6472','#c16d55'];
@@ -268,38 +206,15 @@ document.addEventListener('click',e=>{const metricButton=e.target.closest('#p2Me
 
 
 function page2Show(){
-  document.body.classList.add('page2-active');
-  const view=p2$('page2View');
-  document.querySelectorAll('main.wrap > *').forEach(el=>{
-   if(el===view)return;
-   el.hidden=true;
-   el.style.setProperty('display','none','important');
-  });
-  if(view){
-   view.hidden=false;
-   view.style.setProperty('display','block','important');
-  }
-  document.querySelector('.p2-nav')?.classList.add('active');
-  document.querySelector('.p1-nav')?.classList.remove('active');
-  window.scrollTo(0,0);
-  if(!p2Meta)page2Init();
-  else if(p2Data&&p2NeedsRender){page2Render();p2NeedsRender=false;}
+ const view=p2$('page2View');document.querySelectorAll('main.wrap > *').forEach(el=>{if(el===view)return;el.hidden=true;el.style.setProperty('display','none','important');});
+ if(view){view.hidden=false;view.style.setProperty('display','block','important');}
+ document.body.classList.add('page2-active');document.querySelector('.p1-nav')?.classList.remove('active');document.querySelector('.p2-nav')?.classList.add('active');document.querySelector('.p3-nav')?.classList.remove('active');window.scrollTo(0,0);
+ if(!p2Meta)page2Init();else if(p2Data&&p2NeedsRender){page2Render();p2NeedsRender=false;}
 }
 function page1Show(){
-  const view=p2$('page2View');
-  if(view){
-   view.hidden=true;
-   view.style.setProperty('display','none','important');
-  }
-  document.querySelectorAll('main.wrap > *').forEach(el=>{
-   if(el===view)return;
-   el.hidden=false;
-   el.style.removeProperty('display');
-  });
-  document.body.classList.remove('page2-active');
-  document.querySelector('.p2-nav')?.classList.remove('active');
-  document.querySelector('.p1-nav')?.classList.add('active');
-  window.scrollTo(0,0);
+ const p2=p2$('page2View'),p3=p2$('page3View');if(p2){p2.hidden=true;p2.style.setProperty('display','none','important');}if(p3){p3.hidden=true;p3.style.setProperty('display','none','important');}
+ document.querySelectorAll('main.wrap > *').forEach(el=>{if(el===p2||el===p3)return;el.hidden=false;el.style.removeProperty('display');});
+ document.body.classList.remove('page2-active');document.querySelector('.p2-nav')?.classList.remove('active');document.querySelector('.p3-nav')?.classList.remove('active');document.querySelector('.p1-nav')?.classList.add('active');window.scrollTo(0,0);
 }
 
 setTimeout(page2Init,0);
