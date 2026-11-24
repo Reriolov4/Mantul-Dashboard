@@ -926,7 +926,7 @@ function page3ReadRaw_(sh) {
     month:page2FindHeader_(headers,['BULAN','MONTH'],'BULAN'),
     day:page2FindHeader_(headers,['DATE','TANGGAL','DAY'],'DATE'),
     carton:page2FindHeader_(headers,['KARTON','CARTON'],'KARTON'),
-    subdist:page2FindHeader_(headers,['SUBDIST','DISTRIBUTORS','DISTRIBUTOR'],'SUBDIST'),
+    subdist:page2FindHeader_(headers,['SUBDIST'],'SUBDIST'),
     customerCode:page2FindHeader_(headers,['KODE CUSTOMER','CUSTOMER CODE','KODE AKUN'],'KODE CUSTOMER'),
     customerName:page2FindHeader_(headers,['CUSTOMER NAME','NAMA AKUN','CUSTOMER'],'CUSTOMER NAME'),
     value:page2FindHeader_(headers,['VAL','VALUE'],'VAL'),
