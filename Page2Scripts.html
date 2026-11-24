@@ -212,7 +212,6 @@ function page2Render(){
  p2SetText('p2ECMTD',p2Fmt(k.ecMTD));p2SetText('p2ECMTDdesc','EC '+k.mtdMonth+' '+k.year);p2SetGrowth('p2ECMTDgrowth',ecMtdGrw);p2$('p2ECMTDgrowth').textContent='GRW MTD '+p2Growth(ecMtdGrw);p2SetText('p2ECMTDLY',`EC LY (${k.ly}): ${p2Fmt(k.ecMTDLY)}`);
  [['B7','b7'],['SAKA','saka']].forEach(([label,key])=>{const x=d.sbu[key];p2SetText('p2'+label,p2Fmt(x.aoCY));p2SetText('p2'+label+'desc',`Outlet unik ${k.year} • ${k.monthCount} bulan`);p2SetText('p2'+label+'LY',`AO LY (${k.ly}): ${p2Fmt(x.aoLY)}`);p2SetText('p2'+label+'GRW','GRW '+p2Growth(x.growth));p2SetGrowth('p2'+label+'GRW',x.growth);});
  // Render tabel lebih dahulu agar tidak ikut blank jika Chart.js gagal.
- page2RenderPareto();
  page2RenderParetoTrend();
  page2DrawCharts();
 }
