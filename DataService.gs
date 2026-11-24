@@ -54,6 +54,18 @@ function getOrCreateSheet_(name) {
   return ss.getSheetByName(name) || ss.insertSheet(name);
 }
 
+/**
+ * Fingerprint perubahan file Spreadsheet. Berbeda dari getLastRow(), nilai ini
+ * ikut berubah saat user paste/replace isi sheet dengan jumlah baris yang sama.
+ */
+function getDatabaseRevision_() {
+  try {
+    return String(DriveApp.getFileById(getDatabase_().getId()).getLastUpdated().getTime());
+  } catch (err) {
+    return String(getLastUpdated_() || 'revision-unavailable');
+  }
+}
+
 function getDashboardData() {
   const ss = getDatabase_();
   // Use only an index verified against the pinned source spreadsheet.
@@ -68,7 +80,7 @@ function getDashboardData() {
   // Source fingerprint prevents stale Page 1 cache after append-only updates.
   const lastRow = sheet.getLastRow();
   const lastColumn = sheet.getLastColumn();
-  const signature = [ss.getId(), sheet.getParent().getId(), sheet.getSheetId(), lastRow, lastColumn, getLastUpdated_(), sheet.getName() === P1_FACT_SHEET_NAME ? 'P1_FACT' : 'DATA_SALES'].join('|');
+  const signature = [ss.getId(), getDatabaseRevision_(), sheet.getParent().getId(), sheet.getSheetId(), lastRow, lastColumn, getLastUpdated_(), sheet.getName() === P1_FACT_SHEET_NAME ? 'P1_FACT' : 'DATA_SALES'].join('|');
   const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, signature, Utilities.Charset.UTF_8);
   const cacheKey = 'dashboard_rows_v6_' + Utilities.base64EncodeWebSafe(digest).replace(/=+$/g, '');
   const cache = CacheService.getScriptCache();
