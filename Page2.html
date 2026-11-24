@@ -203,3 +203,71 @@
 <style>#page2View #p2Dates{grid-template-columns:1fr!important}</style>
 
 <style id="page2-control-normalization">#page2View{width:100%;max-width:100%;min-width:0}#page2View .p2-filter>label{font-size:10px;line-height:1.2;min-height:12px}#page2View .p2-filter select,#page2View .p2-trigger{height:38px;min-height:38px;border-radius:9px;font-size:11px;line-height:1.2}#page2View .p2-filter-actions button{height:34px;min-height:34px;border-radius:8px;font-size:11px}#page2View .p2-switch{height:36px;border-radius:9px}#page2View .p2-switch button{height:30px;border-radius:7px;font-size:10px}#page2View .p2-kpi{min-height:116px;border-radius:12px;padding:12px}#page2View .p2-kpi .k-label{font-size:9px;line-height:1.25}#page2View .p2-kpi .k-main{font-size:21px;line-height:1.2}#page2View .p2-kpi .k-sub,#page2View .p2-kpi .k-growth{font-size:9px;line-height:1.35}#page2View .p2-card{width:100%;min-width:0;border-radius:13px}</style>
+
+
+<style id="p2-control-unified-v3">
+/* AO/EC/VALUE and all Subdist choices share one control system. */
+#page2View .p2-control-row{
+  grid-template-columns:minmax(0,1fr) minmax(0,2fr);
+  align-items:start;
+  gap:18px;
+}
+#page2View .p2-control-row>.p2-filter{min-width:0;width:100%}
+#page2View .p2-control-row>.p2-filter>label{
+  display:block;
+  min-height:13px;
+  margin:0 0 8px;
+  font:700 10px/13px Inter,"Segoe UI",Arial,sans-serif;
+  letter-spacing:.25px;
+  color:#64748b;
+}
+#page2View #p2MetricSwitch,
+#page2View #p2SubdistPills{
+  display:grid!important;
+  width:100%;
+  min-width:0;
+  height:42px!important;
+  min-height:42px;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:4px;
+  padding:4px;
+  box-sizing:border-box;
+  align-items:stretch;
+  border-radius:10px;
+  background:#f0f4f9;
+}
+#page2View #p2SubdistPills{grid-template-columns:repeat(8,minmax(0,1fr))}
+#page2View #p2MetricSwitch button,
+#page2View #p2SubdistPills .p2-subdist-pill{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  min-width:0;
+  height:34px!important;
+  min-height:34px;
+  margin:0;
+  padding:0 4px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:#53657c;
+  font:800 10px/1 Inter,"Segoe UI",Arial,sans-serif!important;
+  letter-spacing:0;
+  white-space:nowrap;
+  text-align:center;
+  box-shadow:none;
+  cursor:pointer;
+}
+#page2View #p2MetricSwitch button.active,
+#page2View #p2SubdistPills .p2-subdist-pill.active{
+  background:#2563eb;
+  color:#fff;
+  box-shadow:0 1px 3px #1e40af30;
+}
+@media(max-width:760px){
+  #page2View .p2-control-row{grid-template-columns:minmax(0,1fr);gap:12px}
+  #page2View #p2SubdistPills{grid-template-columns:repeat(4,minmax(0,1fr));height:auto!important}
+  #page2View #p2SubdistPills .p2-subdist-pill{height:34px!important}
+}
+</style>

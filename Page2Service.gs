@@ -645,9 +645,12 @@ function page2ReadFiltered_(sheet, filters) {
   const pics=new Set(page2FilterList_(safe.pics)),subdists=new Set(page2FilterList_(safe.subdists)),
     brands=new Set(page2FilterList_(safe.brands)),subbrands=new Set(page2FilterList_(safe.subbrands)),
     categories=new Set(page2FilterList_(safe.categories));
-  const values=sh.getRange(2,1,lastRow-1,16).getValues(),rows=[];
+  const values=sh.getRange(2,1,lastRow-1,15).getValues(),rows=[];
+  const analysisYear=Number(safe.year)||0, comparisonYear=analysisYear?analysisYear-1:0;
   for(let i=0;i<values.length;i++){
     const r=values[i];
+    const rowYear=Number(r[0]);
+    if(analysisYear && rowYear!==analysisYear && rowYear!==comparisonYear)continue;
     if(page2Key_(r[11])!=='SOO')continue;
     if(pics.size&&!pics.has(page2Key_(r[6])))continue;
     if(subdists.size&&!subdists.has(page2Key_(r[5])))continue;
