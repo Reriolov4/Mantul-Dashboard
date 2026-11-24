@@ -914,20 +914,60 @@ function page3Year_(value,dateValue) {
 function page3ReadRaw_(sh) {
   const sheet=sh||page3RawSheet_(),lastRow=sheet.getLastRow();
   if(lastRow<2)return [];
-  const headers=sheet.getRange(1,1,1,25).getDisplayValues()[0].map(v=>page2HeaderKey_(v));
-  const expected={0:'TAHUN',1:'BULAN',2:'DATE',7:'KARTON',9:'KODE CUSTOMER',10:'CUSTOMER NAME',12:'VAL',14:'JENIS SALES',15:'SUBDIST'};
-  Object.keys(expected).forEach(k=>{if(headers[Number(k)]!==expected[k])throw new Error('Header RAW_DATA_SALES kolom '+String.fromCharCode(65+Number(k))+' harus '+expected[k]+', ditemukan '+(headers[Number(k)]||'(kosong)')+'.');});
-  const n=lastRow-1,abc=sheet.getRange(2,1,n,3).getValues(),karton=sheet.getRange(2,8,n,1).getValues(),
-    customer=sheet.getRange(2,10,n,4).getValues(),salesType=sheet.getRange(2,15,n,1).getValues(),subdist=sheet.getRange(2,16,n,1).getValues();
+
+  // RAW_DATA_SALES mengikuti skema aktif 27 kolom A:AA (Config.gs).
+  // Jangan memakai posisi lama 25 kolom: JENIS SALES ada di S,
+  // SUBDIST di I, TANGGAL di C (hari dalam bulan), bukan DATE.
+  const headers=sheet.getRange(1,1,1,RAW_SALES_COLUMN_COUNT).getDisplayValues()[0];
+  const field={
+    year:page2FindHeader_(headers,['TAHUN','YEAR'],'TAHUN'),
+    month:page2FindHeader_(headers,['BULAN','MONTH'],'BULAN'),
+    day:page2FindHeader_(headers,['TANGGAL','DATE','DAY'],'TANGGAL'),
+    carton:page2FindHeader_(headers,['KARTON','CARTON'],'KARTON'),
+    subdist:page2FindHeader_(headers,['SUBDIST','DISTRIBUTORS','DISTRIBUTOR'],'SUBDIST'),
+    customerCode:page2FindHeader_(headers,['KODE CUSTOMER','CUSTOMER CODE','KODE AKUN'],'KODE CUSTOMER'),
+    customerName:page2FindHeader_(headers,['CUSTOMER NAME','NAMA AKUN','CUSTOMER'],'CUSTOMER NAME'),
+    value:page2FindHeader_(headers,['VAL','VALUE'],'VAL'),
+    salesType:page2FindHeader_(headers,['JENIS SALES','SALES TYPE'],'JENIS SALES')
+  };
+
+  // Four bulk reads, only 10 required columns per transaction.
+  const n=lastRow-1;
+  const blocks=[
+    {start:0,values:sheet.getRange(2,1,n,3).getValues()},       // A:C
+    {start:7,values:sheet.getRange(2,8,n,2).getValues()},       // H:I
+    {start:9,values:sheet.getRange(2,10,n,4).getValues()},      // J:M
+    {start:18,values:sheet.getRange(2,19,n,1).getValues()}     // S
+  ];
+  const readers={};
+  blocks.forEach(block=>block.values[0]!==undefined&&block.values.forEach((row,i)=>{}));
+  blocks.forEach(block=>{
+    const width=block.values.length?block.values[0].length:0;
+    for(let j=0;j<width;j++)readers[block.start+j]={values:block.values,offset:j};
+  });
+  const read=(row,col)=>{
+    const source=readers[col];
+    if(!source)throw new Error('Kolom RAW_DATA_SALES tidak termasuk batch baca: '+headers[col]);
+    return source.values[row][source.offset];
+  };
+
   const rows=[],salesTypeCounts={};
   for(let i=0;i<n;i++){
-    const type=page2Key_(salesType[i][0]);if(type)salesTypeCounts[type]=(salesTypeCounts[type]||0)+1;
+    const type=page2Key_(read(i,field.salesType));
+    if(type)salesTypeCounts[type]=(salesTypeCounts[type]||0)+1;
     if(type!=='SOO')continue;
-    const name=page2Text_(customer[i][1]);if(!name)continue;
-    const year=page3Year_(abc[i][0],abc[i][2]),month=page3Month_(abc[i][1],abc[i][2]);
-    rows.push({year:year,month:month,day:page2Day_(abc[i][2]),
-      karton:Number(karton[i][0])||0,customerCode:page2Text_(customer[i][0]),customerName:name,
-      value:Number(customer[i][3])||0,subdist:page2Text_(subdist[i][0])});
+    const name=page2Text_(read(i,field.customerName));
+    if(!name)continue;
+    const year=page3Year_(read(i,field.year),null);
+    const month=page3Month_(read(i,field.month),null);
+    rows.push({
+      year:year,month:month,day:page2Day_(read(i,field.day)),
+      karton:Number(read(i,field.carton))||0,
+      customerCode:page2Text_(read(i,field.customerCode)),
+      customerName:name,
+      value:Number(read(i,field.value))||0,
+      subdist:page2Text_(read(i,field.subdist))
+    });
   }
   rows._diagnostics={rawRowCount:n,salesTypeCounts:salesTypeCounts};
   return rows;

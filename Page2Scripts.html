@@ -217,6 +217,6 @@ function page1Show(){
  document.querySelectorAll('main.wrap > *').forEach(el=>{if(el===p2||el===p3)return;el.hidden=false;el.style.removeProperty('display');});
  document.body.classList.remove('page2-active');document.querySelector('.p2-nav')?.classList.remove('active');document.querySelector('.p3-nav')?.classList.remove('active');document.querySelector('.p1-nav')?.classList.add('active');window.scrollTo(0,0);
 }
-
-setTimeout(page2Init,0);
+ 
+// Page 2 is initialized only when the user opens it (page2Show).
 </script>
