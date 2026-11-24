@@ -32,7 +32,7 @@ function page2Init(){
  p2InitStarted=true;
  const view=p2$('page2View'),status=p2$('p2Status');
  p2SetBusy_(true,'Mengambil data dan menyusun KPI Page 2...');
- if(status){status.setAttribute('aria-live','polite');status.textContent='Memuat metadata, KPI, dan grafik dari RAW_DATA_SALES...';}
+ if(status){status.setAttribute('aria-live','polite');status.textContent='Memuat metadata, KPI, dan grafik dari P2_EVENT_INDEX...';}
  if(!p2Data)p2SetLoadingState_('Memuat…');
  if(!window.google||!google.script||!google.script.run){
   if(status)status.textContent='Buka dashboard melalui Google Apps Script Web App.';
@@ -115,7 +115,7 @@ function page2Apply(){
  const requestStarted=Date.now();
  const view=p2$('page2View'),status=p2$('p2Status');
  p2SetBusy_(true,'Menerapkan filter dan menghitung ulang KPI...');
- if(status){status.setAttribute('aria-live','polite');status.textContent='Memuat KPI dan grafik SOO dari RAW_DATA_SALES...';}
+ if(status){status.setAttribute('aria-live','polite');status.textContent='Memuat KPI dan grafik SOO dari P2_EVENT_INDEX...';}
  if(!p2Data)p2SetLoadingState_('Memuat…');
  const f=p2FilterValues();
  google.script.run.withSuccessHandler(d=>{

@@ -11,16 +11,13 @@
 const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
 function page2Source_() {
-  // Prefer the verified normalized index. If it is missing or stale, keep the
-  // existing RAW_DATA_SALES route as a safe fallback.
-  const indexed = analyticsGetReadySheet_('P2_EVENT_INDEX', 'P2_EVENT_INDEX', 'P2');
-  if (indexed && indexed.getLastRow() > 1) return indexed;
-
-  const ss = getDatabase_();
-  const sh = ss.getSheetByName(RAW_DATA_SHEET_NAME || 'RAW_DATA_SALES');
-  if (!sh || sh.getLastRow() < 2) {
-    throw new Error('Sheet RAW_DATA_SALES belum tersedia atau belum berisi data transaksi.');
-  }
+  // Page 2 is bound to the maintained analytics index; never silently fall
+  // back to RAW_DATA_SALES because its schema and filter universe differ.
+  const ss=getDatabase_(),sh=ss.getSheetByName('P2_EVENT_INDEX');
+  if(!sh||sh.getLastRow()<2)throw new Error('P2_EVENT_INDEX tidak ditemukan atau belum berisi data.');
+  const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'];
+  const actual=sh.getRange(1,1,1,16).getValues()[0].map(page2HeaderKey_);
+  if(!expected.every((v,i)=>actual[i]===v))throw new Error('Header P2_EVENT_INDEX harus 16 kolom termasuk CARTON di kolom P. Terbaca: '+actual.join(' | '));
   return sh;
 }
 
