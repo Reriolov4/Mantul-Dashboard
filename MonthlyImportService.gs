@@ -258,8 +258,17 @@ function monthlyImportFindBlocks_(sheet, year, month) {
   return blocks;
 }
 
-function monthlyImportReadPeriodRows_(sheet, year, month) {
-  const width = sheet.getLastColumn();
+function monthlyImportLastDataRow_(sheet) {
+  const last = sheet.getLastRow();
+  if (last <= 1) return 1;
+  const values = sheet.getRange(2,1,last-1,1).getValues();
+  for (let i=values.length-1;i>=0;i--) {
+    if (values[i][0] !== '' && values[i][0] !== null) return i+2;
+  }
+  return 1;
+}
+
+function monthlyImportReadPeriodRows_(sheet, year, month, width) {
   const blocks = monthlyImportFindBlocks_(sheet,year,month);
   const rows = [];
   blocks.forEach(([start,count]) => {
@@ -290,7 +299,9 @@ function monthlyImportDeletePeriod_(sheet, year, month) {
 
 function monthlyImportAppendRows_(sheet, rows, width) {
   if (!rows.length) return;
-  const start = sheet.getLastRow()+1;
+  // RAW_DATA_SALES may have helper formulas in columns beyond A:Y.
+  // Use the last populated YEAR row, not getLastRow() from helper formulas.
+  const start = monthlyImportLastDataRow_(sheet)+1;
   ensureSheetGrid_(sheet,start+rows.length-1,width);
   sheet.getRange(start,1,rows.length,width).setValues(rows);
 }
@@ -341,7 +352,7 @@ function finishMonthlyDataImport(payload) {
     const oldRows = {};
     Object.keys(live).forEach(key => {
       if (!live[key]) throw new Error('Sheet live ' + key + ' tidak ditemukan.');
-      const captured = monthlyImportReadPeriodRows_(live[key],year,month);
+      const captured = monthlyImportReadPeriodRows_(live[key],year,month,widths[key]);
       oldRows[key] = captured.rows;
       monthlyImportWriteBackup_(key,headers[key],captured.rows);
     });
@@ -395,6 +406,26 @@ function finishMonthlyDataImport(payload) {
       }
       throw new Error('Import gagal dan data periode sebelumnya sudah dipulihkan: '+publishError.message);
     }
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function abortMonthlyDataImport(payload) {
+  assertUploadPermission_();
+  payload = payload || {};
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    monthlyImportAssertSession_(props,payload.token);
+    const ss = getDatabase_();
+    Object.keys(MONTHLY_STAGE_NAMES_).forEach(key => {
+      const stage = ss.getSheetByName(MONTHLY_STAGE_NAMES_[key]);
+      if (stage) stage.clearContents();
+    });
+    monthlyImportClearSession_(props);
+    return {ok:true,message:'Sesi import dibatalkan; data live tidak diubah.'};
   } finally {
     lock.releaseLock();
   }
