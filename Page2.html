@@ -129,15 +129,19 @@
 #page2View #p2CustomerFilter{margin:0;min-width:0;width:100%}
 #page2View #p2CustomerTrigger{display:block;width:100%;height:48px;text-align:left}
 #page2View #p2CustomerFilter .p2-customer-menu{left:0;width:min(100%,420px)}
-@media(max-width:760px){#page2View .p2-control-row{grid-template-columns:minmax(0,1fr);gap:12px}#page2View #p2MetricSwitch{height:44px}#page2View #p2MetricSwitch button{height:36px}}
-
-/* Pareto filters: immediate single-choice Subdist pills, horizontal scrolling on mobile. */
-#page2View .p2-pareto-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,320px);gap:12px;align-items:end;margin:0 0 10px;padding:12px;background:#fff;border:1px solid #e5eaf1;border-radius:12px}
-#page2View .p2-subdist-pills{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
-#page2View .p2-subdist-pill{height:34px;padding:0 13px;border:1px solid #dbe3ee;border-radius:8px;background:#f8fafc;color:#334155;font-size:11px;font-weight:750;white-space:nowrap;cursor:pointer}
+@media(max-width:760px){#page2View .p2-control-row{display:grid;grid-template-columns:minmax(260px,0.78fr) minmax(0,1.22fr);gap:14px;align-items:end;padding:12px 16px;background:#fff;border:1px solid #e5eaf1;border-radius:12px;margin:0 0 12px;box-shadow:0 2px 9px #0f172a08}
+#page2View .p2-control-row>.p2-filter{width:100%;min-width:0}
+#page2View .p2-control-row>.p2-filter>label{display:block;margin:0 0 7px;line-height:1.2;white-space:nowrap;font-size:10px;font-weight:700;color:#64748b}
+#page2View #p2MetricSwitch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;min-width:0;height:38px;gap:4px;padding:3px}
+#page2View #p2MetricSwitch button{min-width:0;width:100%;height:32px;padding:4px 6px;white-space:nowrap;line-height:1.1;font-size:11px}
+#page2View .p2-subdist-pills{display:flex;flex-wrap:nowrap;gap:5px;min-width:0;align-items:center}
+#page2View .p2-subdist-pill{flex:1 1 0;min-width:0;height:34px;padding:0 6px;border:1px solid #dbe3ee;border-radius:8px;background:#f8fafc;color:#334155;font-size:10px;font-weight:750;white-space:nowrap;cursor:pointer}
 #page2View .p2-subdist-pill.active{background:#2563eb;border-color:#2563eb;color:#fff;box-shadow:0 2px 7px #2563eb30}
-#page2View .p2-pareto-customer{min-width:0}
-@media(max-width:760px){#page2View .p2-pareto-filters{grid-template-columns:minmax(0,1fr);gap:10px}#page2View .p2-subdist-pills{flex-wrap:nowrap;overflow-x:auto;padding:0 0 5px;scrollbar-width:thin}#page2View .p2-subdist-pill{flex:0 0 auto}}
+#page2View .p2-pareto-filters{display:flex;justify-content:flex-end;margin:0 0 8px;padding:8px 12px;background:#fff;border:1px solid #e5eaf1;border-radius:12px}
+#page2View #p2CustomerFilter{margin:0;min-width:0;width:min(320px,100%)}
+#page2View #p2CustomerTrigger{display:block;width:100%;height:38px;text-align:left}
+#page2View #p2CustomerFilter .p2-customer-menu{left:0;width:min(100%,420px)}
+@media(max-width:760px){#page2View .p2-control-row{grid-template-columns:minmax(0,1fr);gap:10px;padding:12px}#page2View .p2-subdist-pills{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}#page2View .p2-subdist-pill{height:32px;padding:0 4px;font-size:9px}#page2View .p2-pareto-filters{justify-content:stretch}#page2View #p2CustomerFilter{width:100%}}
 </style>
 <section id="page2View" class="p2-view" hidden>
  <div class="p2-loading-overlay" aria-hidden="true"><div class="p2-loading-card"><span class="p2-loading-spinner"></span><span id="p2LoadingText">Sedang memproses data Page 2...</span></div></div>
@@ -162,7 +166,8 @@
   <article class="p2-kpi"><div class="k-label">EC MTD</div><div class="k-main" id="p2ECMTD">—</div><div class="k-sub" id="p2ECMTDdesc">EC bulan terpilih</div><div class="k-growth" id="p2ECMTDgrowth">GRW MTD —</div><div class="k-sub" id="p2ECMTDLY">EC LY: —</div></article>
  </div>
  <div class="p2-control-row">
-  <div class="p2-filter"><label>MATRIX GRAFIK DAN TABEL</label><div class="p2-switch" id="p2MetricSwitch" role="group" aria-label="Pilih metrik grafik"><button type="button" class="active" data-metric="ao" aria-pressed="true">Aktif Outlet (AO)</button><button type="button" data-metric="ec" aria-pressed="false">Effective Call (EC)</button><button type="button" data-metric="value" aria-pressed="false">Value</button></div></div>
+  <div class="p2-filter p2-metric-filter"><label>MATRIX GRAFIK DAN TABEL</label><div class="p2-switch" id="p2MetricSwitch" role="group" aria-label="Pilih metrik grafik"><button type="button" class="active" data-metric="ao" aria-pressed="true">AO</button><button type="button" data-metric="ec" aria-pressed="false">EC</button><button type="button" data-metric="value" aria-pressed="false">VALUE</button></div></div>
+  <div class="p2-filter p2-control-subdist"><label>FILTER SUBDIST</label><div id="p2SubdistPills" class="p2-subdist-pills" role="group" aria-label="Filter Subdist"></div></div>
  </div>
  <div class="p2-donuts">
   <article class="p2-card"><div class="p2-chart-head"><div><h2>KOMPOSISI PER SUBDIST</h2><p>Kontribusi dan Growth vs LY pada periode terpilih.</p></div></div><div class="p2-donut-layout"><div class="p2-donutbox"><canvas id="p2SubdistChart"></canvas></div><div class="p2-donut-legend" id="p2SubdistLegend"></div></div></article>
@@ -175,7 +180,6 @@
   <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND HARIAN</h2><p>Pergerakan berdasarkan tanggal dalam bulan.</p></div></div><div class="p2-chartbox"><canvas id="p2DailyChart"></canvas></div><div class="p2-insight-grid" id="p2DailyInsights"><div class="p2-insight"><small>ACT MTD</small><b id="p2DailyActMtd">—</b></div><div class="p2-insight"><small>AVG YTD</small><b id="p2DailyAvgYtd">—</b></div><div class="p2-insight"><small>AVG L3M</small><b id="p2DailyAvgL3m">—</b></div><div class="p2-insight"><small>GRW LM</small><b id="p2DailyGrowthLm">—</b></div><div class="p2-insight"><small>GRW L3M</small><b id="p2DailyGrowthL3m">—</b></div><div class="p2-insight"><small>GRW YTD</small><b id="p2DailyGrowthYtd">—</b></div></div></article>
  </div>
  <div class="p2-pareto-filters">
-  <div class="p2-filter p2-pareto-subdist"><label>FILTER SUBDIST</label><div id="p2SubdistPills" class="p2-subdist-pills" role="group" aria-label="Filter Subdist Pareto"></div></div>
   <div class="p2-filter" id="p2CustomerFilter"><label>CUSTOMER</label><button class="p2-trigger" id="p2CustomerTrigger" type="button">Pilih Outlet</button><div class="p2-menu p2-customer-menu"><div class="p2-menu-actions"><button type="button" data-p2-action="customer-all">Pilih Semua</button><button type="button" data-p2-action="customer-reset">Reset</button><button type="button" class="p2-apply-menu" data-p2-action="customer-apply">Terapkan Pilihan</button></div><input id="p2CustomerSearch" type="search" placeholder="Cari nama outlet..." autocomplete="off" aria-label="Cari Customer" style="width:100%;height:34px;border:1px solid #dbe3ee;border-radius:8px;padding:0 9px;margin:0 0 8px;font:inherit;font-size:11px"><div id="p2CustomerCount" style="font-size:10px;color:#64748b;margin:0 0 6px">Belum ada outlet dipilih</div><div id="p2CustomerList" class="p2-checklist p2-customer-list"></div></div></div>
  </div>
  <article class="p2-card p2-pareto-card" id="p2ParetoTrendCard">
