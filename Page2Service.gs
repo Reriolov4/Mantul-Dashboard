@@ -637,6 +637,7 @@ function page2GetMeta() {
 function page2ReadFiltered_(sheet, filters) {
   const sh=sheet||page2Source_(),safe=filters||{};
   // P2_EVENT_INDEX is already normalized and contains SOO only. Apply the
+  // dimension filters before materializing rows for the dashboard aggregation.
   // selected dimensions while rows are being decoded, so the expensive KPI
   // aggregation only receives rows that can appear in the current view.
   if(sh.getName()!=='P2_EVENT_INDEX')return page2Read_(sh);
