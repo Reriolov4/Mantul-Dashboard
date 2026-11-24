@@ -14,14 +14,14 @@ function page3Show(){
 }
 function page3Init(){
  if(p3InitStarted||p3Meta)return;p3InitStarted=true;
- const status=p3$('p3Status');if(status)status.textContent='Membaca kolom A:C, H, J:M, O:P dari RAW_DATA_SALES...';
+ const status=p3$('p3Status');if(status)status.textContent='Membaca P2_EVENT_INDEX (16 kolom: VAL=O, CARTON=P)...';
  if(!window.google||!google.script||!google.script.run){if(status)status.textContent='Buka dashboard melalui Google Apps Script Web App.';p3InitStarted=false;return;}
  google.script.run.withSuccessHandler(payload=>{
   p3InitStarted=false;if(!payload||!payload.meta||!payload.data){if(status)status.textContent='Respons awal Page 3 tidak lengkap.';return;}
   p3Meta=payload.meta;p3Data=payload.data;
   const select=p3$('p3Subdist');(p3Meta.subdists||[]).forEach(name=>{const opt=document.createElement('option');opt.value=name;opt.textContent=name;select.appendChild(opt);});
   page3Render();const d=payload.diagnostics||{};
-  if(status){const counts=p3Meta.salesTypeCounts||{},types=Object.keys(counts).map(k=>k+': '+Number(counts[k]).toLocaleString('id-ID')).join(', ')||'tidak terdeteksi';status.textContent='Sumber '+(d.source||'RAW_DATA_SALES')+' • SOO '+Number(p3Meta.rowCount||0).toLocaleString('id-ID')+' / '+Number(p3Meta.rawRowCount||0).toLocaleString('id-ID')+' baris • Jenis Sales: '+types+' • Bulan terbaca '+Number(p3Meta.monthCount||0).toLocaleString('id-ID')+' • Tahun '+p3Data.year+' • Baca '+(d.readMs||0)+' ms • Agregasi '+(d.aggregateMs||0)+' ms'+(d.cacheHit?' • Cache aktif':'');if(!p3Meta.rowCount)status.textContent+=' • Periksa isi kolom O (JENIS SALES), A (TAHUN), dan B (BULAN)';}
+  if(status){const counts=p3Meta.salesTypeCounts||{},types=Object.keys(counts).map(k=>k+': '+Number(counts[k]).toLocaleString('id-ID')).join(', ')||'tidak terdeteksi';status.textContent='Sumber '+(d.source||'P2_EVENT_INDEX')+' • SOO '+Number(p3Meta.rowCount||0).toLocaleString('id-ID')+' / '+Number(p3Meta.rawRowCount||0).toLocaleString('id-ID')+' baris • Jenis Sales: '+types+' • Bulan terbaca '+Number(p3Meta.monthCount||0).toLocaleString('id-ID')+' • Tahun '+p3Data.year+' • Baca '+(d.readMs||0)+' ms • Agregasi '+(d.aggregateMs||0)+' ms'+(d.cacheHit?' • Cache aktif':'');if(!p3Meta.rowCount)status.textContent+=' • Periksa isi kolom O (JENIS SALES), A (TAHUN), dan B (BULAN)';}
  }).withFailureHandler(err=>{p3InitStarted=false;if(status)status.textContent='Gagal memuat Page 3: '+(err.message||String(err));}).getPage3OutletInitialPayload();
 }
 function page3Apply(){

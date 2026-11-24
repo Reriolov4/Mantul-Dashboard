@@ -80,9 +80,9 @@ function page2Read_(sheet) {
   if (sh.getName() === 'P2_EVENT_INDEX') {
     const expectedHeaders = [
       'YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC',
-      'BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL'
+      'BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'
     ];
-    const actualHeaders = sh.getRange(1, 1, 1, 15).getValues()[0].map(page2HeaderKey_);
+    const actualHeaders = sh.getRange(1, 1, 1, 16).getValues()[0].map(page2HeaderKey_);
     if (actualHeaders.length !== expectedHeaders.length ||
         !actualHeaders.every((header, index) => header === expectedHeaders[index])) {
       throw new Error(
@@ -90,7 +90,7 @@ function page2Read_(sheet) {
         expectedHeaders.join(', ') + '. Terbaca: ' + actualHeaders.join(', ')
       );
     }
-    const values = sh.getRange(2, 1, lastRow - 1, 15).getValues();
+    const values = sh.getRange(2, 1, lastRow - 1, 16).getValues();
     return values.map(r => [
       r[0], page2Month_(r[1]), r[2], r[8], r[7], r[4], r[6],
       r[11], r[5], page2Key_(r[13]) || 'SALESMAN', r[4], r[9],
@@ -642,13 +642,13 @@ function page2ReadFiltered_(sheet, filters) {
   // aggregation only receives rows that can appear in the current view.
   if(sh.getName()!=='P2_EVENT_INDEX')return page2Read_(sh);
   const lastRow=sh.getLastRow();if(lastRow<=1)return [];
-  const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL'];
-  const actual=sh.getRange(1,1,1,15).getValues()[0].map(page2HeaderKey_);
+  const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'];
+  const actual=sh.getRange(1,1,1,16).getValues()[0].map(page2HeaderKey_);
   if(!actual.every((v,i)=>v===expected[i]))throw new Error('Header P2_EVENT_INDEX tidak sesuai. Terbaca: '+actual.join(', '));
   const pics=new Set(page2FilterList_(safe.pics)),subdists=new Set(page2FilterList_(safe.subdists)),
     brands=new Set(page2FilterList_(safe.brands)),subbrands=new Set(page2FilterList_(safe.subbrands)),
     categories=new Set(page2FilterList_(safe.categories));
-  const values=sh.getRange(2,1,lastRow-1,15).getValues(),rows=[];
+  const values=sh.getRange(2,1,lastRow-1,16).getValues(),rows=[];
   for(let i=0;i<values.length;i++){
     const r=values[i];
     if(page2Key_(r[11])!=='SOO')continue;
@@ -889,14 +889,17 @@ function testPage2CustomerNameCounts() {
    PAGE 3 — OUTLETS PARETO
    Sumber khusus RAW_DATA_SALES; terpisah dari kalkulasi Page 2.
    ========================================================= */
-function page3RawSheet_() {
-  const ss=getDatabase_(), name=RAW_DATA_SHEET_NAME||'RAW_DATA_SALES', sh=ss.getSheetByName(name);
-  if(!sh||sh.getLastRow()<2)throw new Error('Sheet RAW_DATA_SALES tidak ditemukan atau belum berisi data.');
+function page3IndexSheet_() {
+  const ss=getDatabase_(),sh=ss.getSheetByName('P2_EVENT_INDEX');
+  if(!sh||sh.getLastRow()<2)throw new Error('P2_EVENT_INDEX tidak ditemukan atau belum berisi data.');
+  const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'];
+  const actual=sh.getRange(1,1,1,16).getDisplayValues()[0].map(page2HeaderKey_);
+  if(!expected.every((v,i)=>actual[i]===v))throw new Error('Header P2_EVENT_INDEX tidak sesuai. Diperlukan 16 kolom termasuk CARTON di P. Terbaca: '+actual.join(' | '));
   return sh;
 }
 function page3SourceVersion_(sh) {
   const props=PropertiesService.getScriptProperties();
-  return ['page3-raw-outlets-v1',getDatabaseRevision_(),sh.getParent().getId(),sh.getSheetId(),sh.getLastRow(),sh.getLastColumn(),props.getProperty('PAGE2_RAW_UPDATED')||'manual'].join('|');
+  return ['page3-p2-index-v2',page2SourceVersion_(sh),props.getProperty('PAGE2_RAW_UPDATED')||'manual'].join('|');
 }
 function page3Month_(value,dateValue) {
   if(Object.prototype.toString.call(value)==='[object Date]'&&!isNaN(value))return PAGE2_MONTHS_[value.getMonth()];
@@ -911,116 +914,68 @@ function page3Year_(value,dateValue) {
   if(Object.prototype.toString.call(dateValue)==='[object Date]'&&!isNaN(dateValue))return dateValue.getFullYear();
   const match=String(value==null?'':value).match(/(?:19|20|21)\d{2}/);return match?Number(match[0]):0;
 }
-function page3ReadRaw_(sh) {
-  const sheet=sh||page3RawSheet_(),lastRow=sheet.getLastRow();
+function page3ReadIndex_(sh) {
+  const sheet=sh||page3IndexSheet_(),lastRow=sheet.getLastRow();
   if(lastRow<2)return [];
-
-  // Gunakan header aktual dari workbook. Skema yang dikonfirmasi pengguna:
-  // A TAHUN, B BULAN, C DATE, H KARTON, I DISTRIBUTORS,
-  // J KODE CUSTOMER, K CUSTOMER NAME, M VAL, O JENIS SALES, P SUBDIST.
-  // Jangan mengandalkan posisi kolom Config lama karena urutannya berbeda.
-  const lastCol=Math.max(sheet.getLastColumn(),RAW_SALES_COLUMN_COUNT);
-  const headers=sheet.getRange(1,1,1,lastCol).getDisplayValues()[0];
-  const field={
-    year:page2FindHeader_(headers,['TAHUN','YEAR'],'TAHUN'),
-    month:page2FindHeader_(headers,['BULAN','MONTH'],'BULAN'),
-    day:page2FindHeader_(headers,['DATE','TANGGAL','DAY'],'DATE'),
-    carton:page2FindHeader_(headers,['KARTON','CARTON'],'KARTON'),
-    subdist:page2FindHeader_(headers,['DISTRIBUTORS'],'SUBDIST'),
-    customerCode:page2FindHeader_(headers,['KODE CUSTOMER','CUSTOMER CODE','KODE AKUN'],'KODE CUSTOMER'),
-    customerName:page2FindHeader_(headers,['CUSTOMER NAME','NAMA AKUN','CUSTOMER'],'CUSTOMER NAME'),
-    value:page2FindHeader_(headers,['VAL','VALUE'],'VAL'),
-    salesType:page2FindHeader_(headers,['JENIS SALES','SALES TYPE'],'JENIS SALES')
-  };
-
-  // Baca hanya kolom yang diperlukan, dikelompokkan ke rentang berurutan.
-  // Untuk susunan aktual pengguna, rentangnya A:C, H:K, M:M, O:P.
-  const required=Array.from(new Set(Object.keys(field).map(k=>field[k]))).sort((a,b)=>a-b);
-  const groups=[];
-  required.forEach(col=>{
-    const last=groups[groups.length-1];
-    if(last&&col===last.end+1)last.end=col;
-    else groups.push({start:col,end:col});
-  });
-  const columns={};
-  const n=lastRow-1;
-  groups.forEach(group=>{
-    const values=sheet.getRange(2,group.start+1,n,group.end-group.start+1).getValues();
-    for(let col=group.start;col<=group.end;col++){
-      columns[col]=values.map(row=>row[col-group.start]);
-    }
-  });
-  const read=(row,col)=>{
-    if(!columns[col])throw new Error('Kolom tidak terbaca dari RAW_DATA_SALES: '+headers[col]);
-    return columns[col][row];
-  };
-
+  const n=lastRow-1,values=sheet.getRange(2,1,n,16).getValues();
   const rows=[],salesTypeCounts={};
   for(let i=0;i<n;i++){
-    const type=page2Key_(read(i,field.salesType));
+    const r=values[i],type=page2Key_(r[11]);
     if(type)salesTypeCounts[type]=(salesTypeCounts[type]||0)+1;
     if(type!=='SOO')continue;
-    const name=page2Text_(read(i,field.customerName));
-    if(!name)continue;
-    rows.push({
-      year:page3Year_(read(i,field.year),null),
-      month:page3Month_(read(i,field.month),null),
-      day:page2Day_(read(i,field.day)),
-      karton:Number(read(i,field.carton))||0,
-      customerCode:page2Text_(read(i,field.customerCode)),
-      customerName:name,
-      value:Number(read(i,field.value))||0,
-      subdist:page2Text_(read(i,field.subdist))
-    });
+    const name=page2Text_(r[4]);if(!name)continue;
+    rows.push({year:page3Year_(r[0],null),month:page3Month_(r[1],null),day:page2Day_(r[2]),
+      customerCode:page2Text_(r[3]),customerName:name,subdist:page2Text_(r[5]),
+      value:Number(r[14])||0,karton:Number(r[15])||0});
   }
-  rows._diagnostics={rawRowCount:n,salesTypeCounts:salesTypeCounts,columnsRead:groups.map(g=>(g.start+1)+'-'+(g.end+1))};
+  rows._diagnostics={indexRowCount:n,salesTypeCounts:salesTypeCounts};
   return rows;
 }
 function page3BuildMeta_(rows) {
-  const years=new Set(),subdists=new Set();
-  rows.forEach(r=>{if(r.year)years.add(String(r.year));if(r.subdist)subdists.add(r.subdist);});
+  const years=new Set(),subdists=new Set();let monthCount=0;
+  for(let i=0;i<rows.length;i++){const r=rows[i];if(r.year)years.add(String(r.year));if(r.subdist)subdists.add(r.subdist);if(r.month)monthCount++;}
   return {years:Array.from(years).sort((a,b)=>Number(a)-Number(b)),subdists:Array.from(subdists).sort((a,b)=>a.localeCompare(b,'id')),
-    rowCount:rows.length,rawRowCount:rows._diagnostics?rows._diagnostics.rawRowCount:0,
-    salesTypeCounts:rows._diagnostics?rows._diagnostics.salesTypeCounts:{},
-    monthCount:rows.filter(r=>r.month).length,yearCount:years.size,
-    updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED')||'Live dari Google Sheets'};
+    rowCount:rows.length,rawRowCount:rows._diagnostics?rows._diagnostics.indexRowCount:0,
+    salesTypeCounts:rows._diagnostics?rows._diagnostics.salesTypeCounts:{},monthCount:monthCount,yearCount:years.size,
+    updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED')||'P2_EVENT_INDEX'};
 }
 function page3BuildPareto_(sourceRows,filters) {
   filters=filters||{};
-  const years=sourceRows.map(r=>r.year).filter(Boolean),year=Number(filters.year)||Math.max.apply(null,years.length?years:[new Date().getFullYear()]);
-  const yearRows=sourceRows.filter(r=>r.year===year);
-  const latestMonth=Math.max.apply(null,yearRows.map(r=>PAGE2_MONTHS_.indexOf(r.month)+1).filter(v=>v>0));
-  const months=latestMonth>0?PAGE2_MONTHS_.slice(0,latestMonth):[];
+  let year=Number(filters.year)||0,latestMonthIndex=0;
+  if(!year){for(let i=0;i<sourceRows.length;i++)if(sourceRows[i].year>year)year=sourceRows[i].year;}
+  if(!year)year=new Date().getFullYear();
+  for(let i=0;i<sourceRows.length;i++){const r=sourceRows[i];if(r.year===year){const mi=PAGE2_MONTHS_.indexOf(r.month)+1;if(mi>latestMonthIndex)latestMonthIndex=mi;}}
+  const months=latestMonthIndex>0?PAGE2_MONTHS_.slice(0,latestMonthIndex):[],monthSet=new Set(months);
   const metric=String(filters.metric||'VALUE').toUpperCase()==='KARTON'?'KARTON':'VALUE';
   const customerQuery=page2Key_(filters.customerQuery||''),subdist=page2Key_(filters.subdist||'SEMUA');
   const map=new Map();let filteredTotal=0;
-  yearRows.forEach(r=>{
-    if(!r.month||!months.includes(r.month))return;
-    if(customerQuery&&!page2Key_(r.customerName).includes(customerQuery))return;
-    if(subdist&&subdist!=='SEMUA'&&page2Key_(r.subdist)!==subdist)return;
+  for(let i=0;i<sourceRows.length;i++){
+    const r=sourceRows[i];if(r.year!==year||!monthSet.has(r.month))continue;
+    if(customerQuery&&!page2Key_(r.customerName).includes(customerQuery))continue;
+    if(subdist&&subdist!=='SEMUA'&&page2Key_(r.subdist)!==subdist)continue;
     const amount=Number(metric==='KARTON'?r.karton:r.value)||0;filteredTotal+=amount;
-    const key=page2ExactCompositeKey_([r.subdist,r.customerName]);
-    let item=map.get(key);if(!item){item={customerName:r.customerName,subdist:r.subdist,monthValues:{},total:0};map.set(key,item);}
+    const key=page2ExactCompositeKey_([r.subdist,r.customerName]);let item=map.get(key);
+    if(!item){item={customerName:r.customerName,subdist:r.subdist,monthValues:{},total:0};map.set(key,item);}
     item.monthValues[r.month]=(item.monthValues[r.month]||0)+amount;item.total+=amount;
-  });
+  }
   const rows=Array.from(map.values()).sort((a,b)=>b.total-a.total||a.customerName.localeCompare(b.customerName,'id')).slice(0,25);
-  const top25Total=rows.reduce((sum,r)=>sum+r.total,0);
-  rows.forEach((r,i)=>{r.rank=i+1;r.contribution=filteredTotal?r.total/filteredTotal*100:0;});
+  let top25Total=0;for(let i=0;i<rows.length;i++){top25Total+=rows[i].total;rows[i].rank=i+1;rows[i].contribution=filteredTotal?rows[i].total/filteredTotal*100:0;}
   return {year:year,metric:metric,months:months,rows:rows,filteredTotal:filteredTotal,top25Total:top25Total,top25Contribution:filteredTotal?top25Total/filteredTotal*100:0};
 }
 function getPage3OutletInitialPayload() {
-  const started=Date.now(),sh=page3RawSheet_(),version=page3SourceVersion_(sh),key=page2CacheKey_('p3initial_v1','initial',version),cache=CacheService.getScriptCache(),cached=cache.get(key);
-  if(cached){try{const result=JSON.parse(cached);result.diagnostics={cacheHit:true,source:sh.getName(),totalMs:Date.now()-started};return result;}catch(e){cache.remove(key);}}
-  const readStarted=Date.now(),rows=page3ReadRaw_(sh),readMs=Date.now()-readStarted,meta=page3BuildMeta_(rows);
+  const started=Date.now(),sh=page3IndexSheet_(),version=page3SourceVersion_(sh),key=page2CacheKey_('p3initial_index_v2','initial',version),cache=CacheService.getScriptCache(),cached=page2CacheGetChunked_(cache,key);
+  if(cached){try{const result=JSON.parse(cached);result.diagnostics={cacheHit:true,source:sh.getName(),totalMs:Date.now()-started};return result;}catch(e){cache.remove(key+'_manifest');}}
+  const readStarted=Date.now(),rows=page3ReadIndex_(sh),readMs=Date.now()-readStarted,meta=page3BuildMeta_(rows);
   const aggregateStarted=Date.now(),data=page3BuildPareto_(rows,{}),aggregateMs=Date.now()-aggregateStarted;
   const result={meta:meta,data:data,diagnostics:{cacheHit:false,source:sh.getName(),sourceRows:rows.length,readMs:readMs,aggregateMs:aggregateMs,totalMs:Date.now()-started}};
-  try{cache.put(key,JSON.stringify(result),300);}catch(e){}
+  try{page2CachePutChunked_(cache,key,JSON.stringify(result),300);}catch(e){}
   return result;
 }
 function getPage3OutletData(filters) {
-  const started=Date.now(),sh=page3RawSheet_(),safe=filters||{},version=page3SourceVersion_(sh),key=page2CacheKey_('p3data_v1',JSON.stringify(safe),version),cache=CacheService.getScriptCache(),cached=cache.get(key);
+  const started=Date.now(),sh=page3IndexSheet_(),safe=filters||{},version=page3SourceVersion_(sh),key=page2CacheKey_('p3data_index_v2',JSON.stringify(safe),version),cache=CacheService.getScriptCache(),cached=cache.get(key);
   if(cached){try{const result=JSON.parse(cached);result.diagnostics={cacheHit:true,totalMs:Date.now()-started};return result;}catch(e){cache.remove(key);}}
-  const readStarted=Date.now(),rows=page3ReadRaw_(sh),readMs=Date.now()-readStarted,aggregateStarted=Date.now(),result=page3BuildPareto_(rows,safe),aggregateMs=Date.now()-aggregateStarted;
+  const readStarted=Date.now(),rows=page3ReadIndex_(sh),readMs=Date.now()-readStarted;
+  const aggregateStarted=Date.now(),result=page3BuildPareto_(rows,safe),aggregateMs=Date.now()-aggregateStarted;
   result.diagnostics={cacheHit:false,source:sh.getName(),sourceRows:rows.length,readMs:readMs,aggregateMs:aggregateMs,totalMs:Date.now()-started};
   try{cache.put(key,JSON.stringify(result),300);}catch(e){}
   return result;

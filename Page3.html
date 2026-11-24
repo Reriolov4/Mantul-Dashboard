@@ -18,7 +18,7 @@
 @media(max-width:900px){#page3View .p3-controls{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:560px){#page3View .p3-controls{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px}#page3View .p3-control:first-child{grid-column:1/-1}#page3View .p3-apply{width:100%;justify-self:stretch}}
 </style>
 <section id="page3View" hidden>
- <h1 class="p3-title">OUTLET PERFORMANCE</h1><p class="p3-subtitle">Top 25 Outlet Pareto • Sumber langsung RAW_DATA_SALES</p>
+ <h1 class="p3-title">OUTLET PERFORMANCE</h1><p class="p3-subtitle">Top 25 Outlet Pareto • Sumber P2_EVENT_INDEX</p>
  <div class="p3-controls">
   <div class="p3-control"><label for="p3Customer">CUSTOMER</label><input id="p3Customer" type="search" placeholder="Cari nama customer..." autocomplete="off"></div>
   <div class="p3-control"><label>VALUE / KARTON</label><div class="p3-switch" id="p3MetricSwitch"><button type="button" class="active" data-metric="VALUE" aria-pressed="true">VALUE</button><button type="button" data-metric="KARTON" aria-pressed="false">KARTON</button></div></div>
@@ -30,3 +30,5 @@
   <div class="p3-table-wrap"><table><thead id="p3Head"></thead><tbody id="p3Body"><tr><td class="p3-empty">Menunggu data…</td></tr></tbody></table></div>
  </article>
 </section>
+
+<style id="page3-layout-alignment">html{scrollbar-gutter:stable}#page3View{display:block;width:100%;max-width:100%;min-width:0;margin:0;padding:12px 0 30px}#page3View .p3-controls,#page3View .p3-card,#page3View .p3-table-wrap{width:100%;min-width:0;max-width:100%}@media(max-width:560px){#page3View .p3-controls{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>
