@@ -21,7 +21,7 @@ function page3Init(){
   p3Meta=payload.meta;p3Data=payload.data;
   const select=p3$('p3Subdist');(p3Meta.subdists||[]).forEach(name=>{const opt=document.createElement('option');opt.value=name;opt.textContent=name;select.appendChild(opt);});
   page3Render();const d=payload.diagnostics||{};
-  if(status)status.textContent='Sumber '+(d.source||'RAW_DATA_SALES')+' • '+Number(p3Meta.rowCount||0).toLocaleString('id-ID')+' baris SOO • Tahun '+p3Data.year+' • Baca '+(d.readMs||0)+' ms • Agregasi '+(d.aggregateMs||0)+' ms'+(d.cacheHit?' • Cache aktif':'');
+  if(status){const counts=p3Meta.salesTypeCounts||{},types=Object.keys(counts).map(k=>k+': '+Number(counts[k]).toLocaleString('id-ID')).join(', ')||'tidak terdeteksi';status.textContent='Sumber '+(d.source||'RAW_DATA_SALES')+' • SOO '+Number(p3Meta.rowCount||0).toLocaleString('id-ID')+' / '+Number(p3Meta.rawRowCount||0).toLocaleString('id-ID')+' baris • Jenis Sales: '+types+' • Bulan terbaca '+Number(p3Meta.monthCount||0).toLocaleString('id-ID')+' • Tahun '+p3Data.year+' • Baca '+(d.readMs||0)+' ms • Agregasi '+(d.aggregateMs||0)+' ms'+(d.cacheHit?' • Cache aktif':'');if(!p3Meta.rowCount)status.textContent+=' • Periksa isi kolom O (JENIS SALES), A (TAHUN), dan B (BULAN)';}
  }).withFailureHandler(err=>{p3InitStarted=false;if(status)status.textContent='Gagal memuat Page 3: '+(err.message||String(err));}).getPage3OutletInitialPayload();
 }
 function page3Apply(){
