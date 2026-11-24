@@ -41,7 +41,7 @@
 #page2View .p2-dot{width:7px;height:7px;border-radius:50%;display:inline-block}
 #page2View .p2-dot.blue{background:#2563eb}#page2View .p2-dot.darkgreen{background:#166534}#page2View .p2-dot.lightgreen{background:#65a30d}#page2View .p2-dot.orange{background:#d97706}#page2View .p2-dot.red{background:#dc2626}#page2View .p2-dot.gray{background:#94a3b8}
 #page2View .p2-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-bottom:10px}
-#page2View .p2-control-row{display:grid;grid-template-columns:220px minmax(220px,300px);gap:9px;align-items:end;background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:10px 12px;margin:0 0 12px;box-shadow:0 2px 9px #0f172a08}
+#page2View .p2-control-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:9px;align-items:end;background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:10px 12px;margin:0 0 12px;box-shadow:0 2px 9px #0f172a08}
 #page2View .p2-control-row select{height:36px;border:1px solid #dbe3ee;border-radius:8px;background:#fff;padding:0 10px;width:100%;font-size:11px;color:#172033}
 #page2View .p2-switch{display:flex;gap:3px;background:#f0f4f9;border-radius:9px;padding:3px;height:36px;align-items:center}
 #page2View .p2-switch button{flex:1;height:30px;border:0;background:transparent;color:#53657c;border-radius:7px;padding:4px 9px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
@@ -55,7 +55,7 @@
 #page2View .p2-kpi-mainline .p2-ctr-orange{color:#c2410c;background:#ffedd5}
 #page2View .p2-kpi-mainline .p2-ctr-red{color:#b91c1c;background:#fee2e2}
 #page2View .p2-kpi-mainline .p2-ctr-neutral{color:#64748b;background:#f1f5f9}
-@media(max-width:760px){#page2View .p2-control-row{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){#page2View .p2-control-row{grid-template-columns:minmax(0,1fr) minmax(0,2fr)}}
 #page2View .p2-kpi{background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:12px;min-width:0;box-shadow:0 2px 9px #0f172a08;border-left:3px solid #2563eb}
 #page2View .p2-kpi:nth-child(2n){border-left-color:#0ea5b7}
 #page2View .p2-kpi .k-label{font-size:9px;font-weight:850;letter-spacing:.35px;color:#718096}
