@@ -507,62 +507,108 @@ function downloadPptPdf(){
 }
 
 function attachUploadHandler(){
- $('fileInput').addEventListener('change', async e=>{
-  const file=e.target.files[0]; if(!file) return;
+ const input=$('fileInput');
+ if(!input)return;
+ input.addEventListener('change',async e=>{
+  const file=e.target.files[0];if(!file)return;
   const status=$('status');
+  let session=null;
   try{
    status.textContent='Membaca workbook '+file.name+'...';
-   const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
-   const dataSheet=wb.Sheets['DATA_SALES']||wb.Sheets['RAW DATA BY SUBRAND']||wb.Sheets[wb.SheetNames[0]];
-   const rawSourceSheet=wb.Sheets['RAW_DATA_SALES'];
-   if(!dataSheet) throw new Error('Sheet DATA_SALES tidak ditemukan.');
-   if(!rawSourceSheet) throw new Error('Sheet RAW_DATA_SALES tidak ditemukan. File harus memuat kedua sheet database.');
-   const json=XLSX.utils.sheet_to_json(dataSheet,{defval:null});
-   if(!json.length||!('YEAR' in json[0])||!('VAL' in json[0])) throw new Error('Kolom YEAR dan VAL pada DATA_SALES tidak ditemukan.');
-   const rawRange=XLSX.utils.decode_range(rawSourceSheet['!ref']||'A1:AA1');
-   rawRange.s.c=0;rawRange.e.c=26;
-   const rawMatrix=XLSX.utils.sheet_to_json(rawSourceSheet,{header:1,defval:null,raw:true,range:rawRange});
-   const expectedRawHeaders=['TAHUN','BULAN','TANGGAL','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND','KARTON','SUBDIST','KODE CUSTOMER','CUSTOMER NAME','KODE SALUR','VAL','QTY','CLASS PRODUCT','UMBRAND','DOT','CATEGORY','JENIS SALES','PIC','SUB_DIST','TIM','SALESMAN','SBU','PF Bulanan','PF Triwulan','PRODUCT_DESC'];
-   const actualRawHeaders=(rawMatrix[0]||[]).slice(0,27).map(v=>String(v==null?'':v).trim().toUpperCase());
-   if(actualRawHeaders.length!==27||!expectedRawHeaders.every((v,i)=>actualRawHeaders[i]===v.toUpperCase())) throw new Error('Header RAW_DATA_SALES tidak sesuai format A:AA.');
-   const rawImported=rawMatrix.slice(1).filter(r=>r&&r.some(v=>v!==null&&v!=='')).map(r=>r.slice(0,27));
-   if(!rawImported.length) throw new Error('RAW_DATA_SALES tidak memiliki baris data.');
-   const imported=json.map((r,i)=>{
-    const amount=Number(r.VAL);
-    const row={
-     y:Number(r.YEAR),m:String(r.MONTH||'').trim().toUpperCase(),d:String(r.SUBDIST||''),
-     s:String(r.Subbrand||r.SUBBRAND||''),b:String(r.Brand||r.BRAND||''),
-     c:String(r.CATEGORY||''),u:String(r.SBU||''),p:String(r.PIC||''),
-     fm:String(r['PF Bulanan']||''),fq:String(r['PF Triwulan']||''),
-     v:amount,t:String(r['JENIS SALES']||r.JENIS_SALES||'').trim().toUpperCase(),
-     tg:r.TARGET==null||r.TARGET===''?null:Number(r.TARGET),
-     be:r.BE==null||r.BE===''?null:Number(r.BE)
-    };
-    if(!Number.isInteger(row.y)||!months.includes(row.m)||!Number.isFinite(row.v)||(row.t!=='SO'&&row.t!=='SOO')){
-     throw new Error('Data tidak valid pada baris Excel ke-'+(i+2)+'. Periksa YEAR, MONTH, VAL, dan JENIS SALES. Tidak ada data yang disimpan.');
+   const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false});
+   const readMatrix=(name,width)=>{
+    const sh=wb.Sheets[name];
+    if(!sh)throw new Error('Sheet '+name+' tidak ditemukan pada workbook.');
+    const range=XLSX.utils.decode_range(sh['!ref']||'A1');
+    range.s.c=0;range.e.c=width-1;
+    return XLSX.utils.sheet_to_json(sh,{header:1,defval:null,raw:true,range});
+   };
+   const p1Matrix=readMatrix('P1_FACT',14);
+   const p2Matrix=readMatrix('P2_EVENT_INDEX',15);
+   const rawMatrix=readMatrix('RAW_DATA_SALES',25);
+   const normalizeHeader=v=>String(v==null?'':v).trim().toUpperCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ');
+   const assertHeaders=(matrix,expected,name)=>{
+    const actual=(matrix[0]||[]).slice(0,expected.length).map(normalizeHeader);
+    const wanted=expected.map(normalizeHeader);
+    if(actual.length!==wanted.length||!actual.every((v,i)=>v===wanted[i])){
+     throw new Error('Header '+name+' tidak sesuai. Terbaca: '+actual.join(' | '));
     }
-    if(row.tg!==null&&!Number.isFinite(row.tg)) throw new Error('TARGET tidak valid pada baris Excel ke-'+(i+2)+'.');
-    if(row.be!==null&&!Number.isFinite(row.be)) throw new Error('BE tidak valid pada baris Excel ke-'+(i+2)+'.');
-    return row;
+   };
+   assertHeaders(p1Matrix,['YEAR','MONTH','SUBDIST','SUBBRAND','BRAND','CATEGORY','SBU','PIC','PF_MONTHLY','PF_QUARTERLY','VAL','SALES_TYPE','TARGET','BE'],'P1_FACT');
+   assertHeaders(p2Matrix,['YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES_TYPE','SALESMAN','TEAM','VAL'],'P2_EVENT_INDEX');
+   assertHeaders(rawMatrix,['TAHUN','BULAN','DATE','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND','KARTON','DISTRIBUTORS','KODE CUSTOMER','CUSTOMER NAME','KODE SALUR','VAL','QTY','JENIS SALES','SUBDIST','PIC','TIM','NAMA AKUN','CATEGORY','DOT','SBU','PF Bulanan','PF Triwulan','SKU KCH'],'RAW_DATA_SALES');
+   const monthList=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+   const monthCode=v=>{
+    const x=String(v==null?'':v).trim().toUpperCase();
+    const aliases={JANUARI:'JAN',FEBRUARI:'FEB',MARET:'MAR',APRIL:'APR',MEI:'MAY',JUNI:'JUN',JULI:'JUL',AGUSTUS:'AUG',SEPTEMBER:'SEP',OKTOBER:'OCT',NOVEMBER:'NOV',DESEMBER:'DEC',JANUARY:'JAN',FEBRUARY:'FEB',MARCH:'MAR',JUNE:'JUN',JULY:'JUL',AUGUST:'AUG',OCTOBER:'OCT',DECEMBER:'DEC'};
+    if(aliases[x])return aliases[x];
+    if(/^\\d{1,2}$/.test(x)){const n=Number(x);return n>=1&&n<=12?monthList[n-1]:'';}
+    return x.slice(0,3);
+   };
+   let latestPeriod='';
+   let latestKey=-1;
+   p1Matrix.slice(1).forEach(r=>{
+    if(!r||!r.some(v=>v!==null&&v!==''))return;
+    const y=Number(r[0]),mi=monthList.indexOf(monthCode(r[1]));
+    if(!Number.isInteger(y)||mi<0||r[10]===null||r[10]==='')return;
+    const key=y*12+mi;
+    if(key>latestKey){latestKey=key;latestPeriod=String(y)+'-'+String(mi+1).padStart(2,'0');}
    });
-   if(!imported.length) throw new Error('Tidak ada baris data untuk diimpor.');
-   status.textContent='Menyiapkan dua database: '+imported.length.toLocaleString('id-ID')+' DATA_SALES dan '+rawImported.length.toLocaleString('id-ID')+' RAW_DATA_SALES...';
-   const session=await gasCall('beginSalesImport',{total:imported.length,rawTotal:rawImported.length,filename:file.name});
-   const chunkSize=1000;
-   const totalChunks=Math.max(Math.ceil(imported.length/chunkSize),Math.ceil(rawImported.length/chunkSize));
-   for(let i=0;i<totalChunks;i++){
-    const chunk=imported.slice(i*chunkSize,(i+1)*chunkSize);
-    const rawChunk=rawImported.slice(i*chunkSize,(i+1)*chunkSize);
-    await gasCall('appendSalesImportChunk',{token:session.token,chunk:chunk,rawChunk:rawChunk});
-    const dataDone=Math.min((i+1)*chunkSize,imported.length);
-    const rawDone=Math.min((i+1)*chunkSize,rawImported.length);
-    status.textContent='Mengunggah dua database • DATA_SALES '+dataDone.toLocaleString('id-ID')+'/'+imported.length.toLocaleString('id-ID')+' • RAW_DATA_SALES '+rawDone.toLocaleString('id-ID')+'/'+rawImported.length.toLocaleString('id-ID');
+   const chosen=prompt('Masukkan periode yang akan diperbarui (format YYYY-MM). Contoh: 2026-11. Sistem hanya mengganti periode ini, bukan menambahkan duplikat.',latestPeriod||'2026-11');
+   if(!chosen)return;
+   const match=String(chosen).trim().match(/^(\\d{4})[-/](\\d{1,2})$/);
+   if(!match)throw new Error('Format periode harus YYYY-MM, contoh 2026-11.');
+   const year=Number(match[1]),monthIndex=Number(match[2])-1;
+   if(monthIndex<0||monthIndex>11)throw new Error('Nomor bulan harus 01 sampai 12.');
+   const month=monthList[monthIndex];
+   const inPeriod=(r)=>r&&r.some(v=>v!==null&&v!=='')&&Number(r[0])===year&&monthCode(r[1])===month;
+   const p1Rows=p1Matrix.slice(1).filter(inPeriod).map(r=>r.slice(0,14));
+   const p2Rows=p2Matrix.slice(1).filter(inPeriod).map(r=>r.slice(0,15));
+   const rawRows=rawMatrix.slice(1).filter(inPeriod).map(r=>r.slice(0,25));
+   if(!p1Rows.length||!p2Rows.length||!rawRows.length)throw new Error('Data periode '+year+'-'+month+' tidak lengkap pada salah satu sheet.');
+   if(!p1Rows.some(r=>r[10]!==null&&r[10]!==''))throw new Error('P1_FACT belum memiliki nilai aktual untuk periode '+year+'-'+month+'.');
+   if(p2Rows.length!==rawRows.length)throw new Error('Jumlah P2_EVENT_INDEX ('+p2Rows.length+') dan RAW_DATA_SALES ('+rawRows.length+') berbeda.');
+   const summary=(rows,distIndex,typeIndex,valueIndex)=>{
+    const map=new Map();
+    rows.forEach(r=>{
+     const key=String(r[distIndex]==null?'':r[distIndex]).trim().toUpperCase()+'|'+String(r[typeIndex]==null?'':r[typeIndex]).trim().toUpperCase();
+     const item=map.get(key)||{count:0,value:0};item.count++;item.value+=Number(r[valueIndex])||0;map.set(key,item);
+    });
+    return map;
+   };
+   const p2Summary=summary(p2Rows,5,11,14),rawSummary=summary(rawRows,8,14,12);
+   const keys=new Set([...p2Summary.keys(),...rawSummary.keys()]);
+   for(const key of keys){
+    const a=p2Summary.get(key)||{count:0,value:0},b=rawSummary.get(key)||{count:0,value:0};
+    if(a.count!==b.count||Math.abs(a.value-b.value)>0.01)throw new Error('P2_EVENT_INDEX dan RAW_DATA_SALES tidak cocok pada '+key+'.');
    }
-   const result=await gasCall('finishSalesImport',{token:session.token});
-   rows=result.rows||[]; targetRows=buildTargets(rows); init(); render();
-   status.textContent='Kedua database diperbarui • '+file.name+' • DATA_SALES '+imported.length.toLocaleString('id-ID')+' baris • RAW_DATA_SALES '+rawImported.length.toLocaleString('id-ID')+' baris';
-   alert('Import berhasil. DATA_SALES ('+imported.length.toLocaleString('id-ID')+' baris) dan RAW_DATA_SALES ('+rawImported.length.toLocaleString('id-ID')+' baris) telah diperbarui.');
+   const p1Soo=p1Rows.filter(r=>String(r[11]||'').trim().toUpperCase()==='SOO').reduce((v,r)=>v+(Number(r[10])||0),0);
+   const p2Soo=p2Rows.filter(r=>String(r[11]||'').trim().toUpperCase()==='SOO').reduce((v,r)=>v+(Number(r[14])||0),0);
+   const p1So=p1Rows.filter(r=>String(r[11]||'').trim().toUpperCase()==='SO').reduce((v,r)=>v+(Number(r[10])||0),0);
+   const p2So=p2Rows.filter(r=>String(r[11]||'').trim().toUpperCase()==='SO').reduce((v,r)=>v+(Number(r[14])||0),0);
+   let confirmText='UPDATE DATA SALES '+year+'-'+month+'\\n\\nP1_FACT: '+p1Rows.length.toLocaleString('id-ID')+' baris\\nP2_EVENT_INDEX: '+p2Rows.length.toLocaleString('id-ID')+' baris\\nRAW_DATA_SALES: '+rawRows.length.toLocaleString('id-ID')+' baris\\nP1 SOO: '+Math.round(p1Soo).toLocaleString('id-ID')+'\\nP2 SOO: '+Math.round(p2Soo).toLocaleString('id-ID')+'\\nP1 SO: '+Math.round(p1So).toLocaleString('id-ID')+'\\nP2 SO: '+Math.round(p2So).toLocaleString('id-ID');
+   if(Math.abs(p1Soo-p2Soo)>0.01)confirmText+='\\n\\nPERINGATAN: nilai SOO P1 dan P2 berbeda '+Math.round(p1Soo-p2Soo).toLocaleString('id-ID')+'.';
+   if(Math.abs(p1So-p2So)>0.01)confirmText+='\\nCatatan: nilai SO P1 dan P2 berbeda; dashboard Page 1 memakai P1_FACT.';
+   confirmText+='\\n\\nLanjutkan mengganti data bulan ini?';
+   if(!confirm(confirmText))return;
+   status.textContent='Menyiapkan import '+year+'-'+month+'...';
+   session=await gasCall('beginMonthlyDataImport',{year:year,month:month,p1Total:p1Rows.length,p2Total:p2Rows.length,rawTotal:rawRows.length,filename:file.name});
+   const chunkSize=500;
+   const totalChunks=Math.max(Math.ceil(p1Rows.length/chunkSize),Math.ceil(p2Rows.length/chunkSize),Math.ceil(rawRows.length/chunkSize));
+   for(let i=0;i<totalChunks;i++){
+    const p1Chunk=p1Rows.slice(i*chunkSize,(i+1)*chunkSize);
+    const p2Chunk=p2Rows.slice(i*chunkSize,(i+1)*chunkSize);
+    const rawChunk=rawRows.slice(i*chunkSize,(i+1)*chunkSize);
+    await gasCall('appendMonthlyDataImportChunk',{token:session.token,p1Chunk:p1Chunk,p2Chunk:p2Chunk,rawChunk:rawChunk});
+    status.textContent='Mengunggah '+year+'-'+month+' • batch '+(i+1)+'/'+totalChunks+' • P1 '+Math.min((i+1)*chunkSize,p1Rows.length).toLocaleString('id-ID')+'/'+p1Rows.length.toLocaleString('id-ID')+' • P2/RAW '+Math.min((i+1)*chunkSize,p2Rows.length).toLocaleString('id-ID')+'/'+p2Rows.length.toLocaleString('id-ID');
+   }
+   const result=await gasCall('finishMonthlyDataImport',{token:session.token});
+   session=null;
+   await loadDashboardData();
+   status.textContent='Update '+year+'-'+month+' berhasil • P1 '+result.p1Rows.toLocaleString('id-ID')+' • P2/RAW '+result.p2Rows.toLocaleString('id-ID')+' • '+result.updatedAt;
+   alert('Update berhasil. Data '+year+'-'+month+' telah diganti pada P1_FACT, P2_EVENT_INDEX, dan RAW_DATA_SALES. Baris lama tidak digandakan.');
   }catch(err){
+   if(session&&session.token){try{await gasCall('abortMonthlyDataImport',{token:session.token});}catch(abortError){}}
    status.textContent='Import gagal: '+err.message;
    alert('Gagal mengimpor data: '+err.message);
   }finally{e.target.value='';}
