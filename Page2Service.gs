@@ -634,6 +634,34 @@ function page2GetMeta() {
   }, 300);
 }
 
+function page2ReadFiltered_(sheet, filters) {
+  const sh=sheet||page2Source_(),safe=filters||{};
+  // P2_EVENT_INDEX is already normalized and contains SOO only. Apply the
+  // selected dimensions while rows are being decoded, so the expensive KPI
+  // aggregation only receives rows that can appear in the current view.
+  if(sh.getName()!=='P2_EVENT_INDEX')return page2Read_(sh);
+  const lastRow=sh.getLastRow();if(lastRow<=1)return [];
+  const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL'];
+  const actual=sh.getRange(1,1,1,15).getValues()[0].map(page2HeaderKey_);
+  if(!actual.every((v,i)=>v===expected[i]))throw new Error('Header P2_EVENT_INDEX tidak sesuai. Terbaca: '+actual.join(', '));
+  const pics=new Set(page2FilterList_(safe.pics)),subdists=new Set(page2FilterList_(safe.subdists)),
+    brands=new Set(page2FilterList_(safe.brands)),subbrands=new Set(page2FilterList_(safe.subbrands)),
+    categories=new Set(page2FilterList_(safe.categories));
+  const values=sh.getRange(2,1,lastRow-1,15).getValues(),rows=[];
+  for(let i=0;i<values.length;i++){
+    const r=values[i];
+    if(page2Key_(r[11])!=='SOO')continue;
+    if(pics.size&&!pics.has(page2Key_(r[6])))continue;
+    if(subdists.size&&!subdists.has(page2Key_(r[5])))continue;
+    if(brands.size&&!brands.has(page2Key_(r[7])))continue;
+    if(subbrands.size&&!subbrands.has(page2Key_(r[8])))continue;
+    if(categories.size&&!categories.has(page2Key_(r[9])))continue;
+    rows.push([r[0],page2Month_(r[1]),r[2],r[8],r[7],r[4],r[6],r[11],r[5],
+      page2Key_(r[13])||'SALESMAN',r[4],r[9],r[10],r[3],Number(r[14])||0]);
+  }
+  return rows;
+}
+
 function getPage2DashboardData(filters) {
   const started = Date.now();
   const sh = page2Source_();
@@ -654,7 +682,7 @@ function getPage2DashboardData(filters) {
   }
 
   const readStarted = Date.now();
-  const sourceRows = page2Read_(sh);
+  const sourceRows = page2ReadFiltered_(sh, safeFilters);
   const readMs = Date.now() - readStarted;
   const aggregateStarted = Date.now();
   const result = page2BuildDashboardData_(safeFilters, sourceRows);
