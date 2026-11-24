@@ -38,7 +38,8 @@
     <div class="page-switch-mark" aria-hidden="true">✦</div>
     <div class="page-switch-buttons">
       <button type="button" class="p1-nav active" onclick="page1Show()">▦ Sales Performance</button>
-      <button type="button" class="p2-nav" onclick="page2Show()">◉ Outlets | Sales Force</button>
+      <button type="button" class="p2-nav" onclick="page2Show()">◉ Sales Force</button>
+      <button type="button" class="p3-nav" onclick="page3Show()">▤ Outlets</button>
     </div>
   </div>
 </nav>
@@ -108,9 +109,11 @@
 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button></div><div class="tablewrap" id="brandTableWrap"><table><thead><tr><th>Brand</th><th>Actual MTD</th><th>Target MTD</th><th>% ACH MTD</th><th>Actual YTD</th><th>Target YTD</th><th>% ACH YTD</th><th>GRW vs LY</th><th>GRW vs LM</th><th>GRW vs L3M</th><th>CTR</th><th>AVG / Month</th><th>BE</th><th>%BE</th></tr></thead><tbody id="matrixBrand"></tbody></table></div></div><section class="lower">
 </section>
 <?!= include('Page2'); ?>
+<?!= include('Page3'); ?>
 <div class="footer">Dashboard interaktif • Data tersimpan terpusat di Google Sheets dan dapat diakses oleh tim internal.</div></main>
 
 <?!= include('Scripts'); ?>
 <?!= include('Page2Scripts'); ?>
+<?!= include('Page3Scripts'); ?>
 </body>
 </html>
