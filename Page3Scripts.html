@@ -25,7 +25,7 @@ function page3Init(){
   p3InitStarted=false;if(!payload||!payload.meta||!payload.data){if(status)status.textContent='Respons awal Page 3 tidak lengkap.';return;}
   p3Meta=payload.meta;p3Data=payload.data;p3RenderSubdistPills();page3Render();
   const d=payload.diagnostics||{},types=p3Meta.salesTypeCounts||{},teams=p3Meta.teamCounts||{};
-  if(status)status.textContent='SOO + SALESMAN • '+Number(p3Meta.rowCount||0).toLocaleString('id-ID')+' baris outlet-event • Baca '+Number(d.readMs||0).toLocaleString('id-ID')+' ms • Agregasi '+Number(d.aggregateMs||0).toLocaleString('id-ID')+' ms'+(d.cacheHit?' • Cache indeks':' • Indeks dicache: '+(d.cacheStored?'ya':'tidak'))+' • Total '+Number(d.totalMs||0).toLocaleString('id-ID')+' ms';
+  if(status)status.textContent='SOO + SALESMAN • '+Number(p3Meta.rowCount||0).toLocaleString('id-ID')+' baris ringkasan outlet-bulan • Sumber P2_EVENT_INDEX '+Number(p3Meta.rawRowCount||0).toLocaleString('id-ID')+' baris • Baca '+Number(d.readMs||0).toLocaleString('id-ID')+' ms • Agregasi '+Number(d.aggregateMs||0).toLocaleString('id-ID')+' ms'+(d.cacheHit?' • Cache indeks':' • Indeks dicache: '+(d.cacheStored?'ya':'tidak'))+' • Total '+Number(d.totalMs||0).toLocaleString('id-ID')+' ms';
  }).withFailureHandler(err=>{p3InitStarted=false;if(status)status.textContent='Gagal memuat Page 3: '+(err.message||String(err));}).getPage3OutletInitialPayload();
 }
 function page3Apply(){

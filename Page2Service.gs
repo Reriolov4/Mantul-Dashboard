@@ -13,7 +13,9 @@ const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OC
 function page2Source_() {
   // Page 2 is bound to the maintained analytics index; never silently fall
   // back to RAW_DATA_SALES because its schema and filter universe differ.
-  const ss=getDatabase_(),sh=ss.getSheetByName('P2_EVENT_INDEX');
+  const ss=getDatabase_();
+  const derived=analyticsSummaryReady_()?ss.getSheetByName('P2_DASHBOARD_FACT'):null;
+  const sh=derived||ss.getSheetByName('P2_EVENT_INDEX');
   if(!sh||sh.getLastRow()<2)throw new Error('P2_EVENT_INDEX tidak ditemukan atau belum berisi data.');
   const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'];
   const actual=sh.getRange(1,1,1,16).getValues()[0].map(page2HeaderKey_);
@@ -74,7 +76,7 @@ function page2Read_(sheet) {
 
   // Analytics index is already normalized to 15 columns (including VAL) and contains SOO only.
   // Convert it into the exact internal row shape consumed by existing KPI logic.
-  if (sh.getName() === 'P2_EVENT_INDEX') {
+  if (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT') {
     const expectedHeaders = [
       'YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC',
       'BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'
@@ -582,6 +584,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
   };
 }
 
+function page2ApplySourceStats_(meta){if(!meta)return meta;const s=analyticsGetSourceStats_();if(!s)return meta;meta.sourceRowCount=Number(s.sourceRowCount)||meta.sourceRowCount;meta.sooRowCount=Number(s.salesTypeCounts&&s.salesTypeCounts.SOO)||meta.sooRowCount;meta.salesTypeCounts=s.salesTypeCounts||meta.salesTypeCounts;meta.summaryRowCount=Number(s.p2SummaryRows)||0;return meta;}
+
 function page2SourceVersion_(sheet) {
   const sh = sheet || page2Source_();
   const props = PropertiesService.getScriptProperties();
@@ -624,7 +628,8 @@ function page2GetMeta() {
   const key = page2CacheKey_('p2meta_schema2', 'soo-header-mapped', version);
   return page2Cached_(key, function() {
     const meta = page2BuildMeta_(page2Read_(sh));
-    if (sh.getName() === 'P2_EVENT_INDEX') {
+    page2ApplySourceStats_(meta);
+    if (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT') {
       const raw = getDatabase_().getSheetByName(RAW_DATA_SHEET_NAME);
       meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
     }
@@ -638,7 +643,7 @@ function page2ReadFiltered_(sheet, filters) {
   // dimension filters before materializing rows for the dashboard aggregation.
   // selected dimensions while rows are being decoded, so the expensive KPI
   // aggregation only receives rows that can appear in the current view.
-  if(sh.getName()!=='P2_EVENT_INDEX')return page2Read_(sh);
+  if(sh.getName()!=='P2_EVENT_INDEX'&&sh.getName()!=='P2_DASHBOARD_FACT')return page2Read_(sh);
   const lastRow=sh.getLastRow();if(lastRow<=1)return [];
   const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'];
   const actual=sh.getRange(1,1,1,16).getValues()[0].map(page2HeaderKey_);
@@ -761,7 +766,8 @@ function getPage2InitialPayload() {
 
   const metaStarted = Date.now();
   const meta = page2BuildMeta_(sourceRows);
-  if (sh.getName() === 'P2_EVENT_INDEX') {
+  page2ApplySourceStats_(meta);
+  if (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT') {
     const raw = getDatabase_().getSheetByName(RAW_DATA_SHEET_NAME);
     meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
   }
@@ -890,17 +896,10 @@ function testPage2CustomerNameCounts() {
    PAGE 3 — OUTLETS PARETO
    Sumber khusus RAW_DATA_SALES; terpisah dari kalkulasi Page 2.
    ========================================================= */
-function page3IndexSheet_() {
-  const ss=getDatabase_(),sh=ss.getSheetByName('P2_EVENT_INDEX');
-  if(!sh||sh.getLastRow()<2)throw new Error('P2_EVENT_INDEX tidak ditemukan atau belum berisi data.');
-  const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'];
-  const actual=sh.getRange(1,1,1,16).getDisplayValues()[0].map(page2HeaderKey_);
-  if(!expected.every((v,i)=>actual[i]===v))throw new Error('Header P2_EVENT_INDEX tidak sesuai. Diperlukan 16 kolom termasuk CARTON di P. Terbaca: '+actual.join(' | '));
-  return sh;
-}
+function page3IndexSheet_(){const ss=getDatabase_(),d=analyticsSummaryReady_()?ss.getSheetByName('P3_OUTLET_MONTHLY'):null,sh=d||ss.getSheetByName('P2_EVENT_INDEX');if(!sh||sh.getLastRow()<2)throw new Error('P2_EVENT_INDEX/P3_OUTLET_MONTHLY tidak ditemukan atau belum berisi data.');if(sh.getName()==='P3_OUTLET_MONTHLY'){const e=P3_OUTLET_HEADERS_.map(page2HeaderKey_),a=sh.getRange(1,1,1,6).getDisplayValues()[0].map(page2HeaderKey_);if(!e.every((v,i)=>a[i]===v))throw new Error('Header P3_OUTLET_MONTHLY tidak sesuai: '+a.join(' | '));return sh;}const e=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'],a=sh.getRange(1,1,1,16).getDisplayValues()[0].map(page2HeaderKey_);if(!e.every((v,i)=>a[i]===v))throw new Error('Header P2_EVENT_INDEX tidak sesuai: '+a.join(' | '));return sh;}
 function page3SourceVersion_(sh) {
   const props=PropertiesService.getScriptProperties();
-  return ['page3-salesman-monthly-v3',page2SourceVersion_(sh),props.getProperty('PAGE2_RAW_UPDATED')||'manual'].join('|');
+  return ['page3-outlet-monthly-v4',page2SourceVersion_(sh),props.getProperty('PAGE2_RAW_UPDATED')||'manual'].join('|');
 }
 function page3Month_(value) {
   if(Object.prototype.toString.call(value)==='[object Date]'&&!isNaN(value))return PAGE2_MONTHS_[value.getMonth()];
@@ -921,6 +920,7 @@ function page3ReadIndex_(sh) {
   const sheet=sh||page3IndexSheet_(),lastRow=sheet.getLastRow();
   if(lastRow<2)return {rows:[],diagnostics:{indexRowCount:0,salesTypeCounts:{},teamCounts:{},readMs:0}};
   const n=lastRow-1,started=Date.now();
+  if(sheet.getName()==='P3_OUTLET_MONTHLY'){const v=sheet.getRange(2,1,n,6).getValues(),rows=v.map(r=>[page3Year_(r[0]),page3Month_(r[1]),page2Text_(r[2]),page2Text_(r[3]),Number(r[4])||0,Number(r[5])||0]),s=analyticsGetSourceStats_()||{};return {rows:rows,diagnostics:{indexRowCount:Number(s.sourceRowCount)||n,salesTypeCounts:s.salesTypeCounts||{SOO:n},teamCounts:s.teamCounts||{SALESMAN:n},readMs:Date.now()-started,preAggregated:true}};}
   const ab=sheet.getRange(2,1,n,2).getValues();       // A:B YEAR, MONTH
   const df=sheet.getRange(2,4,n,3).getValues();      // D:F CODE, CUSTOMER, SUBDIST
   const sales=sheet.getRange(2,12,n,1).getValues();  // L SALES TYPE

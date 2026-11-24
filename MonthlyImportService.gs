@@ -176,7 +176,7 @@ function appendMonthlyDataImportChunk(payload) {
     const month = props.getProperty(prefix+'MONTH');
     const specs = [
       ['p1',p1Chunk,14,0,1,'P1_FACT'],
-      ['p2',p2Chunk,15,0,1,'P2_EVENT_INDEX'],
+      ['p2',p2Chunk,16,0,1,'P2_EVENT_INDEX'],
       ['raw',rawChunk,25,0,1,'RAW_DATA_SALES']
     ];
     specs.forEach(([key,rows,width,yearIndex,monthIndex,label]) => {
@@ -211,28 +211,29 @@ function monthlyImportReadStage_(key, expected, width) {
   return expected ? sheet.getRange(2,1,expected,width).getValues() : [];
 }
 
-function monthlyImportSummary_(rows, distributorIndex, salesTypeIndex, valueIndex) {
+function monthlyImportSummary_(rows, distributorIndex, salesTypeIndex, valueIndex, cartonIndex) {
   const summary = Object.create(null);
   rows.forEach(row => {
     const distributor = String(row[distributorIndex] == null ? '' : row[distributorIndex]).trim().toUpperCase();
     const salesType = String(row[salesTypeIndex] == null ? '' : row[salesTypeIndex]).trim().toUpperCase();
     const key = distributor + '|' + salesType;
-    if (!summary[key]) summary[key] = {count:0,value:0};
+    if (!summary[key]) summary[key] = {count:0,value:0,carton:0};
     summary[key].count++;
     summary[key].value += Number(row[valueIndex]) || 0;
+    if(cartonIndex!==undefined&&cartonIndex!==null)summary[key].carton+=Number(row[cartonIndex])||0;
   });
   return summary;
 }
 
 function monthlyImportCompareP2Raw_(p2Rows, rawRows) {
-  const p2 = monthlyImportSummary_(p2Rows,5,11,14);
-  const raw = monthlyImportSummary_(rawRows,8,14,12);
+  const p2 = monthlyImportSummary_(p2Rows,5,11,14,15);
+  const raw = monthlyImportSummary_(rawRows,8,14,12,7);
   const keys = Object.keys(p2).concat(Object.keys(raw).filter(k => !p2[k]));
   for (let i=0;i<keys.length;i++) {
     const key = keys[i], a = p2[key] || {count:0,value:0}, b = raw[key] || {count:0,value:0};
-    if (a.count !== b.count || Math.abs(a.value-b.value) > 0.01) {
+    if (a.count !== b.count || Math.abs(a.value-b.value) > 0.01 || Math.abs((a.carton||0)-(b.carton||0)) > 0.01) {
       throw new Error('P2_EVENT_INDEX dan RAW_DATA_SALES tidak cocok pada ' + key +
-        '. P2=' + a.count + ' baris/' + a.value + '; RAW=' + b.count + ' baris/' + b.value + '.');
+        '. P2=' + a.count + ' baris/' + a.value + ' value/' + (a.carton||0) + ' karton; RAW=' + b.count + ' baris/' + b.value + ' value/' + (b.carton||0) + ' karton.');
     }
   }
 }
@@ -327,7 +328,7 @@ function finishMonthlyDataImport(payload) {
     }
 
     const p1Rows = monthlyImportReadStage_('p1',p1Expected,14);
-    const p2Rows = monthlyImportReadStage_('p2',p2Expected,15);
+    const p2Rows = monthlyImportReadStage_('p2',p2Expected,16);
     const rawRows = monthlyImportReadStage_('raw',rawExpected,25);
     monthlyImportValidateChunk_(p1Rows,14,year,month,'P1_FACT',0,1);
     monthlyImportValidateChunk_(p2Rows,15,year,month,'P2_EVENT_INDEX',0,1);
@@ -347,7 +348,7 @@ function finishMonthlyDataImport(payload) {
       raw:ss.getSheetByName('RAW_DATA_SALES')
     };
     const headers = {p1:P1_FACT_HEADERS_,p2:P2_EVENT_HEADERS_,raw:MONTHLY_RAW_HEADERS_};
-    const widths = {p1:14,p2:15,raw:25};
+    const widths = {p1:14,p2:16,raw:25};
     const newRows = {p1:p1Rows,p2:p2Rows,raw:rawRows};
     const oldRows = {};
     Object.keys(live).forEach(key => {
@@ -368,6 +369,7 @@ function finishMonthlyDataImport(payload) {
       props.setProperty('SALES_LAST_UPDATED',formatted);
       props.setProperty('PAGE2_RAW_UPDATED',formatted);
       analyticsStartInitialBuild();
+      analyticsUpdateDashboardPeriod_(year,month,p2Rows);
       cacheDashboardData_();
 
       const log = getOrCreateSheet_('MONTHLY_IMPORT_LOG');
@@ -397,6 +399,7 @@ function finishMonthlyDataImport(payload) {
         props.setProperty('SALES_LAST_UPDATED',oldSalesUpdated);
         props.setProperty('PAGE2_RAW_UPDATED',oldPage2Updated);
         analyticsStartInitialBuild();
+        analyticsUpdateDashboardPeriod_(year,month,oldRows.p2);
         cacheDashboardData_();
       } catch (err) {
         rollbackError = err;
