@@ -285,6 +285,14 @@ function page2CompositeKey_(parts) {
   }).join('|');
 }
 
+// Kunci identitas persis: tidak mengubah kapitalisasi atau spasi internal nama.
+function page2ExactCompositeKey_(parts) {
+  return parts.map(value => {
+    const s = value == null ? '' : String(value);
+    return s.length + ':' + s;
+  }).join('|');
+}
+
 function page2BuildDashboardData_(filters, sourceRows) {
   filters = filters || {};
   const all = sourceRows || page2Read_();
@@ -344,28 +352,14 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const trendLY = {ao:new Set(),ec:new Set(),value:0};
   const paretoMonths = new Set(trendMonths);
   let paretoGrandTotalCY = 0;
-  const customer = r => page2Key_(r[10] || r[5]);
-  // Hanya KODE CUSTOMER valid yang dihitung. Kode placeholder OTHERSB,
-  // kode kosong, dan baris tanpa identitas outlet tidak masuk KPI AO maupun EC.
-  const outletCode = r => page2Key_(r[13]);
-  const validOutletCode = r => {
-    const code = outletCode(r);
-    // Abaikan placeholder OTHERSB dan hasil error formula (#VALUE!)
-    // karena keduanya bukan identitas outlet/transaksi SOO yang valid.
-    return !!code && code !== 'OTHERSB' && code !== '#VALUE!';
-  };
-  // AO dihitung per kombinasi KODE CUSTOMER + SUBDIST agar total KPI
-  // konsisten dengan penjumlahan AO masing-masing subdist.
-  const outlet = r => validOutletCode(r)
-    ? page2CompositeKey_([outletCode(r), r[8]])
+  // Identitas outlet mengikuti definisi bisnis: DISTRIBUTOR + CUSTOMER NAME.
+  // Nama dipertahankan apa adanya; kode customer tidak menjadi kunci AO/EC.
+  const outletKeyFor = (customerName, subdist) => customerName !== ''
+    ? page2ExactCompositeKey_([subdist, customerName])
     : '';
-  // EC = kombinasi TANGGAL lengkap (YYYY-MM-DD) + KODE CUSTOMER valid + SUBDIST.
-  // Hari yang sama pada outlet/subdist yang sama dihitung satu EC.
-  // EC memakai tanggal kalender lengkap (YYYY-MM-DD), bukan DD saja;
-  // jika hanya memakai DD, tanggal 10 pada bulan berbeda akan saling terduplikasi.
-  const ecKeyFor = (r, dayKey) => page2CompositeKey_([
-    page2Date_(r[0], r[1], r[2]) || dayKey, outletCode(r), r[8]
-  ]);
+  // EC = DISTRIBUTOR + CUSTOMER NAME + tanggal kalender lengkap (YYYY-MM-DD).
+  // Tahun dan bulan ikut tercakup dalam dateKey, sehingga tanggal yang sama
+  // pada bulan/tahun berbeda tetap menjadi event yang berbeda.
 
   const addGroup = (bucket, dimension, label, outletKey, ecKey, value) => {
     if (!label) return;
@@ -392,16 +386,14 @@ function page2BuildDashboardData_(filters, sourceRows) {
     // Normalisasi identitas dan tanggal cukup sekali per transaksi.
     // Sebelumnya page2Day_, page2Date_, outlet(), dan customer() dipanggil
     // berulang untuk agregasi bulanan, YTD, KPI, dan dailyMap.
-    const customerName = page2Key_(r[10] || r[5]);
-    const code = page2Key_(r[13]);
-    const hasValidCode = !!code && code !== 'OTHERSB' && code !== '#VALUE!';
-    const outletKey = hasValidCode ? page2CompositeKey_([code, r[8]]) : '';
+    const customerName = String(r[10] == null || r[10] === '' ? (r[5] || '') : r[10]);
+    const outletKey = outletKeyFor(customerName, r[8]);
     const dayKey = page2Day_(r[2]);
     const dateKey = dayKey && monthIndex >= 0
       ? String(y) + '-' + String(monthIndex + 1).padStart(2,'0') + '-' + dayKey
       : '';
     const ecKey = outletKey && dayKey
-      ? page2CompositeKey_([dateKey || dayKey, code, r[8]])
+      ? page2ExactCompositeKey_([dateKey || dayKey, r[8], customerName])
       : '';
 
     // Agregasi bulanan untuk insight YTD/L3M membaca seluruh bulan Jan–Des.
@@ -420,7 +412,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
       bucket.value += value;
     }
 
-    if (paretoMonths.has(month) && hasValidCode && outletKey) {
+    if (paretoMonths.has(month) && outletKey) {
       let item = paretoByOutlet.get(outletKey);
       if (!item) {
         item = {key:outletKey,customerName:page2Text_(r[10] || r[5]),subdist:page2Text_(r[8]),cy:{},ly:{}};
@@ -651,7 +643,7 @@ function page2SourceVersion_(sheet) {
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    'page2-value-matrix-subbrand-v7',
+    'page2-customer-name-identity-v8',
     spreadsheetId, sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');
@@ -877,4 +869,42 @@ function testPage2FullDiagnostics() {
   const result={ok:true,sourceSheet:sh.getName(),sourceSpreadsheet:sh.getParent().getName(),lastRow:sh.getLastRow(),lastColumn:sh.getLastColumn(),selectedYear:year,availableMonths:months,counts:counts,payload:{kpi:data.kpi,donutCounts:{subdist:data.donut.subdist.length,team:data.donut.team.length,subbrand:data.donut.subbrand.length},paretoRows:data.pareto.length,monthlyPositive:data.monthly.filter(x=>x.ao>0||x.ec>0||x.value>0).length},updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED')||'not set'};
   Logger.log('PAGE2_FULL_DIAGNOSTICS\n' + JSON.stringify(result, null, 2));
   return result;
+}
+
+/** Verifikasi AO/EC berdasarkan DISTRIBUTOR + CUSTOMER NAME untuk 2026 Jan-Nov. */
+function testPage2CustomerNameCounts() {
+  const sh = page2Source_();
+  const rows = page2Read_(sh);
+  const year = 2026;
+  const months = new Set(PAGE2_MONTHS_.slice(0, 11));
+  const byDist = Object.create(null);
+
+  rows.forEach(r => {
+    if (Number(r[0]) !== year || page2Key_(r[7]) !== 'SOO') return;
+    const month = page2Month_(r[1]);
+    if (!months.has(month)) return;
+    const name = String(r[10] == null || r[10] === '' ? (r[5] || '') : r[10]);
+    const dist = String(r[8] == null ? '' : r[8]);
+    const day = page2Day_(r[2]);
+    if (name === '' || dist === '' || !day) return;
+    if (!byDist[dist]) byDist[dist] = {ao:new Set(),ec:new Set()};
+    byDist[dist].ao.add(page2ExactCompositeKey_([year, dist, name]));
+    const monthIndex = PAGE2_MONTHS_.indexOf(month);
+    const dateKey = String(year) + '-' + String(monthIndex + 1).padStart(2,'0') + '-' + day;
+    byDist[dist].ec.add(page2ExactCompositeKey_([dist, year, name, month, dateKey]));
+  });
+
+  const result = Object.keys(byDist).sort().map(dist => ({
+    distributor:dist, ao:byDist[dist].ao.size, ec:byDist[dist].ec.size
+  }));
+  const totals = result.reduce((sum, item) => ({
+    ao:sum.ao + item.ao, ec:sum.ec + item.ec
+  }), {ao:0,ec:0});
+  const output = {
+    ok:true, sourceSheet:sh.getName(), year:year, months:Array.from(months),
+    definition:'AO = unique DISTRIBUTOR + YEAR + CUSTOMER NAME; EC = unique DISTRIBUTOR + YEAR + CUSTOMER NAME + MONTH + DATE',
+    byDistributor:result, totals:totals
+  };
+  Logger.log('PAGE2_CUSTOMER_NAME_COUNTS\\n' + JSON.stringify(output, null, 2));
+  return output;
 }
