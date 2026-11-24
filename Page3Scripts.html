@@ -1,50 +1,55 @@
-
 <script>
-let p3Meta=null,p3Data=null,p3Metric='VALUE',p3Request=0,p3InitStarted=false,p3NeedsRender=false;
+let p3Meta=null,p3Data=null,p3Metric='VALUE',p3Subdist='SEMUA',p3Request=0,p3InitStarted=false,p3SearchTimer=null;
 const p3$=id=>document.getElementById(id);
 function p3Esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function p3SetMetric(metric){p3Metric=metric==='KARTON'?'KARTON':'VALUE';document.querySelectorAll('#p3MetricSwitch button').forEach(b=>{const on=b.dataset.metric===p3Metric;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on));});if(p3Meta)page3Apply();}
+function p3RenderSubdistPills(){
+ const box=p3$('p3SubdistPills');if(!box)return;
+ const options=['SEMUA','EPM BAC','EPM LSE','GMP BAC','GMP LSE','GMP LGS','DB MBO','DB BAC'];
+ box.innerHTML='';
+ options.forEach(name=>{const b=document.createElement('button');b.type='button';b.className=p3Subdist===name?'active':'';b.textContent=name;b.dataset.subdist=name;b.setAttribute('aria-pressed',String(p3Subdist===name));b.addEventListener('click',()=>{if(p3Subdist===name)return;p3Subdist=name;p3RenderSubdistPills();page3Apply();});box.appendChild(b);});
+}
 function page3Show(){
  const view=p3$('page3View');
  document.querySelectorAll('main.wrap > *').forEach(el=>{if(el===view)return;el.hidden=true;el.style.setProperty('display','none','important');});
  if(view){view.hidden=false;view.style.setProperty('display','block','important');}
  document.body.classList.add('page2-active');
  document.querySelector('.p1-nav')?.classList.remove('active');document.querySelector('.p2-nav')?.classList.remove('active');document.querySelector('.p3-nav')?.classList.add('active');window.scrollTo(0,0);
- if(!p3Meta)page3Init();else if(p3NeedsRender){page3Render();p3NeedsRender=false;}
+ if(!p3Meta)page3Init();
 }
 function page3Init(){
  if(p3InitStarted||p3Meta)return;p3InitStarted=true;
- const status=p3$('p3Status');if(status)status.textContent='Membaca P2_EVENT_INDEX (16 kolom: VAL=O, CARTON=P)...';
+ const status=p3$('p3Status');if(status)status.textContent='Membaca indeks outlet SOO + SALESMAN...';
  if(!window.google||!google.script||!google.script.run){if(status)status.textContent='Buka dashboard melalui Google Apps Script Web App.';p3InitStarted=false;return;}
  google.script.run.withSuccessHandler(payload=>{
   p3InitStarted=false;if(!payload||!payload.meta||!payload.data){if(status)status.textContent='Respons awal Page 3 tidak lengkap.';return;}
-  p3Meta=payload.meta;p3Data=payload.data;
-  const select=p3$('p3Subdist');(p3Meta.subdists||[]).forEach(name=>{const opt=document.createElement('option');opt.value=name;opt.textContent=name;select.appendChild(opt);});
-  page3Render();const d=payload.diagnostics||{};
-  if(status){const counts=p3Meta.salesTypeCounts||{},types=Object.keys(counts).map(k=>k+': '+Number(counts[k]).toLocaleString('id-ID')).join(', ')||'tidak terdeteksi';status.textContent='Sumber '+(d.source||'P2_EVENT_INDEX')+' • SOO '+Number(p3Meta.rowCount||0).toLocaleString('id-ID')+' / '+Number(p3Meta.rawRowCount||0).toLocaleString('id-ID')+' baris • Jenis Sales: '+types+' • Bulan terbaca '+Number(p3Meta.monthCount||0).toLocaleString('id-ID')+' • Tahun '+p3Data.year+' • Baca '+(d.readMs||0)+' ms • Agregasi '+(d.aggregateMs||0)+' ms'+(d.cacheHit?' • Cache aktif':'');if(!p3Meta.rowCount)status.textContent+=' • Periksa isi kolom O (JENIS SALES), A (TAHUN), dan B (BULAN)';}
+  p3Meta=payload.meta;p3Data=payload.data;p3RenderSubdistPills();page3Render();
+  const d=payload.diagnostics||{},types=p3Meta.salesTypeCounts||{},teams=p3Meta.teamCounts||{};
+  if(status)status.textContent='SOO + SALESMAN • '+Number(p3Meta.rowCount||0).toLocaleString('id-ID')+' baris outlet-event • Baca '+Number(d.readMs||0).toLocaleString('id-ID')+' ms • Agregasi '+Number(d.aggregateMs||0).toLocaleString('id-ID')+' ms'+(d.cacheHit?' • Cache indeks':' • Indeks dicache: '+(d.cacheStored?'ya':'tidak'))+' • Total '+Number(d.totalMs||0).toLocaleString('id-ID')+' ms';
  }).withFailureHandler(err=>{p3InitStarted=false;if(status)status.textContent='Gagal memuat Page 3: '+(err.message||String(err));}).getPage3OutletInitialPayload();
 }
 function page3Apply(){
  if(!p3Meta)return;const seq=++p3Request,status=p3$('p3Status');if(status)status.textContent='Menghitung Pareto outlet...';
- const filters={metric:p3Metric,customerQuery:p3$('p3Customer').value||'',subdist:p3$('p3Subdist').value||'SEMUA'};
+ const filters={metric:p3Metric,customerQuery:p3$('p3Customer').value||'',subdist:p3Subdist};
  google.script.run.withSuccessHandler(data=>{
   if(seq!==p3Request)return;p3Data=data;page3Render();const d=data.diagnostics||{};
-  if(status)status.textContent='Top 25 dari '+Number(data.filteredTotal||0).toLocaleString('id-ID')+' '+p3Metric+' • '+data.year+' • '+(d.cacheHit?'Cache '+(d.totalMs||0)+' ms':'Baca '+(d.readMs||0)+' ms • Agregasi '+(d.aggregateMs||0)+' ms');
+  if(status)status.textContent='Top 25 • '+data.year+' • '+p3Metric+' • '+(d.cacheHit?'Cache '+(d.totalMs||0)+' ms':'Baca '+(d.readMs||0)+' ms • Agregasi '+(d.aggregateMs||0)+' ms');
  }).withFailureHandler(err=>{if(seq!==p3Request)return;if(status)status.textContent='Gagal menerapkan filter: '+(err.message||String(err));}).getPage3OutletData(filters);
 }
 function page3Render(){
  if(!p3Data)return;const months=p3Data.months||[],rows=p3Data.rows||[],metric=p3Data.metric||p3Metric;
- p3$('p3TableTitle').textContent='TREND 25 OUTLET PARETO • '+metric;p3$('p3TableDesc').textContent='Ranking berdasarkan total '+metric+' YTD '+p3Data.year+'. Pilih VALUE atau KARTON untuk mengganti dasar Pareto.';
+ p3$('p3TableTitle').textContent='TREND 25 OUTLET PARETO • '+metric;
+ p3$('p3TableDesc').textContent='SOO + TEAM SALESMAN • Ranking berdasarkan total '+metric+' YTD '+p3Data.year+'.';
  const labels={JAN:'Jan',FEB:'Feb',MAR:'Mar',APR:'Apr',MAY:'May',JUN:'Jun',JUL:'Jul',AUG:'Aug',SEP:'Sep',OCT:'Oct',NOV:'Nov',DEC:'Dec'};
  const fmt=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:metric==='VALUE'?0:2});
- const columns=['RANK','CUSTOMER NAME','SUBDIST',...months.map(m=>labels[m]||m),'TOTAL '+metric,'% FILTERED'];
+ const columns=['CUSTOMER','SUBDIST',...months.map(m=>labels[m]||m),'TOTAL '+metric,'% FILTERED'];
  p3$('p3Head').innerHTML='<tr>'+columns.map(x=>'<th>'+p3Esc(x)+'</th>').join('')+'</tr>';
  if(!rows.length){p3$('p3Body').innerHTML='<tr><td colspan="'+columns.length+'" class="p3-empty">Tidak ada outlet untuk filter yang dipilih.</td></tr>';return;}
- p3$('p3Body').innerHTML=rows.map(r=>'<tr><td>'+r.rank+'</td><td>'+p3Esc(r.customerName)+'</td><td>'+p3Esc(r.subdist)+'</td>'+months.map(m=>'<td>'+fmt(r.monthValues[m]||0)+'</td>').join('')+'<td><b>'+fmt(r.total)+'</b></td><td>'+Number(r.contribution||0).toFixed(1)+'%</td></tr>').join('');
+ p3$('p3Body').innerHTML=rows.map(r=>'<tr><td>'+p3Esc(r.customerName)+'</td><td>'+p3Esc(r.subdist)+'</td>'+months.map(m=>'<td>'+fmt(r.monthValues[m]||0)+'</td>').join('')+'<td><b>'+fmt(r.total)+'</b></td><td>'+Number(r.contribution||0).toFixed(1)+'%</td></tr>').join('');
  const monthTotals=months.map(m=>rows.reduce((sum,r)=>sum+(Number(r.monthValues[m])||0),0));
- const cells=['<td>—</td>','<td><b>GRAND TOTAL (TOP 25)</b></td>','<td>—</td>',...monthTotals.map(v=>'<td><b>'+fmt(v)+'</b></td>'),'<td><b>'+fmt(p3Data.top25Total||0)+'</b></td>','<td><b>'+Number(p3Data.top25Contribution||0).toFixed(1)+'%</b></td>'];
+ const cells=['<td><b>GRAND TOTAL (TOP 25)</b></td>','<td>—</td>',...monthTotals.map(v=>'<td><b>'+fmt(v)+'</b></td>'),'<td><b>'+fmt(p3Data.top25Total||0)+'</b></td>','<td><b>'+Number(p3Data.top25Contribution||0).toFixed(1)+'%</b></td>'];
  p3$('p3Body').insertAdjacentHTML('beforeend','<tr class="p3-total">'+cells.join('')+'</tr>');
 }
-document.addEventListener('click',e=>{const metric=e.target.closest('#p3MetricSwitch button[data-metric]');if(metric)p3SetMetric(metric.dataset.metric);if(e.target.closest('#p3Apply'))page3Apply();});
-document.addEventListener('keydown',e=>{if(e.target?.id==='p3Customer'&&e.key==='Enter')page3Apply();});
+document.addEventListener('click',e=>{const metric=e.target.closest('#p3MetricSwitch button[data-metric]');if(metric)p3SetMetric(metric.dataset.metric);});
+document.addEventListener('input',e=>{if(e.target?.id!=='p3Customer')return;clearTimeout(p3SearchTimer);p3SearchTimer=setTimeout(()=>page3Apply(),350);});
 </script>

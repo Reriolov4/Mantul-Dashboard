@@ -900,84 +900,130 @@ function page3IndexSheet_() {
 }
 function page3SourceVersion_(sh) {
   const props=PropertiesService.getScriptProperties();
-  return ['page3-p2-index-v2',page2SourceVersion_(sh),props.getProperty('PAGE2_RAW_UPDATED')||'manual'].join('|');
+  return ['page3-salesman-monthly-v3',page2SourceVersion_(sh),props.getProperty('PAGE2_RAW_UPDATED')||'manual'].join('|');
 }
-function page3Month_(value,dateValue) {
+function page3Month_(value) {
   if(Object.prototype.toString.call(value)==='[object Date]'&&!isNaN(value))return PAGE2_MONTHS_[value.getMonth()];
   const normalized=page2Month_(value);
-  if(PAGE2_MONTHS_.indexOf(normalized)>=0)return normalized;
-  if((value==null||value==='')&&Object.prototype.toString.call(dateValue)==='[object Date]'&&!isNaN(dateValue))return PAGE2_MONTHS_[dateValue.getMonth()];
-  return '';
+  return PAGE2_MONTHS_.indexOf(normalized)>=0?normalized:'';
 }
-function page3Year_(value,dateValue) {
+function page3Year_(value) {
   const direct=Number(value);if(direct>=1900&&direct<=2200)return direct;
   if(Object.prototype.toString.call(value)==='[object Date]'&&!isNaN(value))return value.getFullYear();
-  if(Object.prototype.toString.call(dateValue)==='[object Date]'&&!isNaN(dateValue))return dateValue.getFullYear();
   const match=String(value==null?'':value).match(/(?:19|20|21)\d{2}/);return match?Number(match[0]):0;
 }
+/*
+ * Pareto hanya memerlukan YEAR, MONTH, CUSTOMER, SUBDIST, SALES TYPE,
+ * TEAM, VAL dan CARTON. Baca empat rentang sempit, bukan A:P sekaligus.
+ * Simpan bentuk array ringkas [year,month,customer,subdist,value,karton].
+ */
 function page3ReadIndex_(sh) {
   const sheet=sh||page3IndexSheet_(),lastRow=sheet.getLastRow();
-  if(lastRow<2)return [];
-  const n=lastRow-1,values=sheet.getRange(2,1,n,16).getValues();
-  const rows=[],salesTypeCounts={};
+  if(lastRow<2)return {rows:[],diagnostics:{indexRowCount:0,salesTypeCounts:{},teamCounts:{},readMs:0}};
+  const n=lastRow-1,started=Date.now();
+  const ab=sheet.getRange(2,1,n,2).getValues();       // A:B YEAR, MONTH
+  const df=sheet.getRange(2,4,n,3).getValues();      // D:F CODE, CUSTOMER, SUBDIST
+  const sales=sheet.getRange(2,12,n,1).getValues();  // L SALES TYPE
+  const np=sheet.getRange(2,14,n,3).getValues();     // N:P TEAM, VAL, CARTON
+  const rows=[],salesTypeCounts={},teamCounts={};
   for(let i=0;i<n;i++){
-    const r=values[i],type=page2Key_(r[11]);
+    const type=page2Key_(sales[i][0]),team=page2Key_(np[i][0]);
     if(type)salesTypeCounts[type]=(salesTypeCounts[type]||0)+1;
-    if(type!=='SOO')continue;
-    const name=page2Text_(r[4]);if(!name)continue;
-    rows.push({year:page3Year_(r[0],null),month:page3Month_(r[1],null),day:page2Day_(r[2]),
-      customerCode:page2Text_(r[3]),customerName:name,subdist:page2Text_(r[5]),
-      value:Number(r[14])||0,karton:Number(r[15])||0});
+    if(team)teamCounts[team]=(teamCounts[team]||0)+1;
+    if(type!=='SOO'||team!=='SALESMAN')continue;
+    const customer=page2Text_(df[i][1]);if(!customer)continue;
+    const year=page3Year_(ab[i][0]),month=page3Month_(ab[i][1]);
+    if(!year||!month)continue;
+    rows.push([year,month,customer,page2Text_(df[i][2]),Number(np[i][1])||0,Number(np[i][2])||0]);
   }
-  rows._diagnostics={indexRowCount:n,salesTypeCounts:salesTypeCounts};
-  return rows;
+  return {rows:rows,diagnostics:{indexRowCount:n,salesTypeCounts:salesTypeCounts,teamCounts:teamCounts,readMs:Date.now()-started}};
 }
-function page3BuildMeta_(rows) {
-  const years=new Set(),subdists=new Set();let monthCount=0;
-  for(let i=0;i<rows.length;i++){const r=rows[i];if(r.year)years.add(String(r.year));if(r.subdist)subdists.add(r.subdist);if(r.month)monthCount++;}
-  return {years:Array.from(years).sort((a,b)=>Number(a)-Number(b)),subdists:Array.from(subdists).sort((a,b)=>a.localeCompare(b,'id')),
-    rowCount:rows.length,rawRowCount:rows._diagnostics?rows._diagnostics.indexRowCount:0,
-    salesTypeCounts:rows._diagnostics?rows._diagnostics.salesTypeCounts:{},monthCount:monthCount,yearCount:years.size,
+function page3RowsCacheKey_(sh) {
+  return page2CacheKey_('p3salesman_rows_gzip_v3','compact-soo-salesman',page3SourceVersion_(sh));
+}
+function page3CacheRows_(cache,key,dataset) {
+  try {
+    const json=JSON.stringify(dataset);
+    const zipped=Utilities.gzip(Utilities.newBlob(json,'application/json'));
+    const encoded=Utilities.base64Encode(zipped.getBytes());
+    // CacheService item limit: split compressed payload into safe 30 KB chunks.
+    return page2CachePutChunked_(cache,key,encoded,300);
+  } catch(err) { return false; }
+}
+function page3GetCachedRows_(cache,key) {
+  const encoded=page2CacheGetChunked_(cache,key);if(!encoded)return null;
+  try {
+    const bytes=Utilities.base64Decode(encoded);
+    const json=Utilities.ungzip(Utilities.newBlob(bytes)).getDataAsString();
+    return JSON.parse(json);
+  } catch(err) {
+    cache.remove(key+'_manifest');return null;
+  }
+}
+function page3GetDataset_(sh,cache) {
+  const key=page3RowsCacheKey_(sh),cached=page3GetCachedRows_(cache,key);
+  if(cached&&Array.isArray(cached.rows))return {dataset:cached,cacheHit:true};
+  const dataset=page3ReadIndex_(sh);
+  page3CacheRows_(cache,key,dataset);
+  return {dataset:dataset,cacheHit:false};
+}
+function page3BuildMeta_(dataset) {
+  const rows=dataset.rows||[],years=new Set(),subdists=new Set();let monthCount=0;
+  for(let i=0;i<rows.length;i++){const r=rows[i];if(r[0])years.add(String(r[0]));if(r[3])subdists.add(r[3]);if(r[1])monthCount++;}
+  const diag=dataset.diagnostics||{};
+  return {years:Array.from(years).sort((a,b)=>Number(a)-Number(b)),
+    subdists:['EPM BAC','EPM LSE','GMP BAC','GMP LSE','GMP LGS','DB MBO','DB BAC'].filter(x=>subdists.has(x)),
+    rowCount:rows.length,rawRowCount:diag.indexRowCount||0,salesTypeCounts:diag.salesTypeCounts||{},
+    teamCounts:diag.teamCounts||{},monthCount:monthCount,yearCount:years.size,
     updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED')||'P2_EVENT_INDEX'};
 }
-function page3BuildPareto_(sourceRows,filters) {
+function page3BuildPareto_(dataset,filters) {
   filters=filters||{};
+  const sourceRows=dataset.rows||[];
   let year=Number(filters.year)||0,latestMonthIndex=0;
-  if(!year){for(let i=0;i<sourceRows.length;i++)if(sourceRows[i].year>year)year=sourceRows[i].year;}
+  if(!year){for(let i=0;i<sourceRows.length;i++)if(sourceRows[i][0]>year)year=sourceRows[i][0];}
   if(!year)year=new Date().getFullYear();
-  for(let i=0;i<sourceRows.length;i++){const r=sourceRows[i];if(r.year===year){const mi=PAGE2_MONTHS_.indexOf(r.month)+1;if(mi>latestMonthIndex)latestMonthIndex=mi;}}
+  for(let i=0;i<sourceRows.length;i++){const r=sourceRows[i];if(r[0]===year){const mi=PAGE2_MONTHS_.indexOf(r[1])+1;if(mi>latestMonthIndex)latestMonthIndex=mi;}}
   const months=latestMonthIndex>0?PAGE2_MONTHS_.slice(0,latestMonthIndex):[],monthSet=new Set(months);
   const metric=String(filters.metric||'VALUE').toUpperCase()==='KARTON'?'KARTON':'VALUE';
   const customerQuery=page2Key_(filters.customerQuery||''),subdist=page2Key_(filters.subdist||'SEMUA');
   const map=new Map();let filteredTotal=0;
   for(let i=0;i<sourceRows.length;i++){
-    const r=sourceRows[i];if(r.year!==year||!monthSet.has(r.month))continue;
-    if(customerQuery&&!page2Key_(r.customerName).includes(customerQuery))continue;
-    if(subdist&&subdist!=='SEMUA'&&page2Key_(r.subdist)!==subdist)continue;
-    const amount=Number(metric==='KARTON'?r.karton:r.value)||0;filteredTotal+=amount;
-    const key=page2ExactCompositeKey_([r.subdist,r.customerName]);let item=map.get(key);
-    if(!item){item={customerName:r.customerName,subdist:r.subdist,monthValues:{},total:0};map.set(key,item);}
-    item.monthValues[r.month]=(item.monthValues[r.month]||0)+amount;item.total+=amount;
+    const r=sourceRows[i];if(r[0]!==year||!monthSet.has(r[1]))continue;
+    if(customerQuery&&!page2Key_(r[2]).includes(customerQuery))continue;
+    if(subdist&&subdist!=='SEMUA'&&page2Key_(r[3])!==subdist)continue;
+    const amount=Number(metric==='KARTON'?r[5]:r[4])||0;filteredTotal+=amount;
+    const key=page2ExactCompositeKey_([r[3],r[2]]);let item=map.get(key);
+    if(!item){item={customerName:r[2],subdist:r[3],monthValues:{},total:0};map.set(key,item);}
+    item.monthValues[r[1]]=(item.monthValues[r[1]]||0)+amount;item.total+=amount;
   }
   const rows=Array.from(map.values()).sort((a,b)=>b.total-a.total||a.customerName.localeCompare(b.customerName,'id')).slice(0,25);
-  let top25Total=0;for(let i=0;i<rows.length;i++){top25Total+=rows[i].total;rows[i].rank=i+1;rows[i].contribution=filteredTotal?rows[i].total/filteredTotal*100:0;}
+  let top25Total=0;for(let i=0;i<rows.length;i++){top25Total+=rows[i].total;rows[i].contribution=filteredTotal?rows[i].total/filteredTotal*100:0;}
   return {year:year,metric:metric,months:months,rows:rows,filteredTotal:filteredTotal,top25Total:top25Total,top25Contribution:filteredTotal?top25Total/filteredTotal*100:0};
 }
 function getPage3OutletInitialPayload() {
-  const started=Date.now(),sh=page3IndexSheet_(),version=page3SourceVersion_(sh),key=page2CacheKey_('p3initial_index_v2','initial',version),cache=CacheService.getScriptCache(),cached=page2CacheGetChunked_(cache,key);
-  if(cached){try{const result=JSON.parse(cached);result.diagnostics={cacheHit:true,source:sh.getName(),totalMs:Date.now()-started};return result;}catch(e){cache.remove(key+'_manifest');}}
-  const readStarted=Date.now(),rows=page3ReadIndex_(sh),readMs=Date.now()-readStarted,meta=page3BuildMeta_(rows);
-  const aggregateStarted=Date.now(),data=page3BuildPareto_(rows,{}),aggregateMs=Date.now()-aggregateStarted;
-  const result={meta:meta,data:data,diagnostics:{cacheHit:false,source:sh.getName(),sourceRows:rows.length,readMs:readMs,aggregateMs:aggregateMs,totalMs:Date.now()-started}};
-  try{page2CachePutChunked_(cache,key,JSON.stringify(result),300);}catch(e){}
+  const started=Date.now(),sh=page3IndexSheet_(),cache=CacheService.getScriptCache();
+  const version=page3SourceVersion_(sh),initialKey=page2CacheKey_('p3initial_salesman_v3','initial',version);
+  const cached=page2CacheGetChunked_(cache,initialKey);
+  if(cached){try{const result=JSON.parse(cached);result.diagnostics={cacheHit:true,source:sh.getName(),totalMs:Date.now()-started};return result;}catch(err){cache.remove(initialKey+'_manifest');}}
+  const loaded=page3GetDataset_(sh,cache),dataset=loaded.dataset;
+  const meta=page3BuildMeta_(dataset),aggregateStarted=Date.now(),data=page3BuildPareto_(dataset,{});
+  const aggregateMs=Date.now()-aggregateStarted,diag=dataset.diagnostics||{};
+  const result={meta:meta,data:data,diagnostics:{cacheHit:loaded.cacheHit,source:sh.getName(),sourceRows:meta.rowCount,
+    indexRows:meta.rawRowCount,readMs:diag.readMs||0,aggregateMs:aggregateMs,totalMs:Date.now()-started,
+    cacheStored:!!page3GetCachedRows_(cache,page3RowsCacheKey_(sh))}};
+  try{page2CachePutChunked_(cache,initialKey,JSON.stringify(result),300);}catch(err){}
   return result;
 }
 function getPage3OutletData(filters) {
-  const started=Date.now(),sh=page3IndexSheet_(),safe=filters||{},version=page3SourceVersion_(sh),key=page2CacheKey_('p3data_index_v2',JSON.stringify(safe),version),cache=CacheService.getScriptCache(),cached=cache.get(key);
-  if(cached){try{const result=JSON.parse(cached);result.diagnostics={cacheHit:true,totalMs:Date.now()-started};return result;}catch(e){cache.remove(key);}}
-  const readStarted=Date.now(),rows=page3ReadIndex_(sh),readMs=Date.now()-readStarted;
-  const aggregateStarted=Date.now(),result=page3BuildPareto_(rows,safe),aggregateMs=Date.now()-aggregateStarted;
-  result.diagnostics={cacheHit:false,source:sh.getName(),sourceRows:rows.length,readMs:readMs,aggregateMs:aggregateMs,totalMs:Date.now()-started};
-  try{cache.put(key,JSON.stringify(result),300);}catch(e){}
+  const started=Date.now(),sh=page3IndexSheet_(),cache=CacheService.getScriptCache(),safe=filters||{};
+  const version=page3SourceVersion_(sh),key=page2CacheKey_('p3data_salesman_v3',JSON.stringify(safe),version);
+  const cached=cache.get(key);
+  if(cached){try{const result=JSON.parse(cached);result.diagnostics={cacheHit:true,totalMs:Date.now()-started};return result;}catch(err){cache.remove(key);}}
+  const loaded=page3GetDataset_(sh,cache),aggregateStarted=Date.now();
+  const result=page3BuildPareto_(loaded.dataset,safe),aggregateMs=Date.now()-aggregateStarted;
+  result.diagnostics={cacheHit:loaded.cacheHit,source:sh.getName(),sourceRows:loaded.dataset.rows.length,
+    readMs:loaded.dataset.diagnostics.readMs||0,aggregateMs:aggregateMs,totalMs:Date.now()-started};
+  try{const json=JSON.stringify(result);if(json.length<=90000)cache.put(key,json,300);else page2CachePutChunked_(cache,key,json,300);}catch(err){}
   return result;
 }
