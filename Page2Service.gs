@@ -869,6 +869,19 @@ function page3SourceVersion_(sh) {
   const props=PropertiesService.getScriptProperties();
   return ['page3-raw-outlets-v1',getDatabaseRevision_(),sh.getParent().getId(),sh.getSheetId(),sh.getLastRow(),sh.getLastColumn(),props.getProperty('PAGE2_RAW_UPDATED')||'manual'].join('|');
 }
+function page3Month_(value,dateValue) {
+  if(Object.prototype.toString.call(value)==='[object Date]'&&!isNaN(value))return PAGE2_MONTHS_[value.getMonth()];
+  const normalized=page2Month_(value);
+  if(PAGE2_MONTHS_.indexOf(normalized)>=0)return normalized;
+  if((value==null||value==='')&&Object.prototype.toString.call(dateValue)==='[object Date]'&&!isNaN(dateValue))return PAGE2_MONTHS_[dateValue.getMonth()];
+  return '';
+}
+function page3Year_(value,dateValue) {
+  const direct=Number(value);if(direct>=1900&&direct<=2200)return direct;
+  if(Object.prototype.toString.call(value)==='[object Date]'&&!isNaN(value))return value.getFullYear();
+  if(Object.prototype.toString.call(dateValue)==='[object Date]'&&!isNaN(dateValue))return dateValue.getFullYear();
+  const match=String(value==null?'':value).match(/(?:19|20|21)\\d{2}/);return match?Number(match[0]):0;
+}
 function page3ReadRaw_(sh) {
   const sheet=sh||page3RawSheet_(),lastRow=sheet.getLastRow();
   if(lastRow<2)return [];
@@ -877,21 +890,27 @@ function page3ReadRaw_(sh) {
   Object.keys(expected).forEach(k=>{if(headers[Number(k)]!==expected[k])throw new Error('Header RAW_DATA_SALES kolom '+String.fromCharCode(65+Number(k))+' harus '+expected[k]+', ditemukan '+(headers[Number(k)]||'(kosong)')+'.');});
   const n=lastRow-1,abc=sheet.getRange(2,1,n,3).getValues(),karton=sheet.getRange(2,8,n,1).getValues(),
     customer=sheet.getRange(2,10,n,4).getValues(),salesType=sheet.getRange(2,15,n,1).getValues(),subdist=sheet.getRange(2,16,n,1).getValues();
-  const rows=[];
+  const rows=[],salesTypeCounts={};
   for(let i=0;i<n;i++){
-    if(page2Key_(salesType[i][0])!=='SOO')continue;
+    const type=page2Key_(salesType[i][0]);if(type)salesTypeCounts[type]=(salesTypeCounts[type]||0)+1;
+    if(type!=='SOO')continue;
     const name=page2Text_(customer[i][1]);if(!name)continue;
-    rows.push({year:Number(abc[i][0])||0,month:page2Month_(abc[i][1]),day:page2Day_(abc[i][2]),
+    const year=page3Year_(abc[i][0],abc[i][2]),month=page3Month_(abc[i][1],abc[i][2]);
+    rows.push({year:year,month:month,day:page2Day_(abc[i][2]),
       karton:Number(karton[i][0])||0,customerCode:page2Text_(customer[i][0]),customerName:name,
       value:Number(customer[i][3])||0,subdist:page2Text_(subdist[i][0])});
   }
+  rows._diagnostics={rawRowCount:n,salesTypeCounts:salesTypeCounts};
   return rows;
 }
 function page3BuildMeta_(rows) {
   const years=new Set(),subdists=new Set();
   rows.forEach(r=>{if(r.year)years.add(String(r.year));if(r.subdist)subdists.add(r.subdist);});
   return {years:Array.from(years).sort((a,b)=>Number(a)-Number(b)),subdists:Array.from(subdists).sort((a,b)=>a.localeCompare(b,'id')),
-    rowCount:rows.length,updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED')||'Live dari Google Sheets'};
+    rowCount:rows.length,rawRowCount:rows._diagnostics?rows._diagnostics.rawRowCount:0,
+    salesTypeCounts:rows._diagnostics?rows._diagnostics.salesTypeCounts:{},
+    monthCount:rows.filter(r=>r.month).length,yearCount:years.size,
+    updatedAt:PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED')||'Live dari Google Sheets'};
 }
 function page3BuildPareto_(sourceRows,filters) {
   filters=filters||{};
