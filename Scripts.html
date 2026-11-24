@@ -227,7 +227,11 @@ function renderSbu(periodMonths,total){
   return `<div class="sbu-card"><div class="sbu-name">${u==='B7'?'BINTANG TOEDJOE':'SAKAFARMA'}</div><div class="sbu-actual">${fmt(actual)}</div><div class="sbu-stats"><div class="sbu-stat"><small>% ACH</small><b class="${achClass(ach)}">${ach===null?'N/A':ach.toFixed(1)+'%'}</b></div><div class="sbu-stat"><small>GRW vs LY</small><b class="${growth===null?'neutral':growth>=0?'positive':'negative'}">${pct(growth)}</b></div><div class="sbu-stat"><small>CTR</small><b class="${ctrClass(contrib)}">${contrib.toFixed(1)}%</b></div><div class="sbu-stat"><small>TARGET</small><b>${fmt(target)}</b></div></div></div>`;
  }).join('');
  $('sbuCards').innerHTML=sbuHtml;
- $('pfCards').innerHTML=renderProductFocus('PRODUCT FOCUS MONTHLY','fm',['PF 1','PF 2'],periodMonths,typ)+renderProductFocus('PRODUCT FOCUS QUARTERLY','fq',['PF 1','PF 2','PF 3'],periodMonths,typ);
+ const focusMonths=periodMonths.filter(m=>months.includes(m));
+ const focusLast=focusMonths.length?Math.max(...focusMonths.map(m=>months.indexOf(m))):-1;
+ const focusMonthly=focusLast>=0?[months[focusLast]]:[];
+ const focusQuarterly=focusLast>=0?months.slice(Math.floor(focusLast/3)*3,focusLast+1):[];
+ $('pfCards').innerHTML=renderProductFocus('PRODUCT FOCUS MONTHLY','fm',['PF 1','PF 2'],focusMonthly,typ)+renderProductFocus('PRODUCT FOCUS QUARTERLY','fq',['PF 1','PF 2','PF 3'],focusQuarterly,typ);
 }
 function monthlyValue(data,month){return sum(data.filter(r=>r.m===month));}
 function monthlyMetrics(data,dim,key,grandTotal){
