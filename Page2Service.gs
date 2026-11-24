@@ -432,21 +432,23 @@ function page2BuildDashboardData_(filters, sourceRows) {
     }
 
     if (!customerName || !dayKey || !outletKey) return;
-    const totalBucket = isCY ? CY : LY;
 
-    if (outletKey) totalBucket.ao.add(outletKey);
-    totalBucket.ec.add(ecKey);
-    addGroup(totalBucket, 'sbu', page2Key_(r[12]), outletKey, ecKey);
-    addGroup(totalBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey, Number(r[14]) || 0);
-
-    if (month === mtdMonth) {
-      if (outletKey) (isCY ? mtd.cyAO : mtd.lyAO).add(outletKey);
-      (isCY ? mtd.cyEC : mtd.lyEC).add(ecKey);
-    }
-
-    // Donut composition follows the selected month period, not the entire year.
-    // This prevents Value from showing a full-year total when only NOV is selected.
+    // KPI utama, SBU, dan byTeam harus mengikuti bulan yang dipilih.
+    // Jangan memasukkan Desember LY saat periode CY hanya Jan-Nov,
+    // dan jangan menghitung full-year ketika pengguna memilih bulan tertentu.
     if (periodMonthSet.has(month)) {
+      const totalBucket = isCY ? CY : LY;
+      totalBucket.ao.add(outletKey);
+      totalBucket.ec.add(ecKey);
+      addGroup(totalBucket, 'sbu', page2Key_(r[12]), outletKey, ecKey);
+      addGroup(totalBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey, Number(r[14]) || 0);
+
+      if (month === mtdMonth) {
+        (isCY ? mtd.cyAO : mtd.lyAO).add(outletKey);
+        (isCY ? mtd.cyEC : mtd.lyEC).add(ecKey);
+      }
+
+      // Donut composition follows the selected month period.
       const chartBucket = isCY ? CHART_CY : CHART_LY;
       addGroup(chartBucket, 'subdist', page2Text_(r[8]), outletKey, ecKey, value);
       addGroup(chartBucket, 'account', page2Text_(r[10]), outletKey, ecKey, value);
@@ -454,7 +456,6 @@ function page2BuildDashboardData_(filters, sourceRows) {
       addGroup(chartBucket, 'category', page2Text_(r[11]), outletKey, ecKey, value);
       addGroup(chartBucket, 'subbrand', page2Text_(r[3]), outletKey, ecKey, value);
     }
-
 
     // Simpan hanya bulan YTD sampai bulan aktif agar insight harian bisa
     // menghitung MTD, LM, L3M, dan YTD tanpa memuat seluruh histori.
