@@ -880,7 +880,7 @@ function page3Year_(value,dateValue) {
   const direct=Number(value);if(direct>=1900&&direct<=2200)return direct;
   if(Object.prototype.toString.call(value)==='[object Date]'&&!isNaN(value))return value.getFullYear();
   if(Object.prototype.toString.call(dateValue)==='[object Date]'&&!isNaN(dateValue))return dateValue.getFullYear();
-  const match=String(value==null?'':value).match(/(?:19|20|21)\\d{2}/);return match?Number(match[0]):0;
+  const match=String(value==null?'':value).match(/(?:19|20|21)\d{2}/);return match?Number(match[0]):0;
 }
 function page3ReadRaw_(sh) {
   const sheet=sh||page3RawSheet_(),lastRow=sheet.getLastRow();
