@@ -940,7 +940,6 @@ function page3ReadRaw_(sh) {
     {start:18,values:sheet.getRange(2,19,n,1).getValues()}     // S
   ];
   const readers={};
-  blocks.forEach(block=>block.values[0]!==undefined&&block.values.forEach((row,i)=>{}));
   blocks.forEach(block=>{
     const width=block.values.length?block.values[0].length:0;
     for(let j=0;j<width;j++)readers[block.start+j]={values:block.values,offset:j};
