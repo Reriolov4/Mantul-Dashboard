@@ -440,7 +440,11 @@ function page2BuildDashboardData_(filters, sourceRows) {
         (isCY ? mtd.cyEC : mtd.lyEC).add(ecKey);
       }
 
-      // Donut composition follows the selected month period.
+    }
+
+    // Donut composition hanya untuk bulan terakhir yang dipilih (bulan berjalan pada filter).
+    // KPI utama dan tabel tetap mengikuti seluruh bulan yang dipilih.
+    if (month === mtdMonth) {
       const chartBucket = isCY ? CHART_CY : CHART_LY;
       addGroup(chartBucket, 'subdist', page2Text_(r[8]), outletKey, ecKey, value);
       addGroup(chartBucket, 'account', page2Text_(r[10]), outletKey, ecKey, value);
