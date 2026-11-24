@@ -168,28 +168,28 @@
   <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND BULANAN</h2><p>Perbandingan tahun berjalan dan tahun lalu.</p></div></div><div class="p2-chartbox"><canvas id="p2MonthlyChart"></canvas></div><div class="p2-insight-grid" id="p2MonthlyInsights"><div class="p2-insight"><small>ACT MTD</small><b id="p2MonthlyActMtd">—</b></div><div class="p2-insight"><small>AVG YTD</small><b id="p2MonthlyAvgYtd">—</b></div><div class="p2-insight"><small>AVG L3M</small><b id="p2MonthlyAvgL3m">—</b></div><div class="p2-insight"><small>GRW LM</small><b id="p2MonthlyGrowthLm">—</b></div><div class="p2-insight"><small>GRW L3M</small><b id="p2MonthlyGrowthL3m">—</b></div><div class="p2-insight"><small>GRW YTD</small><b id="p2MonthlyGrowthYtd">—</b></div></div></article>
   <article class="p2-card"><div class="p2-chart-head"><div><h2>TREND HARIAN</h2><p>Pergerakan berdasarkan tanggal dalam bulan.</p></div></div><div class="p2-chartbox"><canvas id="p2DailyChart"></canvas></div><div class="p2-insight-grid" id="p2DailyInsights"><div class="p2-insight"><small>ACT MTD</small><b id="p2DailyActMtd">—</b></div><div class="p2-insight"><small>AVG YTD</small><b id="p2DailyAvgYtd">—</b></div><div class="p2-insight"><small>AVG L3M</small><b id="p2DailyAvgL3m">—</b></div><div class="p2-insight"><small>GRW LM</small><b id="p2DailyGrowthLm">—</b></div><div class="p2-insight"><small>GRW L3M</small><b id="p2DailyGrowthL3m">—</b></div><div class="p2-insight"><small>GRW YTD</small><b id="p2DailyGrowthYtd">—</b></div></div></article>
  </div>
- <article class="p2-card p2-pareto-card">
-  <div class="p2-chart-head"><div><h2>25 OUTLET PARETO</h2><p>Ranking berdasarkan Actual YTD terbesar; nama akun tertentu dikecualikan sesuai daftar.</p></div></div>
-  <div class="p2-table-wrap"><table class="p2-pareto-table"><thead><tr><th>CUSTOMER NAME</th><th>SUBDIST</th><th>ACTUAL CY</th><th>ACTUAL LY</th><th>GRW MTD</th><th>ACTUAL YTD</th><th>ACTUAL LY</th><th>GRW YTD</th><th>GRW VS LM</th><th>GRW VS L3M</th><th>CTR</th><th>AVG / MONTH</th></tr></thead><tbody id="p2ParetoBody"><tr><td colspan="12" class="p2-empty">Menunggu data…</td></tr></tbody></table></div>
- </article>
  <article class="p2-card p2-pareto-card" id="p2ParetoTrendCard">
   <div class="p2-chart-head"><div><h2>TREND 25 OUTLET PARETO</h2><p>Omzet bulanan untuk 25 outlet Pareto berdasarkan filter dan bulan terpilih.</p></div></div>
   <div class="p2-table-wrap p2-trend-wrap"><table class="p2-pareto-table p2-trend-table"><thead id="p2ParetoTrendHead"></thead><tbody id="p2ParetoTrendBody"><tr><td class="p2-empty">Menunggu data…</td></tr></tbody></table></div>
  </article>
 </section>
 
-<style>#page2View #p2AOly,#page2View #p2ECly{font-size:12px!important;font-weight:800!important;color:#334155!important}/* Trend Pareto: fixed first columns so customer/subdist never collide on horizontal scroll. */
-#page2View .p2-trend-wrap{overflow:auto;max-width:100%;isolation:isolate}
+<style>
+#page2View #p2AOly,#page2View #p2ECly{font-size:12px!important;font-weight:800!important;color:#334155!important}
+#page2View .p2-trend-wrap{overflow:auto;max-width:100%;isolation:isolate;position:relative;overscroll-behavior:contain}
 #page2View .p2-trend-table{width:max-content;min-width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0}
-#page2View .p2-trend-table th:first-child,#page2View .p2-trend-table td:first-child{width:200px;min-width:200px;max-width:200px;text-align:left;position:sticky;left:0;background:#fff;z-index:6;box-sizing:border-box}
-#page2View .p2-trend-table th:nth-child(2),#page2View .p2-trend-table td:nth-child(2){width:120px;min-width:120px;max-width:120px;text-align:left;position:sticky;left:200px;background:#fff;z-index:6;box-sizing:border-box}
-#page2View .p2-trend-table th:first-child,#page2View .p2-trend-table th:nth-child(2){background:#f8e8eb;z-index:10}
+#page2View .p2-trend-table th:first-child,#page2View .p2-trend-table td:first-child{width:200px;min-width:200px;max-width:200px;text-align:left;position:sticky;left:0;box-sizing:border-box}
+#page2View .p2-trend-table td:first-child{background:#fff;z-index:7;box-shadow:2px 0 4px rgba(23,59,112,.12)}
+#page2View .p2-trend-table th:first-child{background:#173b70;color:#fff;z-index:12}
+#page2View .p2-trend-table th:nth-child(2),#page2View .p2-trend-table td:nth-child(2){width:120px;min-width:120px;max-width:120px;text-align:left;box-sizing:border-box}
+#page2View .p2-trend-table th:not(:first-child){background:#173b70;color:#fff;z-index:10}
 #page2View .p2-trend-table th:nth-child(n+3),#page2View .p2-trend-table td:nth-child(n+3){width:96px;min-width:96px;max-width:96px}
 #page2View .p2-trend-table .p2-col-growth{width:56px;min-width:56px;max-width:56px;padding-left:2px;padding-right:2px;font-size:7px}
 #page2View .p2-trend-table .p2-col-growth-long{width:60px;min-width:60px;max-width:60px;padding-left:2px;padding-right:2px;font-size:7px}
 #page2View .p2-trend-table td:first-child,#page2View .p2-trend-table td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#page2View .p2-trend-table .p2-grand-total td:first-child,#page2View .p2-trend-table .p2-grand-total td:nth-child(2){background:#e8eef8;z-index:9}
-#page2View .p2-trend-table tbody td:first-child,#page2View .p2-trend-table tbody td:nth-child(2){box-shadow:1px 0 0 #e2e8f0}
+#page2View .p2-trend-table tbody tr:hover td:first-child{background:#f8fafc}
+#page2View .p2-trend-table .p2-grand-total td{position:sticky;bottom:0;background:#fff1cc;color:#173b70;font-weight:850;border-top:2px solid #d6a43b;z-index:8}
+#page2View .p2-trend-table .p2-grand-total td:first-child{left:0;background:#fff1cc;z-index:13;box-shadow:2px 0 4px rgba(23,59,112,.12)}
 </style>
 
 <style>#page2View #p2Dates{grid-template-columns:1fr!important}</style>
