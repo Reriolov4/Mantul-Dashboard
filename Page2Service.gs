@@ -87,7 +87,8 @@ function page2Read_(sheet) {
         expectedHeaders.join(', ') + '. Terbaca: ' + actualHeaders.join(', ')
       );
     }
-    const values = sh.getRange(2, 1, lastRow - 1, 16).getValues();
+    // Page 2 only consumes A:O. Column P (CARTON) is reserved for Page 3.
+    const values = sh.getRange(2, 1, lastRow - 1, 15).getValues();
     return values.map(r => [
       r[0], page2Month_(r[1]), r[2], r[8], r[7], r[4], r[6],
       r[11], r[5], page2Key_(r[13]) || 'SALESMAN', r[4], r[9],
