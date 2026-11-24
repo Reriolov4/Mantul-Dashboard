@@ -316,9 +316,11 @@ function render(){
  const periodLabel=periodMonths.length?periodMonths.map(m=>labels[months.indexOf(m)]).join(', '):'Tidak ada bulan';
  $('period').textContent=periodLabel+' '+y+' • '+d.length.toLocaleString('id-ID')+' baris';
  $('matrixPeriod').textContent=periodMonths.length===12?'Semua Bulan':periodLabel+' '+y;
- const chartMonths=periodMonths;
+ // Grafik tren omset bersifat kumulatif: selalu Jan sampai bulan terakhir
+ // yang dipilih, meskipun filter KPI/matrix hanya memilih satu atau beberapa bulan.
+ const chartMonths=ytdMonths();
  const actual25=chartMonths.map(m=>monthActual(2025,m,null,null));
- const actual26=chartMonths.map(m=>monthActual(y,m,null,null));
+ const actual26=chartMonths.map(m=>monthActual(2026,m,null,null));
  const target26=chartMonths.map(m=>targetTotal(null,null,typ,[m]));
  chart('trend','bar',{labels:chartMonths.map(m=>labels[months.indexOf(m)]),datasets:[
  {label:'Omset 2025',data:actual25,backgroundColor:'#94a3b8',borderRadius:4},
