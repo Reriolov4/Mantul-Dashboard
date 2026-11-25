@@ -23,7 +23,7 @@ function page34Entity_(row,mode){
 function page3BuildMeta_(rows){
  const years=new Set(),subbrands=new Set(),monthsByYear={};let soo=0,soModeRows=0;
  (rows||[]).forEach(r=>{
-  const type=page2Key_(r[11]);if(type==='SOO')soo++;if(type==='SO'||type==='SOO')soModeRows++;if(type!=='SO'&&type!=='SOO')return;
+  const type=page2Key_(r[11]);if(type==='SOO')soo++;soModeRows++;
   const y=String(Number(r[0])||r[0]||'').trim(),m=page2Month_(r[1]),sb=page2Text_(r[8]);
   if(y)years.add(y);if(sb)subbrands.add(sb);if(y&&m){if(!monthsByYear[y])monthsByYear[y]=new Set();monthsByYear[y].add(m);}
  });
@@ -38,7 +38,7 @@ function page3BuildData_(rows,filters,meta){
  const subdistSet=new Set(page2FilterList_(filters.subdists).map(page2Key_)),subbrandSet=new Set(page2FilterList_(filters.subbrands).map(page2Key_));
  const query=page2Key_(filters.customerName||''),metric=String(filters.metric||'value').toLowerCase()==='carton'?'carton':'value',map=new Map();let matchedSourceRows=0;
  (rows||[]).forEach(r=>{
-  const type=page2Key_(r[11]);if(mode==='SOO'&&type!=='SOO')return;if(mode==='SO'&&type!=='SO'&&type!=='SOO')return;
+  const type=page2Key_(r[11]);if(mode==='SOO'&&type!=='SOO')return;
   if(Number(r[0])!==year)return;
   const m=page2Month_(r[1]),sd=page34Entity_(r,mode),sb=page2Text_(r[8]),customer=page2Text_(r[4]);
   if(!monthSet.has(m)||!sd||!customer)return;if(subdistSet.size&&!subdistSet.has(page2Key_(sd)))return;
