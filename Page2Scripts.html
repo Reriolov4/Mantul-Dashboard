@@ -209,13 +209,13 @@ document.addEventListener('click',e=>{const metricButton=e.target.closest('#p2Me
 function page2Show(){
  const view=p2$('page2View');document.querySelectorAll('main.wrap > *').forEach(el=>{if(el===view)return;el.hidden=true;el.style.setProperty('display','none','important');});
  if(view){view.hidden=false;view.style.setProperty('display','block','important');}
- document.body.classList.add('page2-active');document.querySelector('.p1-nav')?.classList.remove('active');document.querySelector('.p2-nav')?.classList.add('active');document.querySelector('.p3-nav')?.classList.remove('active');window.scrollTo(0,0);
+ document.body.classList.add('page2-active');document.querySelector('.p1-nav')?.classList.remove('active');document.querySelector('.p2-nav')?.classList.add('active');document.querySelector('.p3-nav')?.classList.remove('active');document.querySelector('.p4-nav')?.classList.remove('active');window.scrollTo(0,0);
  if(!p2Meta)page2Init();else if(p2Data&&p2NeedsRender){page2Render();p2NeedsRender=false;}
 }
 function page1Show(){
- const p2=p2$('page2View'),p3=p2$('page3View');if(p2){p2.hidden=true;p2.style.setProperty('display','none','important');}if(p3){p3.hidden=true;p3.style.setProperty('display','none','important');}
- document.querySelectorAll('main.wrap > *').forEach(el=>{if(el===p2||el===p3)return;el.hidden=false;el.style.removeProperty('display');});
- document.body.classList.remove('page2-active');document.querySelector('.p2-nav')?.classList.remove('active');document.querySelector('.p3-nav')?.classList.remove('active');document.querySelector('.p1-nav')?.classList.add('active');window.scrollTo(0,0);
+ const p2=p2$('page2View'),p3=p2$('page3View'),p4=p2$('page4View');[p2,p3,p4].forEach(v=>{if(v){v.hidden=true;v.style.setProperty('display','none','important');}});
+ document.querySelectorAll('main.wrap > *').forEach(el=>{if(el===p2||el===p3||el===p4)return;el.hidden=false;el.style.removeProperty('display');});
+ document.body.classList.remove('page2-active');document.querySelector('.p2-nav')?.classList.remove('active');document.querySelector('.p3-nav')?.classList.remove('active');document.querySelector('.p4-nav')?.classList.remove('active');document.querySelector('.p1-nav')?.classList.add('active');window.scrollTo(0,0);
 }
  
 // Page 2 is initialized only when the user opens it (page2Show).
