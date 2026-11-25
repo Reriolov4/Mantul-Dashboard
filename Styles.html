@@ -1411,9 +1411,9 @@ header .upload { box-shadow:0 3px 12px rgba(0,0,0,.28); }
 .dashboard-screenshot-btn:disabled{opacity:.6;cursor:wait}
 @media(max-width:700px){.dashboard-screenshot-btn{margin:8px 0 0 0;padding:10px 12px;font-size:12px}}
 /* Page switch isolation: old Sales Performance panels must never leak into Page 2. */
-body.page2-active main.wrap > :not(#page2View):not(#page3View){display:none!important}
+body.page2-active main.wrap > :not(#page2View):not(#page3View):not(#page4View){display:none!important}
 body.page2-active main.wrap > #page2View{display:block!important}
-#page2View[hidden],#page3View[hidden]{display:none!important}
+#page2View[hidden],#page3View[hidden],#page4View[hidden]{display:none!important}
 
 
 #subdistFilter .month-checks,#brandFilter .month-checks,#subbrandFilter .month-checks,#categoryFilter .month-checks{grid-template-columns:1fr!important;max-height:230px;overflow:auto;overscroll-behavior:contain}
