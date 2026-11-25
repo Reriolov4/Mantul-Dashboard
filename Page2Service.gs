@@ -777,6 +777,7 @@ function page2CacheGetChunked_(cache, key) {
 }
 
 function getPage2InitialPayload() {
+  if (typeof analyticsEnsureExistingIndexesRegistered_ === 'function') analyticsEnsureExistingIndexesRegistered_();
   const totalStarted = Date.now();
   const sh = page2Source_();
   const version = page2SourceVersion_(sh);
