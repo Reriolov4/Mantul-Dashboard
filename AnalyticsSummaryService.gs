@@ -14,7 +14,29 @@ function analyticsYear_(value){
   const match=String(value==null?'':value).match(/(?:19|20|21)\d{2}/);return match?Number(match[0]):0;
 }
 
-function analyticsSummaryReady_(){if(PropertiesService.getScriptProperties().getProperty(ANALYTICS_SUMMARY_STATUS_KEY_)!=='COMPLETE')return false;const ss=getDatabase_(),a=ss.getSheetByName('P2_DASHBOARD_FACT'),b=ss.getSheetByName('P3_OUTLET_MONTHLY');return !!(a&&a.getLastRow()>1&&b&&b.getLastRow()>1);}
+function analyticsSummaryReadiness_(){
+  const props=PropertiesService.getScriptProperties(),status=props.getProperty(ANALYTICS_SUMMARY_STATUS_KEY_)||'NOT_BUILT';
+  const ss=getDatabase_(),source=ss.getSheetByName('P2_EVENT_INDEX'),p2=ss.getSheetByName('P2_DASHBOARD_FACT'),
+    sub=ss.getSheetByName('P2_SUBDIST_FACT'),p3=ss.getSheetByName('P3_OUTLET_MONTHLY');
+  let stats=null,ranges=null;
+  try{stats=JSON.parse(props.getProperty(ANALYTICS_SUMMARY_STATS_KEY_)||'null');}catch(e){}
+  try{ranges=JSON.parse(props.getProperty('MANTUL_P2_SUBDIST_RANGES')||'null');}catch(e){}
+  const checks={
+    statusComplete:status==='COMPLETE',
+    sourcePresent:!!(source&&source.getLastRow()>1),
+    dashboardFactPresent:!!(p2&&p2.getLastRow()>1),
+    subdistFactPresent:!!(sub&&sub.getLastRow()>1),
+    outletMonthlyPresent:!!(p3&&p3.getLastRow()>1),
+    sourceRowCountMatches:!!(source&&stats&&Number(stats.sourceLastRow)===source.getLastRow()),
+    subdistRangeIndexMatches:!!(sub&&ranges&&Number(ranges.rowCount)===sub.getLastRow()-1)
+  };
+  return {ready:Object.keys(checks).every(k=>checks[k]),status:status,checks:checks,
+    sheets:{sourceRows:source?Math.max(0,source.getLastRow()-1):0,dashboardFactRows:p2?Math.max(0,p2.getLastRow()-1):0,
+      subdistFactRows:sub?Math.max(0,sub.getLastRow()-1):0,outletMonthlyRows:p3?Math.max(0,p3.getLastRow()-1):0},
+    stats:stats?{sourceLastRow:stats.sourceLastRow,p2SummaryRows:stats.p2SummaryRows,p2SubdistRows:stats.p2SubdistRows,p3SummaryRows:stats.p3SummaryRows,builtAt:stats.builtAt}:null,
+    rangeIndex:ranges?{rowCount:ranges.rowCount,subdistCount:Object.keys(ranges.ranges||{}).length,builtAt:ranges.builtAt}:null};
+}
+function analyticsSummaryReady_(){return analyticsSummaryReadiness_().ready;}
 function analyticsGetSourceStats_(){if(!analyticsSummaryReady_())return null;try{return JSON.parse(PropertiesService.getScriptProperties().getProperty(ANALYTICS_SUMMARY_STATS_KEY_)||'null');}catch(e){return null;}}
 function analyticsBuildDashboardIndexes(){const lock=LockService.getScriptLock();lock.waitLock(30000);const props=PropertiesService.getScriptProperties();props.setProperty(ANALYTICS_SUMMARY_STATUS_KEY_,'BUILDING');try{const t=Date.now(),ss=getDatabase_(),src=ss.getSheetByName('P2_EVENT_INDEX');if(!src||src.getLastRow()<2)throw Error('P2_EVENT_INDEX belum berisi transaksi.');const actual=src.getRange(1,1,1,16).getDisplayValues()[0].map(page2HeaderKey_);if(!P2_EVENT_HEADERS_.every((x,i)=>page2HeaderKey_(x)===actual[i]))throw Error('Header P2_EVENT_INDEX tidak sesuai 16 kolom: '+actual.join(' | '));const raw=src.getRange(2,1,src.getLastRow()-1,16).getValues(),stats=analyticsCountSourceRows_(raw),p2=analyticsAggregateP2Rows_(raw),p3=analyticsAggregateP3Rows_(raw),p2Subdist=analyticsSortP2BySubdist_(p2);analyticsWriteSheetAtomic_(ss,'P2_DASHBOARD_FACT',P2_DASHBOARD_HEADERS_,p2);analyticsWriteSheetAtomic_(ss,'P2_SUBDIST_FACT',P2_DASHBOARD_HEADERS_,p2Subdist);analyticsStoreSubdistRanges_(p2Subdist);analyticsWriteSheetAtomic_(ss,'P3_OUTLET_MONTHLY',P3_OUTLET_HEADERS_,p3);Object.assign(stats,{sourceRowCount:raw.length,p2SummaryRows:p2.length,p2SubdistRows:p2Subdist.length,p3SummaryRows:p3.length,builtAt:new Date().toISOString(),sourceLastRow:src.getLastRow()});props.setProperty(ANALYTICS_SUMMARY_STATS_KEY_,JSON.stringify(stats));props.setProperty(ANALYTICS_SUMMARY_STATUS_KEY_,'COMPLETE');const result={ok:true,status:'COMPLETE',sourceRows:raw.length,p2SummaryRows:p2.length,p3SummaryRows:p3.length,elapsedMs:Date.now()-t,stats:stats};Logger.log('ANALYTICS BUILD RESULT\\n'+JSON.stringify(result,null,2));console.log('ANALYTICS BUILD RESULT',result);return result;}catch(e){props.setProperty(ANALYTICS_SUMMARY_STATUS_KEY_,'FAILED');Logger.log('ANALYTICS BUILD FAILED: '+(e&&e.stack||e));console.error('ANALYTICS BUILD FAILED',e);throw e;}finally{lock.releaseLock();}}
 function analyticsSortP2BySubdist_(rows){
@@ -52,5 +74,5 @@ function analyticsUpdateDashboardPeriod_(y,m,rows){
   if(p3.length){const r=b.getLastRow()+1;ensureSheetGrid_(b,r+p3.length-1,P3_OUTLET_HEADERS_.length);b.getRange(r,1,p3.length,P3_OUTLET_HEADERS_.length).setValues(p3);}
   analyticsRefreshSourceStats_();return {updated:true,p2Rows:p2.length,p3Rows:p3.length,subdistIndexReady:!!sub};
 }
-function analyticsRefreshSourceStats_(){const ss=getDatabase_(),sh=ss.getSheetByName('P2_EVENT_INDEX');if(!sh||sh.getLastRow()<2)return null;const a=sh.getRange(2,12,sh.getLastRow()-1,3).getValues(),salesTypeCounts={},teamCounts={};a.forEach(r=>{const t=page2Key_(r[0]),u=page2Key_(r[2]);if(t)salesTypeCounts[t]=(salesTypeCounts[t]||0)+1;if(u)teamCounts[u]=(teamCounts[u]||0)+1;});const stats={sourceRowCount:sh.getLastRow()-1,salesTypeCounts:salesTypeCounts,teamCounts:teamCounts,p2SummaryRows:ss.getSheetByName('P2_DASHBOARD_FACT').getLastRow()-1,p2SubdistRows:(ss.getSheetByName('P2_SUBDIST_FACT')||{getLastRow:()=>1}).getLastRow()-1,p3SummaryRows:ss.getSheetByName('P3_OUTLET_MONTHLY').getLastRow()-1,builtAt:new Date().toISOString()};PropertiesService.getScriptProperties().setProperty(ANALYTICS_SUMMARY_STATS_KEY_,JSON.stringify(stats));return stats;}
-function analyticsGetDashboardIndexStatus(){const result={ready:analyticsSummaryReady_(),status:PropertiesService.getScriptProperties().getProperty(ANALYTICS_SUMMARY_STATUS_KEY_)||'NOT_BUILT',stats:analyticsGetSourceStats_()};Logger.log('ANALYTICS INDEX STATUS\\n'+JSON.stringify(result,null,2));console.log('ANALYTICS INDEX STATUS',result);return result;}
+function analyticsRefreshSourceStats_(){const ss=getDatabase_(),sh=ss.getSheetByName('P2_EVENT_INDEX');if(!sh||sh.getLastRow()<2)return null;const a=sh.getRange(2,12,sh.getLastRow()-1,3).getValues(),salesTypeCounts={},teamCounts={};a.forEach(r=>{const t=page2Key_(r[0]),u=page2Key_(r[2]);if(t)salesTypeCounts[t]=(salesTypeCounts[t]||0)+1;if(u)teamCounts[u]=(teamCounts[u]||0)+1;});const stats={sourceRowCount:sh.getLastRow()-1,sourceLastRow:sh.getLastRow(),salesTypeCounts:salesTypeCounts,teamCounts:teamCounts,p2SummaryRows:ss.getSheetByName('P2_DASHBOARD_FACT').getLastRow()-1,p2SubdistRows:(ss.getSheetByName('P2_SUBDIST_FACT')||{getLastRow:()=>1}).getLastRow()-1,p3SummaryRows:ss.getSheetByName('P3_OUTLET_MONTHLY').getLastRow()-1,builtAt:new Date().toISOString()};PropertiesService.getScriptProperties().setProperty(ANALYTICS_SUMMARY_STATS_KEY_,JSON.stringify(stats));return stats;}
+function analyticsGetDashboardIndexStatus(){const readiness=analyticsSummaryReadiness_(),result={ready:readiness.ready,status:readiness.status,checks:readiness.checks,sheets:readiness.sheets,stats:readiness.stats,rangeIndex:readiness.rangeIndex};Logger.log('ANALYTICS INDEX STATUS\\n'+JSON.stringify(result,null,2));console.log('ANALYTICS INDEX STATUS',result);return result;}
