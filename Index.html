@@ -40,6 +40,7 @@
       <button type="button" class="p1-nav active" onclick="page1Show()">▦ Sales Performance</button>
       <button type="button" class="p2-nav" onclick="page2Show()">◉ Sales Force</button>
       <button type="button" class="p3-nav" onclick="page3Show()">▤ Outlets</button>
+      <button type="button" class="p4-nav" onclick="page4Show()">▦ Inventory</button>
     </div>
   </div>
 </nav>
@@ -110,10 +111,12 @@
 </section>
 <?!= include('Page2'); ?>
 <?!= include('Page3'); ?>
+<?!= include('Page4'); ?>
 <div class="footer">Dashboard interaktif • Data tersimpan terpusat di Google Sheets dan dapat diakses oleh tim internal.</div></main>
 
 <?!= include('Scripts'); ?>
 <?!= include('Page2Scripts'); ?>
 <?!= include('Page3Scripts'); ?>
+<?!= include('Page4Scripts'); ?>
 </body>
 </html>
