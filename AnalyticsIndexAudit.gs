@@ -58,3 +58,12 @@ function analyticsAuditDerivedIndexesReadOnly(){
   subdistRangeIndex:ranges?{rowCount:ranges.rowCount,subdistCount:Object.keys(ranges.ranges||{}).length,builtAt:ranges.builtAt}:null};
  Logger.log('MANTUL DERIVED INDEX AUDIT\n'+JSON.stringify(result,null,2));return result;
 }
+
+/** Register existing derived indexes once, on first Page 2/3 visit. Safe: no sheet writes. */
+function analyticsEnsureExistingIndexesRegistered_(){
+ try{
+  if(typeof analyticsSummaryReady_==='function'&&analyticsSummaryReady_())return {ok:true,skipped:true,status:'ALREADY_READY'};
+  if(typeof analyticsRegisterExistingIndexes!=='function')return {ok:false,status:'AUDIT_FUNCTION_UNAVAILABLE'};
+  return analyticsRegisterExistingIndexes();
+ }catch(err){Logger.log('MANTUL INDEX REGISTRATION SKIPPED: '+(err&&err.stack||err));return {ok:false,status:'AUDIT_FAILED',message:String(err)};}
+}
