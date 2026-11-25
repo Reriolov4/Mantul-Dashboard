@@ -86,15 +86,16 @@ function analyticsStartBuild_(){
   if(!P2_EVENT_HEADERS_.every((x,i)=>page2HeaderKey_(x)===actual[i]))
     throw Error('Header P2_EVENT_INDEX tidak sesuai 16 kolom: '+actual.join(' | '));
   const ready=analyticsSummaryReadiness_();
+  const usableSnapshot=Object.keys(ready.checks).filter(k=>k!=='statusComplete').every(k=>ready.checks[k]);
   const id=Utilities.getUuid().replace(/-/g,'').slice(0,8);
   const state={id:id,phase:'SOURCE',sourceLastRow:src.getLastRow(),nextRow:2,
     periods:[],periodRows:{},periodDone:0,p2OutRows:0,p3OutRows:0,
     p2Stage:'P2_DASHBOARD_FACT_BUILD_'+id,p3Stage:'P3_OUTLET_MONTHLY_BUILD_'+id,
-    subStage:'P2_SUBDIST_FACT_BUILD_'+id,previousStatus:ready.ready?'COMPLETE':'NOT_READY',
+    subStage:'P2_SUBDIST_FACT_BUILD_'+id,previousStatus:usableSnapshot?'COMPLETE':'NOT_READY',
     stats:{salesTypeCounts:{},teamCounts:{}}};
   analyticsCreateBuildSheet_(ss,state.p2Stage,P2_DASHBOARD_HEADERS_);
   analyticsCreateBuildSheet_(ss,state.p3Stage,P3_OUTLET_HEADERS_);
-  if(!ready.ready)PropertiesService.getScriptProperties().setProperty(ANALYTICS_SUMMARY_STATUS_KEY_,'BUILDING');
+  PropertiesService.getScriptProperties().setProperty(ANALYTICS_SUMMARY_STATUS_KEY_,usableSnapshot?'COMPLETE':'BUILDING');
   PropertiesService.getScriptProperties().setProperty(ANALYTICS_BUILD_STATE_KEY_,JSON.stringify(state));
   return state;
 }
