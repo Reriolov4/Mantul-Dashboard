@@ -26,7 +26,7 @@ function page4ReadSource_(){
 function page4BuildMeta_(src){
  const years=new Set(),monthsByYear={},skuAttrs=new Map();let sooRows=0,soModeRows=0;const c=src.columns;
  const add=(map,key,field,value)=>{if(!key||value==null||String(value).trim()==='')return;let obj=map.get(key);if(!obj){obj={subbrand:new Set(),brand:new Set(),category:new Set(),entity:new Set()};map.set(key,obj);}obj[field].add(String(value).trim());};
- for(let i=0;i<src.sourceRows;i++){const type=page2Key_(c.salesType[i]);if(type==='SOO')sooRows++;if(type==='SO'||type==='SOO')soModeRows++;if(type!=='SO'&&type!=='SOO')continue;
+ for(let i=0;i<src.sourceRows;i++){const type=page2Key_(c.salesType[i]);if(type==='SOO')sooRows++;soModeRows++;
   const y=String(Number(c.year[i])||c.year[i]||'').trim(),m=page2Month_(c.month[i]),name=page2Text_(c.sku[i]);if(y)years.add(y);if(y&&m){if(!monthsByYear[y])monthsByYear[y]=new Set();monthsByYear[y].add(m);}
   add(skuAttrs,name,'subbrand',c.subbrand[i]);add(skuAttrs,name,'brand',c.brand[i]);add(skuAttrs,name,'category',c.category[i]);add(skuAttrs,name,'entity',c.sbu[i]);
  }
@@ -38,7 +38,7 @@ function page4BuildMeta_(src){
 function page4BuildData_(src,meta,filters){
  filters=filters||{};const mode=page34Mode_(filters.mode),year=Number(filters.year)||Number(meta.years.slice(-1)[0])||new Date().getFullYear(),monthsUsed=meta.monthsByYear[String(year)]||[],monthSet=new Set(monthsUsed),selected=page2FilterList_(filters.subdists).map(page2Key_),subdist=selected[0]||'';
  const map=new Map(meta.skuMaster.map(s=>[s.sku,{...s,total:{value:0,carton:0}}]));let matchedSourceRows=0;const c=src.columns;
- for(let i=0;i<src.sourceRows;i++){const type=page2Key_(c.salesType[i]);if(mode==='SOO'&&type!=='SOO')continue;if(mode==='SO'&&type!=='SO'&&type!=='SOO')continue;
+ for(let i=0;i<src.sourceRows;i++){const type=page2Key_(c.salesType[i]);if(mode==='SOO'&&type!=='SOO')continue;
   if(Number(c.year[i])!==year||!monthSet.has(page2Month_(c.month[i])))continue;
   const row=[null,null,null,null,null,c.subdist[i],null,null,null,null,null,c.salesType[i],null,null,null,null,c.sku[i],c.subDist[i]],entity=page34Entity_(row,mode);
   if(!entity||(subdist&&page2Key_(entity)!==subdist))continue;const name=page2Text_(c.sku[i]);if(!name)continue;matchedSourceRows++;
