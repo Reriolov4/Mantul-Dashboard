@@ -94,10 +94,11 @@ function beginMonthlyDataImport(meta) {
     if (!p1 || !p2 || !raw) throw new Error('P1_FACT, P2_EVENT_INDEX, dan RAW_DATA_SALES wajib tersedia.');
     analyticsAssertHeaders_(p1, P1_FACT_HEADERS_);
     analyticsAssertHeaders_(p2, P2_EVENT_HEADERS_);
+    monthlyImportAssertHeaders_(p2, P2_EVENT_INDEX_HEADERS_);
     monthlyImportAssertHeaders_(raw, MONTHLY_RAW_HEADERS_);
 
     const stageSpecs = [
-      ['p1',P1_FACT_HEADERS_],['p2',P2_EVENT_HEADERS_],['raw',MONTHLY_RAW_HEADERS_]
+      ['p1',P1_FACT_HEADERS_],['p2',P2_EVENT_INDEX_HEADERS_],['raw',MONTHLY_RAW_HEADERS_]
     ];
     stageSpecs.forEach(([key,headers]) => {
       const stage = getOrCreateSheet_(MONTHLY_STAGE_NAMES_[key]);
@@ -176,7 +177,7 @@ function appendMonthlyDataImportChunk(payload) {
     const month = props.getProperty(prefix+'MONTH');
     const specs = [
       ['p1',p1Chunk,14,0,1,'P1_FACT'],
-      ['p2',p2Chunk,16,0,1,'P2_EVENT_INDEX'],
+      ['p2',p2Chunk,18,0,1,'P2_EVENT_INDEX'],
       ['raw',rawChunk,25,0,1,'RAW_DATA_SALES']
     ];
     specs.forEach(([key,rows,width,yearIndex,monthIndex,label]) => {
@@ -328,10 +329,10 @@ function finishMonthlyDataImport(payload) {
     }
 
     const p1Rows = monthlyImportReadStage_('p1',p1Expected,14);
-    const p2Rows = monthlyImportReadStage_('p2',p2Expected,16);
+    const p2Rows = monthlyImportReadStage_('p2',p2Expected,18);
     const rawRows = monthlyImportReadStage_('raw',rawExpected,25);
     monthlyImportValidateChunk_(p1Rows,14,year,month,'P1_FACT',0,1);
-    monthlyImportValidateChunk_(p2Rows,15,year,month,'P2_EVENT_INDEX',0,1);
+    monthlyImportValidateChunk_(p2Rows,18,year,month,'P2_EVENT_INDEX',0,1);
     monthlyImportValidateChunk_(rawRows,25,year,month,'RAW_DATA_SALES',0,1);
     monthlyImportCompareP2Raw_(p2Rows,rawRows);
 
@@ -347,8 +348,8 @@ function finishMonthlyDataImport(payload) {
       p2:ss.getSheetByName('P2_EVENT_INDEX'),
       raw:ss.getSheetByName('RAW_DATA_SALES')
     };
-    const headers = {p1:P1_FACT_HEADERS_,p2:P2_EVENT_HEADERS_,raw:MONTHLY_RAW_HEADERS_};
-    const widths = {p1:14,p2:16,raw:25};
+    const headers = {p1:P1_FACT_HEADERS_,p2:P2_EVENT_INDEX_HEADERS_,raw:MONTHLY_RAW_HEADERS_};
+    const widths = {p1:14,p2:18,raw:25};
     const newRows = {p1:p1Rows,p2:p2Rows,raw:rawRows};
     const oldRows = {};
     Object.keys(live).forEach(key => {
