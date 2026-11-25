@@ -11,7 +11,7 @@ function analyticsMonth_(value){
 function analyticsYear_(value){
   const direct=Number(value);if(direct>=1900&&direct<=2200)return direct;
   if(Object.prototype.toString.call(value)==='[object Date]'&&!isNaN(value))return value.getFullYear();
-  const match=String(value==null?'':value).match(/(?:19|20|21)\\d{2}/);return match?Number(match[0]):0;
+  const match=String(value==null?'':value).match(/(?:19|20|21)\d{2}/);return match?Number(match[0]):0;
 }
 
 function analyticsSummaryReady_(){if(PropertiesService.getScriptProperties().getProperty(ANALYTICS_SUMMARY_STATUS_KEY_)!=='COMPLETE')return false;const ss=getDatabase_(),a=ss.getSheetByName('P2_DASHBOARD_FACT'),b=ss.getSheetByName('P3_OUTLET_MONTHLY');return !!(a&&a.getLastRow()>1&&b&&b.getLastRow()>1);}
