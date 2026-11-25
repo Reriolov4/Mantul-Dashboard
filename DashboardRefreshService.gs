@@ -6,8 +6,6 @@
  * read models. It never writes to or clears any of the three input sheets.
  */
 function refreshMantulDashboard() {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
   const props = PropertiesService.getScriptProperties();
   const oldSalesUpdated = props.getProperty('SALES_LAST_UPDATED') || '';
   const oldPage2Updated = props.getProperty('PAGE2_RAW_UPDATED') || '';
@@ -72,8 +70,6 @@ function refreshMantulDashboard() {
     Logger.log('MANTUL DASHBOARD REFRESH FAILED: ' + (err && err.stack || err));
     console.error('MANTUL DASHBOARD REFRESH FAILED', err);
     throw err;
-  } finally {
-    lock.releaseLock();
   }
 }
 
