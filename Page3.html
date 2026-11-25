@@ -1,46 +1,274 @@
-<style id="page3-ui-v3">
-#page3View{width:100%;max-width:100%;min-width:0;padding:12px 0 30px;color:#172033;font-family:inherit}
-#page3View *{box-sizing:border-box}
-#page3View .p3-title{font-size:20px;font-weight:800;color:#173b70;margin:0 0 4px}
-#page3View .p3-subtitle{font-size:11px;color:#718096;margin:0 0 12px}
-#page3View .p3-controls{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(190px,.85fr) minmax(0,2fr);gap:10px;align-items:end;background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:12px;margin:0 0 9px;box-shadow:0 5px 20px #14213d08}
-#page3View .p3-control{min-width:0;position:relative}
-#page3View .p3-control>label{display:block;font-size:10px;font-weight:700;letter-spacing:.25px;color:#64748b;margin:0 0 6px;line-height:1.2}
-#page3View input{width:100%;height:38px;border:1px solid #dbe3ee;border-radius:9px;background:#fff;color:#172033;padding:0 10px;font:inherit;font-size:11px;min-width:0}
-#page3View input:focus{outline:none;border-color:#93b4ec;box-shadow:0 0 0 2px #2563eb14}
-#page3View .p3-switch{display:flex;gap:3px;background:#f0f4f9;border-radius:9px;padding:3px;height:38px;align-items:center;width:100%}
-#page3View .p3-switch button{flex:1;min-width:0;height:30px;border:0;border-radius:7px;background:transparent;color:#53657c;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
-#page3View .p3-switch button.active{background:#2563eb;color:#fff;box-shadow:0 1px 3px #1e40af30}
-#page3View .p3-subdist-pills{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
-#page3View .p3-subdist-pills button{padding:0 3px;font-size:9px}
-#page3View .p3-status{font-size:10px;color:#718096;margin:5px 2px 10px;min-height:15px}
-#page3View .p3-card{background:#fff;border:1px solid #e5eaf1;border-radius:13px;padding:13px;min-width:0;box-shadow:0 2px 9px #0f172a08}
-#page3View .p3-card h2{font-size:12px;color:#173b70;margin:0 0 4px}
-#page3View .p3-card p{font-size:9px;color:#77869a;margin:0 0 9px}
-#page3View .p3-table-wrap{overflow:auto;max-width:100%;max-height:68vh;position:relative;isolation:isolate}
-#page3View table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:10px;white-space:nowrap}
-#page3View th{position:sticky;top:0;z-index:8;background:#EDE6F8;color:#172033;padding:9px 10px;border-bottom:1px solid #d6cde7;text-align:right;font-weight:800}
-#page3View td{padding:8px 10px;border-bottom:1px solid #e8edf5;text-align:right;color:#243b5a;background:#fff}
-#page3View th:first-child,#page3View td:first-child{position:sticky;left:0;text-align:left;min-width:220px;z-index:9}
-#page3View th:first-child{background:#EDE6F8;z-index:12}
-#page3View td:first-child{background:#fff;box-shadow:2px 0 5px rgba(15,23,42,.08);font-weight:650}
-#page3View th:nth-child(2),#page3View td:nth-child(2){text-align:left;min-width:120px}
-#page3View tr.p3-total td{position:sticky;bottom:0;background:#fff1cc;color:#173b70;font-weight:850;z-index:10;border-top:2px solid #d6a43b}
-#page3View tr.p3-total td:first-child{z-index:13;background:#fff1cc}
-#page3View .p3-empty{text-align:center;color:#94a3b8;padding:20px}
-@media(max-width:980px){#page3View .p3-controls{grid-template-columns:minmax(0,1fr) minmax(190px,.8fr)}#page3View .p3-control-subdist{grid-column:1/-1}}
-@media(max-width:620px){#page3View .p3-controls{grid-template-columns:1fr;gap:9px}#page3View .p3-control-subdist{grid-column:auto}#page3View .p3-subdist-pills{grid-template-columns:repeat(4,minmax(0,1fr))}#page3View th:first-child,#page3View td:first-child{min-width:175px}#page3View th:nth-child(2),#page3View td:nth-child(2){min-width:110px}}
+<style>
+#p3View{--p3-blue:#2563eb;--p3-ink:#172033;--p3-muted:#64748b;padding:12px 0 30px;color:var(--p3-ink);font-family:inherit}
+#p3View *{box-sizing:border-box}
+#p3View .p3-filters{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:7px;background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:12px;margin:0 0 10px;box-shadow:0 5px 20px #14213d08;position:relative;z-index:30}
+#p3View .p3-filter{min-width:0;position:relative}
+#p3View .p3-filter>label{display:block;font-size:10px;font-weight:700;letter-spacing:.25px;color:#64748b;margin:0 0 6px}
+#p3View .p3-filter select,#p3View .p3-trigger{width:100%;height:38px;border:1px solid #dbe3ee;border-radius:9px;background:#fff;color:#172033;padding:0 9px;font:inherit;font-size:11px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#p3View .p3-trigger{cursor:pointer}
+#p3View #p3DatesTrigger::after{content:"▾";float:right;color:#64748b;font-size:11px;margin-left:8px}
+#p3View .p3-locked{appearance:none;-webkit-appearance:none;background-image:none!important;cursor:default}
+#p3View .p3-menu{display:none;position:absolute;top:calc(100% + 5px);left:0;width:min(290px,90vw);max-height:330px;overflow:auto;background:#fff;border:1px solid #dbe3ee;border-radius:10px;box-shadow:0 12px 28px #14213d24;z-index:80;padding:9px}
+#p3View .p3-filter.open .p3-menu{display:block}
+#p3View .p3-filter.open{z-index:100}
+/* SUBDIST menu follows Page 1 dropdown behavior: open below its trigger. */
+#p3View .p3-menu-actions{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+#p3View .p3-menu-actions button{border:1px solid #dbe3ee;background:#f8fafc;color:#1d4ed8;border-radius:7px;padding:6px 8px;font-size:10px;font-weight:700;cursor:pointer}
+#p3View .p3-menu-actions .p3-apply-menu{background:#2563eb;color:#fff;border-color:#2563eb;width:100%}
+#p3View .p3-checklist{display:grid;grid-template-columns:1fr;gap:5px;max-height:230px;overflow:auto;overscroll-behavior:contain}
+#p3View .p3-checkitem{display:flex;align-items:center;gap:7px;min-width:0;margin:0;padding:7px 6px;border:1px solid #e5eaf1;border-radius:7px;color:#334155;font-size:11px;cursor:pointer}
+#p3View .p3-checkitem input{accent-color:#2563eb;margin:0;flex:0 0 auto}
+#p3View .p3-checkitem span{overflow-wrap:anywhere}
+#p3View .p3-customer-menu{width:min(380px,92vw);max-height:420px}
+#p3View .p3-customer-list{display:grid;grid-template-columns:1fr;max-height:250px;overflow:auto}
+#p3View .p3-customer-list .p3-checkitem{padding:6px 7px}
+#p3View .p3-search{display:block;width:100%;height:33px;margin:0 0 8px;padding:0 9px;border:1px solid #dbe3ee;border-radius:8px;background:#fff;color:#172033;font:inherit;font-size:11px;outline:none}
+#p3View .p3-search:focus{border-color:#93b4ec;box-shadow:0 0 0 2px #2563eb14}
+
+#p3View .p3-day-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+#p3View .p3-day-grid .p3-checkitem{justify-content:center;padding:6px 2px}
+#p3View .p3-filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:7px}
+#p3View .p3-filter-actions button{cursor:pointer;height:34px;border:0;border-radius:8px;padding:0 15px;background:#2563eb;color:#fff;font-size:11px;font-weight:700}
+#p3View .p3-filter-actions .secondary{background:#edf2f8;color:#365477}
+#p3View .p3-inline-actions{display:flex;gap:5px;margin-top:5px}#p3View .p3-inline-actions button{flex:1;height:27px;border:0;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer}#p3View .p3-inline-apply{background:#2563eb;color:#fff}#p3View .p3-inline-reset{background:#edf2f8;color:#365477}
+#p3View .p3-title{font-size:20px;font-weight:800;letter-spacing:-.3px;color:#173b70;margin:0 0 4px}
+#p3View .p3-subtitle{font-size:11px;color:#718096;margin:0 0 12px}
+#p3View .p3-status{font-size:10px;color:#718096;margin:6px 2px 11px}
+#p3View[aria-busy="true"] .p3-status::before{content:"";display:inline-block;width:8px;height:8px;margin:0 7px 0 1px;border:2px solid #cbd5e1;border-top-color:#2563eb;border-radius:50%;vertical-align:-1px;animation:p3-loading-spin .75s linear infinite}
+@keyframes p3-loading-spin{to{transform:rotate(360deg)}}
+#p3View .p3-color-guide{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:9px;color:#64748b;margin-bottom:10px}
+#p3View .p3-guide-item{display:inline-flex;align-items:center;gap:4px}
+#p3View .p3-dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+#p3View .p3-dot.blue{background:#2563eb}#p3View .p3-dot.darkgreen{background:#166534}#p3View .p3-dot.lightgreen{background:#65a30d}#p3View .p3-dot.orange{background:#d97706}#p3View .p3-dot.red{background:#dc2626}#p3View .p3-dot.gray{background:#94a3b8}
+#p3View .p3-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-bottom:10px}
+#p3View .p3-control-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:9px;align-items:end;background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:10px 12px;margin:0 0 12px;box-shadow:0 2px 9px #0f172a08}
+#p3View .p3-control-row select{height:36px;border:1px solid #dbe3ee;border-radius:8px;background:#fff;padding:0 10px;width:100%;font-size:11px;color:#172033}
+#p3View .p3-switch{display:flex;gap:3px;background:#f0f4f9;border-radius:9px;padding:3px;height:36px;align-items:center}
+#p3View .p3-switch button{flex:1;height:30px;border:0;background:transparent;color:#53657c;border-radius:7px;padding:4px 9px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
+#p3View .p3-switch button.active{background:#2563eb;color:#fff;box-shadow:0 1px 3px #1e40af30}
+#p3View .p3-kpi-mainline{display:flex;align-items:center;gap:9px;min-width:0}
+#p3View .p3-kpi-mainline .k-main{margin:7px 0 5px}
+#p3View .p3-kpi-mainline .k-ctr{font-size:10px;font-weight:850;white-space:nowrap;border-radius:6px;padding:4px 6px;background:#f1f5f9}
+#p3View .p3-kpi-mainline .p3-ctr-blue{color:#1d4ed8;background:#dbeafe}
+#p3View .p3-kpi-mainline .p3-ctr-darkgreen{color:#166534;background:#dcfce7}
+#p3View .p3-kpi-mainline .p3-ctr-lightgreen{color:#4d7c0f;background:#ecfccb}
+#p3View .p3-kpi-mainline .p3-ctr-orange{color:#c2410c;background:#ffedd5}
+#p3View .p3-kpi-mainline .p3-ctr-red{color:#b91c1c;background:#fee2e2}
+#p3View .p3-kpi-mainline .p3-ctr-neutral{color:#64748b;background:#f1f5f9}
+@media(max-width:760px){#p3View .p3-control-row{grid-template-columns:minmax(0,1fr) minmax(0,2fr)}}
+#p3View .p3-kpi{background:#fff;border:1px solid #e5eaf1;border-radius:12px;padding:12px;min-width:0;box-shadow:0 2px 9px #0f172a08;border-left:3px solid #2563eb}
+#p3View .p3-kpi:nth-child(2n){border-left-color:#0ea5b7}
+#p3View .p3-kpi .k-label{font-size:9px;font-weight:850;letter-spacing:.35px;color:#718096}
+#p3View .p3-kpi .k-main{font-size:21px;line-height:1.2;font-weight:850;color:#15345f;margin:7px 0 5px;overflow-wrap:anywhere}
+#p3View .p3-kpi .k-sub{font-size:9px;color:#77869a;line-height:1.45}
+#p3View .p3-kpi .k-growth{font-size:10px;font-weight:800;margin-top:6px}
+#p3View .p3-positive{color:#16834a!important}#p3View .p3-negative{color:#dc4242!important}#p3View .p3-neutral{color:#718096!important}
+/* SBU cards now use the same compact KPI hierarchy as Total AO/EC. */
+#p3View .p3-sbu-values div{background:#f6f8fc;border-radius:6px;padding:5px}
+#p3View .p3-sbu-values small{display:block;font-size:8px;color:#718096}
+#p3View .p3-sbu-values b{font-size:11px;color:#173b70}
+#p3View .p3-panel-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:11px;margin-bottom:11px}
+#p3View .p3-card{background:#fff;border:1px solid #e5eaf1;border-radius:13px;padding:13px;min-width:0;box-shadow:0 2px 9px #0f172a08}
+#p3View .p3-card h2{font-size:12px;color:#173b70;margin:0 0 4px}
+#p3View .p3-card p{font-size:9px;color:#77869a;margin:0 0 9px}
+#p3View .p3-chartbox{height:265px;position:relative;width:100%}
+#p3View .p3-insight-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:10px}
+#p3View .p3-insight{min-width:0;padding:9px 8px;background:#f6f8fc;border:1px solid #e8edf5;border-radius:8px}
+#p3View .p3-insight small{display:block;font-size:8px;font-weight:800;letter-spacing:.25px;color:#718096}
+#p3View .p3-insight b{display:block;margin:5px 0 3px;font-size:clamp(12px,1.2vw,17px);line-height:1.2;color:#173b70;overflow-wrap:anywhere}
+#p3View .p3-insight span{display:block;font-size:8px;line-height:1.3;color:#77869a}
+@media(max-width:760px){#p3View .p3-insight-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}#p3View .p3-insight{padding:7px 5px}#p3View .p3-insight small{font-size:7px}#p3View .p3-insight b{font-size:12px}}
+#p3View .p3-chart-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+#p3View .p3-switch{display:flex;gap:3px;background:#f0f4f9;border-radius:20px;padding:3px}
+#p3View .p3-switch button{border:0;background:transparent;color:#53657c;border-radius:18px;padding:5px 10px;font-size:9px;font-weight:800}
+#p3View .p3-switch button.active{background:#2563eb;color:#fff}
+#p3View .p3-donuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+#p3View .p3-donut-layout{display:grid;grid-template-columns:minmax(135px,1fr) minmax(150px,1.1fr);gap:10px;align-items:center;min-height:245px}
+#p3View .p3-donutbox{height:225px;min-width:0;position:relative}
+#p3View .p3-donut-legend{min-width:0;max-height:235px;overflow:auto}
+#p3View .p3-donut-row{padding:6px 0;border-bottom:1px solid #e8e2d8}
+#p3View .p3-donut-name{font-size:10px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}
+#p3View .p3-donut-meta{display:flex;justify-content:space-between;gap:5px;font-size:10px;font-weight:700;margin-top:3px}
+#p3View .p3-donut-share{color:#718096}
+#p3View .p3-donut-growth.pos{color:#64852c}#p3View .p3-donut-growth.neg{color:#c3443b}#p3View .p3-donut-growth.neu{color:#718096}
+#p3View .p3-empty{font-size:10px;color:#94a3b8;text-align:center;padding:16px}
+@media(max-width:1200px){#p3View .p3-filters{grid-template-columns:repeat(5,minmax(0,1fr))}#p3View .p3-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}#p3View .p3-donuts{grid-template-columns:1fr}}
+@media(max-width:760px){#p3View .p3-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px}#p3View .p3-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}#p3View .p3-donut-layout{grid-template-columns:minmax(115px,.9fr) minmax(130px,1.1fr)}#p3View .p3-chartbox{height:235px}}
+
+/* Typography: keep Page 2 identical to the Page 1 Inter/Segoe UI stack. */
+#p3View,
+#p3View * {
+  font-family: Inter, "Segoe UI", Arial, sans-serif !important;
+}
+
+#p3View .p3-section-title{margin:4px 0 9px;color:#173b70}#p3View .p3-section-title h2{font-size:13px;margin:0 0 3px}#p3View .p3-section-title p{font-size:9px;color:#77869a;margin:0}
+#p3View .p3-pareto-card{margin-top:11px}.p3-table-wrap{overflow:auto;max-width:100%;max-height:520px}
+#p3View .p3-table-wrap{position:relative;isolation:isolate;overflow:auto;max-width:100%;max-height:520px;overscroll-behavior:contain}
+#p3View .p3-pareto-table{border-collapse:separate;border-spacing:0;width:100%;min-width:1125px;table-layout:fixed;font-size:9px;white-space:nowrap}
+#p3View .p3-pareto-table th{position:sticky;top:0;height:34px;line-height:1.25;vertical-align:middle;background:#f8e8eb;color:#173b70;padding:9px 7px;text-align:right;border-bottom:1px solid #cbd5e1;z-index:5;overflow:hidden;text-overflow:ellipsis}
+#p3View .p3-pareto-table th:first-child,#p3View .p3-pareto-table td:first-child{width:200px;min-width:200px;max-width:200px;box-sizing:border-box;text-align:left}
+#p3View .p3-pareto-table th:nth-child(2),#p3View .p3-pareto-table td:nth-child(2){width:120px;min-width:120px;max-width:120px;box-sizing:border-box;text-align:left}
+#p3View .p3-pareto-table th:nth-child(n+3),#p3View .p3-pareto-table td:nth-child(n+3){width:95px;min-width:95px;max-width:95px}
+#p3View .p3-pareto-table th:nth-child(5),#p3View .p3-pareto-table td:nth-child(5),
+#p3View .p3-pareto-table th:nth-child(8),#p3View .p3-pareto-table td:nth-child(8),
+#p3View .p3-pareto-table th:nth-child(9),#p3View .p3-pareto-table td:nth-child(9),
+#p3View .p3-pareto-table th:nth-child(10),#p3View .p3-pareto-table td:nth-child(10){width:64px;min-width:64px;max-width:64px;padding-left:3px;padding-right:3px;font-size:8px}
+#p3View .p3-pareto-table th:nth-child(11),#p3View .p3-pareto-table td:nth-child(11){width:58px;min-width:58px;max-width:58px;padding-left:2px;padding-right:2px;font-size:8px}
+#p3View .p3-pareto-table th:nth-child(9),#p3View .p3-pareto-table td:nth-child(9),
+#p3View .p3-pareto-table th:nth-child(10),#p3View .p3-pareto-table td:nth-child(10){width:64px;min-width:64px;max-width:64px}
+#p3View .p3-pareto-table td{height:30px;line-height:1.35;padding:7px;border-bottom:1px solid #e2e8f0;text-align:right;color:#243b5a;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
+#p3View .p3-pareto-table tbody tr:hover{background:#f8fafc}
+#p3View .p3-pareto-table .p3-positive{color:#16803c;font-weight:800}#p3View .p3-pareto-table .p3-negative{color:#d12c2c;font-weight:800}#p3View .p3-pareto-table .p3-neutral{color:#64748b;font-weight:700}
+#p3View .p3-pareto-table .p3-grand-total td{position:sticky;bottom:0;background:#e8eef8;color:#173b70;font-weight:850;border-top:2px solid #94a3b8;z-index:4}
+#p3View .p3-pareto-table .p3-ctr-blue{color:#2563eb;font-weight:850}#p3View .p3-pareto-table .p3-ctr-darkgreen{color:#166534;font-weight:850}#p3View .p3-pareto-table .p3-ctr-lightgreen{color:#65a30d;font-weight:850}#p3View .p3-pareto-table .p3-ctr-orange{color:#ea580c;font-weight:850}#p3View .p3-pareto-table .p3-ctr-red{color:#991b1b;font-weight:850}#p3View .p3-pareto-table .p3-ctr-neutral{color:#64748b;font-weight:700}
+#p3View .p3-control-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:18px;align-items:start;padding:16px 18px}
+#p3View .p3-control-row>.p3-filter{width:100%;min-width:0}
+#p3View .p3-control-row>.p3-filter>label{margin:0 0 9px;line-height:1.25}
+#p3View #p3MetricSwitch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;min-width:0;height:48px;gap:5px;padding:4px}
+#p3View #p3MetricSwitch button{min-width:0;width:100%;height:40px;padding:6px 8px;white-space:normal;line-height:1.15;font-size:clamp(10px,1vw,12px)}
+#p3View #p3CustomerFilter{margin:0;min-width:0;width:100%}
+#p3View #p3CustomerTrigger{display:block;width:100%;height:48px;text-align:left}
+#p3View #p3CustomerFilter .p3-customer-menu{left:0;width:min(100%,420px)}
+@media(max-width:760px){#p3View .p3-control-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:14px;align-items:end;padding:12px 16px;background:#fff;border:1px solid #e5eaf1;border-radius:12px;margin:0 0 12px;box-shadow:0 2px 9px #0f172a08}
+#p3View .p3-control-row>.p3-filter{width:100%;min-width:0}
+#p3View .p3-control-row>.p3-filter>label{display:block;margin:0 0 7px;line-height:1.2;white-space:nowrap;font-size:10px;font-weight:700;color:#64748b}
+#p3View #p3MetricSwitch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;min-width:0;height:38px;gap:4px;padding:3px}
+#p3View #p3MetricSwitch button{min-width:0;width:100%;height:32px;padding:4px 6px;white-space:nowrap;line-height:1.1;font-size:11px}
+#p3View .p3-subdist-pills{display:flex;flex-wrap:nowrap;gap:3px;min-width:0;align-items:center;border-radius:20px;background:#f0f4f9;padding:3px}
+#p3View .p3-subdist-pills .p3-subdist-pill{flex:1 1 0;min-width:0;height:32px;padding:5px 7px;border:0;border-radius:18px;background:transparent;color:#53657c;font-size:9px;font-weight:800;white-space:nowrap;cursor:pointer}
+#p3View .p3-subdist-pills .p3-subdist-pill.active{background:#2563eb;color:#fff;box-shadow:none}
+#p3View .p3-pareto-filters{display:flex;justify-content:flex-end;margin:0 0 8px;padding:8px 12px;background:#fff;border:1px solid #e5eaf1;border-radius:12px}
+#p3View #p3CustomerFilter{margin:0;min-width:0;width:min(320px,100%)}
+#p3View #p3CustomerTrigger{display:block;width:100%;height:38px;text-align:left}
+#p3View #p3CustomerFilter .p3-customer-menu{left:0;width:min(100%,420px)}
+@media(max-width:760px){#p3View .p3-control-row{grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:10px;padding:12px}#p3View .p3-subdist-pills{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}#p3View .p3-subdist-pills .p3-subdist-pill{height:32px;padding:5px 4px;font-size:9px}#p3View .p3-pareto-filters{justify-content:stretch}#p3View #p3CustomerFilter{width:100%}}
 </style>
-<section id="page3View" hidden>
- <h1 class="p3-title">OUTLET PERFORMANCE</h1>
- <p class="p3-subtitle">Top 25 Outlet Pareto • SOO + TEAM SALESMAN • Sumber P2_EVENT_INDEX</p>
- <div class="p3-controls">
-  <div class="p3-control"><label for="p3Customer">CUSTOMER</label><input id="p3Customer" type="search" placeholder="Cari nama customer..." autocomplete="off"></div>
-  <div class="p3-control"><label>VALUES IN</label><div class="p3-switch" id="p3MetricSwitch" role="group" aria-label="Pilih dasar nilai"><button type="button" class="active" data-metric="VALUE" aria-pressed="true">VALUE</button><button type="button" data-metric="KARTON" aria-pressed="false">KARTON</button></div></div>
-  <div class="p3-control p3-control-subdist"><label>SUBDIST</label><div class="p3-switch p3-subdist-pills" id="p3SubdistPills" role="group" aria-label="Filter Subdist"></div></div>
+<section id="p3View" class="p3-view" hidden>
+ <div class="p3-page-heading"><h1 class="p3-title">OUTLETS</h1><p class="p3-subtitle">Monitoring Outlet • Struktur dashboard disalin dari Sales Force.</p></div>
+ <div class="p3-loading-overlay" aria-hidden="true"><div class="p3-loading-card"><span class="p3-loading-spinner"></span><span id="p3LoadingText">Sedang memproses data Page 2...</span></div></div>
+ <div class="p3-filters">
+  <div class="p3-filter"><label>TAHUN ANALISIS</label><select id="p3Year" aria-label="Tahun Analisis"></select></div>
+  <div class="p3-filter" id="p3MonthFilter"><label>BULAN</label><button class="p3-trigger" id="p3MonthsTrigger" type="button">Pilih Bulan</button><div class="p3-menu"><div class="p3-menu-actions"><button type="button" data-p3-action="all" data-p3-target="p3Months">Pilih Semua</button><button type="button" data-p3-action="reset" data-p3-target="p3Months">Reset</button><button type="button" data-p3-action="ytd">Reset ke YTD</button><button type="button" class="p3-apply-menu" data-p3-action="apply">Terapkan Pilihan</button></div><div id="p3Months" class="p3-checklist"></div></div></div>
+  <div class="p3-filter" id="p3DateFilter"><label>TANGGAL</label><button class="p3-trigger" id="p3DatesTrigger" type="button">Tanggal berjalan</button><div class="p3-menu"><div class="p3-menu-actions"><button type="button" data-p3-action="all" data-p3-target="p3Dates">Pilih Semua</button><button type="button" data-p3-action="reset" data-p3-target="p3Dates">Reset</button><button type="button" class="p3-apply-menu" data-p3-action="apply">Terapkan Pilihan</button></div><input class="p3-search" type="search" data-p3-search="p3Dates" placeholder="Cari Tanggal..." autocomplete="off" aria-label="Cari Tanggal"><div id="p3Dates" class="p3-checklist p3-day-grid"></div></div></div>
+  <div class="p3-filter"><label>JENIS SALES</label><select class="p3-locked" disabled><option>SOO</option></select></div>
+  <div class="p3-filter" id="p3PicFilter"><label>PIC</label><button class="p3-trigger" id="p3PicsTrigger" type="button">Semua PIC</button><div class="p3-menu"><div class="p3-menu-actions"><button type="button" data-p3-action="all" data-p3-target="p3Pics">Pilih Semua</button><button type="button" data-p3-action="reset" data-p3-target="p3Pics">Reset</button><button type="button" class="p3-apply-menu" data-p3-action="apply">Terapkan Pilihan</button></div><input class="p3-search" type="search" data-p3-search="p3Pics" placeholder="Cari PIC..." autocomplete="off" aria-label="Cari PIC"><div id="p3Pics" class="p3-checklist"></div></div></div>
+  <div class="p3-filter" id="p3BrandFilter"><label>BRAND</label><button class="p3-trigger" id="p3BrandsTrigger" type="button">Semua Brand</button><div class="p3-menu"><div class="p3-menu-actions"><button type="button" data-p3-action="all" data-p3-target="p3Brands">Pilih Semua</button><button type="button" data-p3-action="reset" data-p3-target="p3Brands">Reset</button><button type="button" class="p3-apply-menu" data-p3-action="apply">Terapkan Pilihan</button></div><input class="p3-search" type="search" data-p3-search="p3Brands" placeholder="Cari Brand..." autocomplete="off" aria-label="Cari Brand"><div id="p3Brands" class="p3-checklist"></div></div></div>
+  <div class="p3-filter" id="p3SubbrandFilter"><label>SUBBRAND</label><button class="p3-trigger" id="p3SubbrandsTrigger" type="button">Semua Subbrand</button><div class="p3-menu"><div class="p3-menu-actions"><button type="button" data-p3-action="all" data-p3-target="p3Subbrands">Pilih Semua</button><button type="button" data-p3-action="reset" data-p3-target="p3Subbrands">Reset</button><button type="button" class="p3-apply-menu" data-p3-action="apply">Terapkan Pilihan</button></div><input class="p3-search" type="search" data-p3-search="p3Subbrands" placeholder="Cari Subbrand..." autocomplete="off" aria-label="Cari Subbrand"><div id="p3Subbrands" class="p3-checklist"></div></div></div>
+  <div class="p3-filter" id="p3CategoryFilter"><label>CATEGORY</label><button class="p3-trigger" id="p3CategoriesTrigger" type="button">Semua Category</button><div class="p3-menu"><div class="p3-menu-actions"><button type="button" data-p3-action="all" data-p3-target="p3Categories">Pilih Semua</button><button type="button" data-p3-action="reset" data-p3-target="p3Categories">Reset</button><button type="button" class="p3-apply-menu" data-p3-action="apply">Terapkan Pilihan</button></div><input class="p3-search" type="search" data-p3-search="p3Categories" placeholder="Cari Category..." autocomplete="off" aria-label="Cari Category"><div id="p3Categories" class="p3-checklist"></div></div></div>
  </div>
- <div id="p3Status" class="p3-status" aria-live="polite">Menunggu data outlet...</div>
- <article class="p3-card"><div><h2 id="p3TableTitle">TREND 25 OUTLET PARETO</h2><p id="p3TableDesc">Ranking berdasarkan VALUE YTD, SOO + SALESMAN.</p></div>
-  <div class="p3-table-wrap"><table><thead id="p3Head"></thead><tbody id="p3Body"><tr><td class="p3-empty">Menunggu data…</td></tr></tbody></table></div>
- </article>
+ <div id="p3Status" class="p3-status" aria-live="polite"></div>
+
+ <div class="p3-kpis">
+  <article class="p3-kpi"><div class="k-label">AO CURRENT YEAR</div><div class="k-main" id="p3AO">—</div><div class="k-sub" id="p3AOdesc">Outlet unik YTD</div><div class="k-growth" id="p3AOgrowth">GRW —</div><div class="k-sub" id="p3AOly">AO LY: —</div></article>
+  <article class="p3-kpi"><div class="k-label">EC CURRENT YEAR</div><div class="k-main" id="p3EC">—</div><div class="k-sub" id="p3ECdesc">Customer unik per tanggal YTD</div><div class="k-growth" id="p3ECgrowth">Growth vs LY —</div><div class="k-sub" id="p3ECly">EC LY: —</div></article>
+  <article class="p3-kpi"><div class="k-label">B7 CURRENT YEAR</div><div class="k-main" id="p3B7">—</div><div class="k-sub" id="p3B7desc">Outlet unik YTD</div><div class="k-growth" id="p3B7GRW">GRW —</div><div class="k-sub" id="p3B7LY">AO LY: —</div></article>
+  <article class="p3-kpi"><div class="k-label">SAKA CURRENT YEAR</div><div class="k-main" id="p3SAKA">—</div><div class="k-sub" id="p3SAKAdesc">Outlet unik YTD</div><div class="k-growth" id="p3SAKAGRW">GRW —</div><div class="k-sub" id="p3SAKALY">AO LY: —</div></article>
+  <article class="p3-kpi"><div class="k-label">AO MTD</div><div class="k-main" id="p3AOMTD">—</div><div class="k-sub" id="p3AOMTDdesc">AO bulan terpilih</div><div class="k-growth" id="p3AOMTDgrowth">GRW MTD —</div><div class="k-sub" id="p3AOMTDLY">AO LY: —</div></article>
+  <article class="p3-kpi"><div class="k-label">EC MTD</div><div class="k-main" id="p3ECMTD">—</div><div class="k-sub" id="p3ECMTDdesc">EC bulan terpilih</div><div class="k-growth" id="p3ECMTDgrowth">GRW MTD —</div><div class="k-sub" id="p3ECMTDLY">EC LY: —</div></article>
+ </div>
+ <div class="p3-control-row">
+  <div class="p3-filter p3-metric-filter"><label>MATRIX GRAFIK DAN TABEL</label><div class="p3-switch" id="p3MetricSwitch" role="group" aria-label="Pilih metrik grafik"><button type="button" class="active" data-metric="ao" aria-pressed="true">AO</button><button type="button" data-metric="ec" aria-pressed="false">EC</button><button type="button" data-metric="value" aria-pressed="false">VALUE</button></div></div>
+  <div class="p3-filter p3-control-subdist"><label>FILTER SUBDIST</label><div id="p3SubdistPills" class="p3-switch p3-subdist-pills" role="group" aria-label="Filter Subdist"></div></div>
+ </div>
+ <div class="p3-donuts">
+  <article class="p3-card"><div class="p3-chart-head"><div><h2>KOMPOSISI PER SUBDIST</h2><p>Kontribusi dan Growth vs LY pada periode terpilih.</p></div></div><div class="p3-donut-layout"><div class="p3-donutbox"><canvas id="p3SubdistChart"></canvas></div><div class="p3-donut-legend" id="p3SubdistLegend"></div></div></article>
+  <article class="p3-card"><div class="p3-chart-head"><div><h2>KOMPOSISI PER TEAM</h2><p>Kontribusi AO dan Growth vs LY pada periode terpilih.</p></div></div><div class="p3-donut-layout"><div class="p3-donutbox"><canvas id="p3TeamChart"></canvas></div><div class="p3-donut-legend" id="p3TeamLegend"></div></div></article>
+  <article class="p3-card"><div class="p3-chart-head"><div><h2>KOMPOSISI PER SUBBRAND</h2><p>Kontribusi AO dan Growth vs LY pada periode terpilih.</p></div></div><div class="p3-donut-layout"><div class="p3-donutbox"><canvas id="p3SubbrandChart"></canvas></div><div class="p3-donut-legend" id="p3SubbrandLegend"></div></div></article>
+ </div>
+ <div class="p3-section-title"><h2>MATRIX GRAFIK DAN TABEL</h2><p>Tren kinerja berdasarkan periode terpilih.</p></div>
+ <div class="p3-panel-grid">
+  <article class="p3-card"><div class="p3-chart-head"><div><h2>TREND BULANAN</h2><p>Perbandingan tahun berjalan dan tahun lalu.</p></div></div><div class="p3-chartbox"><canvas id="p3MonthlyChart"></canvas></div><div class="p3-insight-grid" id="p3MonthlyInsights"><div class="p3-insight"><small>ACT MTD</small><b id="p3MonthlyActMtd">—</b></div><div class="p3-insight"><small>AVG YTD</small><b id="p3MonthlyAvgYtd">—</b></div><div class="p3-insight"><small>AVG L3M</small><b id="p3MonthlyAvgL3m">—</b></div><div class="p3-insight"><small>GRW LM</small><b id="p3MonthlyGrowthLm">—</b></div><div class="p3-insight"><small>GRW L3M</small><b id="p3MonthlyGrowthL3m">—</b></div><div class="p3-insight"><small>GRW YTD</small><b id="p3MonthlyGrowthYtd">—</b></div></div></article>
+  <article class="p3-card"><div class="p3-chart-head"><div><h2>TREND HARIAN</h2><p>Pergerakan berdasarkan tanggal dalam bulan.</p></div></div><div class="p3-chartbox"><canvas id="p3DailyChart"></canvas></div><div class="p3-insight-grid" id="p3DailyInsights"><div class="p3-insight"><small>ACT MTD</small><b id="p3DailyActMtd">—</b></div><div class="p3-insight"><small>AVG YTD</small><b id="p3DailyAvgYtd">—</b></div><div class="p3-insight"><small>AVG L3M</small><b id="p3DailyAvgL3m">—</b></div><div class="p3-insight"><small>GRW LM</small><b id="p3DailyGrowthLm">—</b></div><div class="p3-insight"><small>GRW L3M</small><b id="p3DailyGrowthL3m">—</b></div><div class="p3-insight"><small>GRW YTD</small><b id="p3DailyGrowthYtd">—</b></div></div></article>
+ </div>
+
 </section>
+
+<style>
+#p3View #p3AOly,#p3View #p3ECly{font-size:12px!important;font-weight:800!important;color:#334155!important}
+#p3View .p3-trend-wrap{overflow:auto;max-width:100%;isolation:isolate;position:relative;overscroll-behavior:contain}
+#p3View .p3-trend-table{width:max-content;min-width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0}
+#p3View .p3-trend-table th:first-child,#p3View .p3-trend-table td:first-child{width:200px;min-width:200px;max-width:200px;text-align:left;position:sticky;left:0;box-sizing:border-box}
+#p3View .p3-trend-table td:first-child{background:#fff;z-index:7;box-shadow:2px 0 4px rgba(23,59,112,.12)}
+#p3View .p3-trend-table th:first-child{background:#173b70;color:#fff;z-index:12}
+#p3View .p3-trend-table th:nth-child(2),#p3View .p3-trend-table td:nth-child(2){width:120px;min-width:120px;max-width:120px;text-align:left;box-sizing:border-box}
+#p3View .p3-trend-table th:not(:first-child){background:#173b70;color:#fff;z-index:10}
+#p3View .p3-trend-table th:nth-child(n+3),#p3View .p3-trend-table td:nth-child(n+3){width:96px;min-width:96px;max-width:96px}
+#p3View .p3-trend-table .p3-col-growth{width:56px;min-width:56px;max-width:56px;padding-left:2px;padding-right:2px;font-size:7px}
+#p3View .p3-trend-table .p3-col-growth-long{width:60px;min-width:60px;max-width:60px;padding-left:2px;padding-right:2px;font-size:7px}
+#p3View .p3-trend-table td:first-child,#p3View .p3-trend-table td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#p3View .p3-trend-table tbody tr:hover td:first-child{background:#f8fafc}
+#p3View .p3-trend-table .p3-grand-total td{position:sticky;bottom:0;background:#fff1cc;color:#173b70;font-weight:850;border-top:2px solid #d6a43b;z-index:8}
+#p3View .p3-trend-table .p3-grand-total td:first-child{left:0;background:#fff1cc;z-index:13;box-shadow:2px 0 4px rgba(23,59,112,.12)}
+</style>
+
+<style>#p3View #p3Dates{grid-template-columns:1fr!important}</style>
+
+<style id="page2-control-normalization">#p3View{width:100%;max-width:100%;min-width:0}#p3View .p3-filter>label{font-size:10px;line-height:1.2;min-height:12px}#p3View .p3-filter select,#p3View .p3-trigger{height:38px;min-height:38px;border-radius:9px;font-size:11px;line-height:1.2}#p3View .p3-filter-actions button{height:34px;min-height:34px;border-radius:8px;font-size:11px}#p3View .p3-switch{height:36px;border-radius:9px}#p3View .p3-switch button{height:30px;border-radius:7px;font-size:10px}#p3View .p3-kpi{min-height:116px;border-radius:12px;padding:12px}#p3View .p3-kpi .k-label{font-size:9px;line-height:1.25}#p3View .p3-kpi .k-main{font-size:21px;line-height:1.2}#p3View .p3-kpi .k-sub,#p3View .p3-kpi .k-growth{font-size:9px;line-height:1.35}#p3View .p3-card{width:100%;min-width:0;border-radius:13px}</style>
+
+
+<style id="p3-control-unified-v3">
+/* AO/EC/VALUE and all Subdist choices share one control system. */
+#p3View .p3-control-row{
+  grid-template-columns:minmax(0,1fr) minmax(0,2fr);
+  align-items:start;
+  gap:18px;
+}
+#p3View .p3-control-row>.p3-filter{min-width:0;width:100%}
+#p3View .p3-control-row>.p3-filter>label{
+  display:block;
+  min-height:13px;
+  margin:0 0 8px;
+  font:700 10px/13px Inter,"Segoe UI",Arial,sans-serif;
+  letter-spacing:.25px;
+  color:#64748b;
+}
+#p3View #p3MetricSwitch,
+#p3View #p3SubdistPills{
+  display:grid!important;
+  width:100%;
+  min-width:0;
+  height:42px!important;
+  min-height:42px;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:4px;
+  padding:4px;
+  box-sizing:border-box;
+  align-items:stretch;
+  border-radius:10px;
+  background:#f0f4f9;
+}
+#p3View #p3SubdistPills{grid-template-columns:repeat(8,minmax(0,1fr))}
+#p3View #p3MetricSwitch button,
+#p3View #p3SubdistPills .p3-subdist-pill{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  min-width:0;
+  height:34px!important;
+  min-height:34px;
+  margin:0;
+  padding:0 4px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:#53657c;
+  font:800 10px/1 Inter,"Segoe UI",Arial,sans-serif!important;
+  letter-spacing:0;
+  white-space:nowrap;
+  text-align:center;
+  box-shadow:none;
+  cursor:pointer;
+}
+#p3View #p3MetricSwitch button.active,
+#p3View #p3SubdistPills .p3-subdist-pill.active{
+  background:#2563eb;
+  color:#fff;
+  box-shadow:0 1px 3px #1e40af30;
+}
+@media(max-width:760px){
+  #p3View .p3-control-row{grid-template-columns:minmax(0,1fr);gap:12px}
+  #p3View #p3SubdistPills{grid-template-columns:repeat(4,minmax(0,1fr));height:auto!important}
+  #p3View #p3SubdistPills .p3-subdist-pill{height:34px!important}
+}
+</style>
