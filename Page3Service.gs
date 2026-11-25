@@ -36,7 +36,7 @@ function page3BuildData_(rows,filters,meta){
  const available=(meta.monthsByYear||{})[String(year)]||[],requested=(Array.isArray(filters.months)?filters.months:[]).map(page2Month_).filter(m=>PAGE3_MONTHS_.includes(m));
  const months=requested.length?PAGE3_MONTHS_.filter(m=>requested.includes(m)):available.slice(),monthSet=new Set(months);
  const subdistSet=new Set(page2FilterList_(filters.subdists).map(page2Key_)),subbrandSet=new Set(page2FilterList_(filters.subbrands).map(page2Key_)),picSet=new Set(page2FilterList_(filters.pics).map(page2Key_)),brandSet=new Set(page2FilterList_(filters.brands).map(page2Key_)),categorySet=new Set(page2FilterList_(filters.categories).map(page2Key_)),customerSet=new Set(page2FilterList_(filters.customers).map(page2Key_)),dateSet=new Set(page2FilterList_(filters.dates).map(v=>String(v).padStart(2,'0')));
- const map=new Map();let matchedSourceRows=0;
+ const metric='value',map=new Map();let matchedSourceRows=0;
  (rows||[]).forEach(r=>{
   const type=page2Key_(r[11]);if(mode==='SOO'&&type!=='SOO')return;
   if(Number(r[0])!==year)return;
