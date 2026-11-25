@@ -11,6 +11,8 @@
 const ANALYTICS_BUILD_PREFIX_ = 'MANTUL_ANALYTICS_BUILD_';
 const P1_FACT_HEADERS_ = ['YEAR','MONTH','SUBDIST','SUBBRAND','BRAND','CATEGORY','SBU','PIC','PF_MONTHLY','PF_QUARTERLY','VAL','SALES_TYPE','TARGET','BE'];
 const P2_EVENT_HEADERS_ = ['YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES_TYPE','SALESMAN','TEAM','VAL','CARTON'];
+// Schema sumber 18 kolom; Page 2 tetap menggunakan 16 kolom legacy.
+const P2_EVENT_INDEX_HEADERS_ = P2_EVENT_HEADERS_.concat(['SKU','SUB_DIST']);
 
 function analyticsRebuildAll() {
   return analyticsStartInitialBuild();
