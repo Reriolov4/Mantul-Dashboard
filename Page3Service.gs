@@ -72,6 +72,7 @@ function page3BuildData_(rows,filters,meta,sourceName){
   totals:totals,monthTotals:monthTotals,matchedSourceRows:matchedSourceRows,source:sourceName||'P2_DASHBOARD_FACT'};
 }
 function getPage3InitialPayload(){
+ if(typeof analyticsEnsureExistingIndexesRegistered_==='function')analyticsEnsureExistingIndexesRegistered_();
  const started=Date.now(),src=page3ReadSource_(),meta=page3BuildMeta_(src.rows);
  const year=meta.years.includes('2026')?'2026':meta.years[meta.years.length-1],months=meta.monthsByYear[year]||[];
  const data=page3BuildData_(src.rows,{year:year,months:months,page:1,pageSize:50,metric:'value'},meta,src.sheet.getName());
