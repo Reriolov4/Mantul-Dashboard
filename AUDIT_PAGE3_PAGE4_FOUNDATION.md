@@ -1,47 +1,64 @@
-# Mantul Dashboard — Page 2/3/4 Audit Foundation
+# Mantul Dashboard — Page 2/3/4 Revision
 
-Date: 2026-11-25
-Base branch: `perf/page2-single-pass`
-Related PR: #1 (kept separate)
+Date: 25 November 2026
+Target branch: `perf/page2-single-pass`
+Production deployment: existing Apps Script Web App deployment ID / URL (via GitHub Actions secrets)
 
-## Scope of this branch
+## Implemented in this PR
 
-This is a safety/audit foundation only. It does not claim that Page 3 (Outlets) or Page 4 (SKU KCH) is implemented or production-ready.
+### Page 1
+- Business content, KPIs, formulas, charts, filters, and matrix are untouched.
+- Only the navigation labels in `Index.html` were changed.
 
-### Changes
+### Page 2
+- Existing Page 2 implementation is retained.
+- The derived-index rebuild is protected by an explicit confirmation token.
+- Normal dashboard refresh no longer calls `analyticsBuildDashboardIndexes()`.
 
-- `DashboardRefreshService.gs`: `refreshMantulDashboard()` now performs read-only source validation and reports derived-index status. It deliberately does not call `analyticsStartInitialBuild()` or `analyticsBuildDashboardIndexes()`.
-- `AnalyticsIndexAudit.gs`: adds `analyticsAuditDerivedIndexesReadOnly()`, which reports sheet headers, row counts, stored index metadata, and consistency checks without modifying data or script properties.
+### Page 3 — Outlets
+- Dedicated `Page3Service.gs`, `Page3.html`, and `Page3Scripts.html`.
+- SOO scope includes every TIM present in the maintained data (not hard-coded to a single team).
+- Customer Name search, year/month selection, Subdist, Subbrand, Value/Karton toggle.
+- Monthly trend table by Customer Name + Subdist, with selected months, total, and pagination.
+- No Target, ACH, TRG BE, or %BE columns.
+- When a single Subdist is selected and the audited range index is available, it reads only that Subdist's block from `P2_SUBDIST_FACT`.
 
-## Workbook audit observations
+### Page 4 — SKU KCH
+- Dedicated `Page4Service.gs`, `Page4.html`, and `Page4Scripts.html`.
+- Subdist and year filters.
+- SOO YTD aggregation from `RAW_DATA_SALES`.
+- SKU KCH resolved by header name; SKU master mapping uses `SKU.PRODUCT_DESC`.
+- Ambiguous product attributes are labeled `MULTI` instead of assigning an arbitrary Brand/Subbrand/Category/Entitas.
 
-Based on the supplied workbook `SALES PERFORMANCE DATABASE 2026(1).xlsx`:
+### Safe index handling
+- `AnalyticsIndexAudit.gs` validates existing derived sheets against `P2_EVENT_INDEX` and registers readiness/range metadata in Script Properties only.
+- It does not modify any spreadsheet sheet.
+- `DashboardRefreshService.gs` runs that audit during refresh and never rebuilds derived sheets.
+- `analyticsBuildDashboardIndexes()` now requires the explicit argument `REBUILD_DERIVED_INDEXES`; accidental invocation without it throws before any write.
 
-- `P1_FACT`: 14,738 non-empty data rows.
-- `P2_DASHBOARD_FACT`: 88,970 non-empty data rows.
-- `P2_SUBDIST_FACT`: 88,970 non-empty data rows.
-- `P3_OUTLET_MONTHLY_BUILD_3794283`: 28,541 non-empty data rows.
-- `P3_OUTLET_MONTHLY`: 28,541 non-empty data rows.
-- `P2_EVENT_INDEX`: 130,141 non-empty data rows.
-- `RAW_DATA_SALES`: 130,141 non-empty data rows.
-- `SKU`: 998 non-empty data rows.
-- `MAPPING TEAM`: 999 non-empty data rows.
+## Workbook reconciliation completed
 
-The apparent 577-row difference previously seen between `P2_EVENT_INDEX` and `RAW_DATA_SALES` was due to blank XML rows, not missing non-empty transaction records.
+Against the supplied workbook `SALES PERFORMANCE DATABASE 2026(1).xlsx`:
 
-The two Page 2 derived sheets have the same row count and matching aggregate totals in the workbook audit. They are not deleted or rebuilt by this branch.
+- `P2_EVENT_INDEX` contains 127,285 SOO transaction rows.
+- `P2_DASHBOARD_FACT` has 88,970 groups; its `SOURCE_ROWS` sum equals 127,285.
+- `P2_DASHBOARD_FACT` and `P2_SUBDIST_FACT` totals reconcile to SOO source totals:
+  - Value: 52,751,374,743.05
+  - Carton: 85,086.79646944
+- `P3_OUTLET_MONTHLY` reconciles to the SALESMAN-only source subset:
+  - Value: 47,144,202,167.76
+  - Carton: 67,548.504802911
+- `P2_SUBDIST_FACT` is ordered by Subdist and contains 7 distinct Subdist blocks.
+- `RAW_DATA_SALES` has 63,823 SOO transaction rows for 2026 (Jan–Nov).
+- SKU master has 81 distinct `PRODUCT_DESC` values; 80 have transaction activity in the supplied workbook. Duplicate/ambiguous master attributes are not silently treated as unique.
 
-## Existing Page 3 / Page 4 code gap
+## Static checks and limitations
 
-The current `Page3Scripts.html` and `Page4Scripts.html` still call `getPage2DashboardData(f)`. They are therefore sharing the Page 2 data endpoint and are not independent implementations of the requested Outlets and SKU KCH pages.
+- JavaScript syntax checks passed for the local Page 3/Page 4 scripts and Apps Script service files.
+- Workbook row-count and total reconciliation passed.
+- This is not a live Apps Script execution test. After GitHub Actions deploys, verify the existing Web App URL, authorize if prompted, and test each page against the live Google Sheet.
+- Deployment workflow uses `clasp push --force` and updates the existing deployment ID. A failed Actions run must be fixed before declaring deployment complete.
 
-Required next implementation:
-
-- Page 3: Customer Name search, Value/Karton metric, Subdist and Subbrand filters, and a monthly customer trend table without Target/ACH/TRG BE/%BE columns.
-- Page 4: Subdist filter and SKU KCH table, with the SKU mapping and transaction aggregation confirmed against the workbook's actual SKU sheet before finalizing the join.
-
-## Safety
-
-- Do not run `analyticsBuildDashboardIndexes()` during this audit phase.
-- Do not merge this branch into `perf/page2-single-pass` until Page 3/4 services and tests are completed.
-- The repository workflow is configured to deploy when `perf/page2-single-pass` receives a push. This audit branch does not trigger that deployment workflow.
+## Do not run
+- Do not run `analyticsBuildDashboardIndexes()` from the Apps Script editor.
+- Do not manually rebuild or delete any derived sheet during rollout.
