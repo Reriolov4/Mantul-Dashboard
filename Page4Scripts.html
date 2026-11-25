@@ -206,11 +206,6 @@ function page4SetMetric(metric){p4MetricValue=metric;document.querySelectorAll('
 document.addEventListener('click',e=>{const metricButton=e.target.closest('#p4MetricSwitch button[data-metric]');if(metricButton)page4SetMetric(metricButton.dataset.metric);});
 
 
-function page4Show(){
- const view=p4$('page4View');document.querySelectorAll('main.wrap > *').forEach(el=>{if(el===view)return;el.hidden=true;el.style.setProperty('display','none','important');});
- if(view){view.hidden=false;view.style.setProperty('display','block','important');}
- document.body.classList.add('page2-active');document.querySelector('.p1-nav')?.classList.remove('active');document.querySelector('.p2-nav')?.classList.remove('active');document.querySelector('.p3-nav')?.classList.remove('active');document.querySelector('.p4-nav')?.classList.remove('active');document.querySelector('.p4-nav')?.classList.add('active');window.scrollTo(0,0);
- if(!p4Meta)page4Init();else if(p4Data&&p4NeedsRender){page4Render();p4NeedsRender=false;}
-}
+function page4Show(){mantulShowPage_('page4View');if(!page4Meta)page4Init();else if(page4Data&&page4NeedsRender){page4Render();page4NeedsRender=false;}}
 // Page 4 uses the shared Page 2 data service.
 </script>

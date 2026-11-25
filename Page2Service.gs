@@ -637,6 +637,33 @@ function page2GetMeta() {
   }, 300);
 }
 
+function page2ReadSubdistBlocks_(subdists){
+  const ss=getDatabase_(),sheet=ss.getSheetByName('P2_SUBDIST_FACT');
+  if(!sheet||sheet.getLastRow()<2)return {ready:false,ranges:[]};
+  let index=null;
+  try{index=JSON.parse(PropertiesService.getScriptProperties().getProperty('MANTUL_P2_SUBDIST_RANGES')||'null');}catch(e){}
+  if(!index||Number(index.rowCount)!==sheet.getLastRow()-1)return {ready:false,ranges:[]};
+  const ranges=[];
+  subdists.forEach(key=>{const item=index.ranges&&index.ranges[key];if(item&&Number(item.numRows)>0)ranges.push({startRow:Number(item.startRow),numRows:Number(item.numRows)});});
+  return {ready:true,sheet:sheet,ranges:ranges};
+}
+function page2NormalizeFilteredValues_(values,safe){
+  const rows=[],analysisYear=Number(safe.year)||0;
+  const pics=new Set(page2FilterList_(safe.pics)),brands=new Set(page2FilterList_(safe.brands)),
+    subbrands=new Set(page2FilterList_(safe.subbrands)),categories=new Set(page2FilterList_(safe.categories));
+  for(let i=0;i<values.length;i++){
+    const r=values[i],rowYear=Number(r[0]);
+    if(analysisYear&&rowYear!==analysisYear&&rowYear!==analysisYear-1)continue;
+    if(page2Key_(r[11])!=='SOO')continue;
+    if(pics.size&&!pics.has(page2Key_(r[6])))continue;
+    if(brands.size&&!brands.has(page2Key_(r[7])))continue;
+    if(subbrands.size&&!subbrands.has(page2Key_(r[8])))continue;
+    if(categories.size&&!categories.has(page2Key_(r[9])))continue;
+    rows.push([r[0],page2Month_(r[1]),r[2],r[8],r[7],r[4],r[6],r[11],r[5],page2Key_(r[13])||'SALESMAN',r[4],r[9],r[10],r[3],Number(r[14])||0]);
+  }
+  return rows;
+}
+
 function page2ReadFiltered_(sheet, filters) {
   const sh=sheet||page2Source_(),safe=filters||{};
   // P2_EVENT_INDEX is already normalized and contains SOO only. Apply the
@@ -651,6 +678,18 @@ function page2ReadFiltered_(sheet, filters) {
   const pics=new Set(page2FilterList_(safe.pics)),subdists=new Set(page2FilterList_(safe.subdists)),
     brands=new Set(page2FilterList_(safe.brands)),subbrands=new Set(page2FilterList_(safe.subbrands)),
     categories=new Set(page2FilterList_(safe.categories));
+  if(subdists.size && sh.getName()==='P2_DASHBOARD_FACT'){
+    const indexed=page2ReadSubdistBlocks_(subdists);
+    if(indexed && indexed.ready){
+      if(!indexed.ranges.length)return [];
+      const selectedRows=[];
+      indexed.ranges.forEach(block=>{
+        const part=indexed.sheet.getRange(block.startRow,1,block.numRows,15).getValues();
+        for(let i=0;i<part.length;i++)selectedRows.push(part[i]);
+      });
+      return page2NormalizeFilteredValues_(selectedRows,safe);
+    }
+  }
   const values=sh.getRange(2,1,lastRow-1,15).getValues(),rows=[];
   const analysisYear=Number(safe.year)||0, comparisonYear=analysisYear?analysisYear-1:0;
   for(let i=0;i<values.length;i++){
