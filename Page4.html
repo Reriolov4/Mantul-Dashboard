@@ -8,7 +8,7 @@
 #p4View .p4-filter.open .p4-menu{display:block}#p4View .p4-menu-actions{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
 #p4View .p4-menu-actions button{border:1px solid #dbe3ee;background:#f8fafc;color:#1d4ed8;border-radius:7px;padding:6px 8px;font-size:10px;font-weight:800;cursor:pointer}
 #p4View .p4-menu-actions .p4-menu-apply{background:#2563eb;color:#fff;border-color:#2563eb;width:100%}
-#p4View .p4-checklist{display:grid;grid-template-columns:1fr;gap:5px;max-height:245px;overflow:auto}
+#p4View .p4-checklist{display:grid;grid-template-columns:1fr;gap:5px;max-height:245px;overflow:auto}#p4View .p4-subdist-pills{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}#p4View .p4-subdist-pills button{height:34px;border:0;border-radius:8px;background:#f0f4f9;color:#53657c;font-size:10px;font-weight:800;cursor:pointer}#p4View .p4-subdist-pills button.active{background:#2563eb;color:#fff}
 #p4View .p4-checkitem{display:flex;align-items:center;gap:7px;margin:0;padding:7px 6px;border:1px solid #e5eaf1;border-radius:7px;color:#334155;font-size:11px;cursor:pointer}
 #p4View .p4-checkitem input{accent-color:#2563eb;margin:0;flex:0 0 auto}#p4View .p4-checkitem span{overflow-wrap:anywhere}
 #p4View .p4-search{display:block;width:100%;height:33px;margin:0 0 8px;padding:0 9px;border:1px solid #dbe3ee;border-radius:8px;font:inherit;font-size:11px}
@@ -31,7 +31,7 @@
  <div class="p4-head"><h1>SKU KCH</h1><p>Monitoring SKU KCH dengan filter Customer dan SUBDIST mengikuti pola Page 2.</p></div>
  <div class="p4-filter-card">
   <div class="p4-filter" id="p4CustomersFilter"><label>CUSTOMER</label><button class="p4-trigger" id="p4CustomersTrigger" type="button">Semua Customer</button><div class="p4-menu"><div class="p4-menu-actions"><button data-action="all" data-target="p4Customers">Pilih Semua</button><button data-action="reset" data-target="p4Customers">Reset</button><button class="p4-menu-apply" data-action="apply">Terapkan Pilihan</button></div><input class="p4-search" data-search="p4Customers" placeholder="Cari Customer..."><div id="p4Customers" class="p4-checklist"></div></div></div>
-  <div class="p4-filter" id="p4SubdistsFilter"><label>SUBDIST</label><button class="p4-trigger" id="p4SubdistsTrigger" type="button">Semua SUBDIST</button><div class="p4-menu"><div class="p4-menu-actions"><button data-action="all" data-target="p4Subdists">Pilih Semua</button><button data-action="reset" data-target="p4Subdists">Reset</button><button class="p4-menu-apply" data-action="apply">Terapkan Pilihan</button></div><input class="p4-search" data-search="p4Subdists" placeholder="Cari SUBDIST..."><div id="p4Subdists" class="p4-checklist"></div></div></div>
+  <div class="p4-filter"><label>SUBDIST</label><div id="p4SubdistPills" class="p4-subdist-pills"></div></div>
   <div class="p4-actions"><button type="button" class="secondary" id="p4Reset">Reset</button><button type="button" id="p4Apply">Terapkan Filter</button></div>
  </div>
  <div id="p4Status" class="p4-status" aria-live="polite">Menyiapkan data SKU KCH...</div>
