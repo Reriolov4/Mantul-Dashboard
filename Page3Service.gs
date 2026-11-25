@@ -5,7 +5,8 @@
  */
 const PAGE3_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 function page3Source_(){
- const ss=getDatabase_();let sh=ss.getSheetByName('P2_DASHBOARD_FACT');
+ const ss=getDatabase_(),ready=typeof analyticsSummaryReady_==='function'&&analyticsSummaryReady_();
+ let sh=ready?ss.getSheetByName('P2_DASHBOARD_FACT'):ss.getSheetByName('P2_EVENT_INDEX');
  if(!sh||sh.getLastRow()<2)sh=ss.getSheetByName('P2_EVENT_INDEX');
  if(!sh||sh.getLastRow()<2)throw new Error('P2_DASHBOARD_FACT/P2_EVENT_INDEX belum berisi data.');
  const expected=P2_EVENT_HEADERS_.map(page2HeaderKey_);
@@ -15,7 +16,7 @@ function page3Source_(){
 }
 function page3ReadSource_(filters){
  const ss=getDatabase_(),selected=page2FilterList_(filters&&filters.subdists);
- if(selected.length===1){
+ if(selected.length===1&&typeof analyticsSummaryReady_==='function'&&analyticsSummaryReady_()){
   const sub=ss.getSheetByName('P2_SUBDIST_FACT');let index=null;
   try{index=JSON.parse(PropertiesService.getScriptProperties().getProperty('MANTUL_P2_SUBDIST_RANGES')||'null');}catch(e){}
   const entry=index&&index.ranges&&index.ranges[selected[0]];
