@@ -207,11 +207,28 @@ document.addEventListener('click',e=>{const metricButton=e.target.closest('#p2Me
 
 
 function mantulShowPage_(pageId){
-  const main=document.querySelector('main.wrap'),target=pageId==='page1'?null:document.getElementById(pageId),hiddenPages=new Set(['page2View','page3View','page4View']);
-  if(main)Array.from(main.children).forEach(el=>{const show=pageId==='page1'?!hiddenPages.has(el.id):el===target;el.hidden=!show;if(show)el.style.removeProperty('display');else el.style.setProperty('display','none','important');});
-  document.body.classList.toggle('page2-active',pageId!=='page1');
-  [['p1-nav','page1'],['p2-nav','page2View'],['p3-nav','page3View'],['p4-nav','page4View']].forEach(([cls,id])=>document.querySelector('.'+cls)?.classList.toggle('active',id===pageId));
+  const main=document.querySelector('main.wrap');
+  const pageRoots=new Set(['page2View','p3View','p4View']);
+  const target=pageId==='page1'?null:document.getElementById(pageId);
+  if(pageId!=='page1'&&!target){
+    console.error('Mantul Dashboard: halaman tidak ditemukan:',pageId);
+    return false;
+  }
+  if(main){
+    Array.from(main.children).forEach(el=>{
+      const show=pageId==='page1'?!pageRoots.has(el.id):el===target;
+      el.hidden=!show;
+      if(show)el.style.removeProperty('display');
+      else el.style.setProperty('display','none','important');
+    });
+  }
+  document.body.classList.remove('page2-active','page3-active','page4-active');
+  if(pageId==='page2View')document.body.classList.add('page2-active');
+  if(pageId==='p3View')document.body.classList.add('page3-active');
+  if(pageId==='p4View')document.body.classList.add('page4-active');
+  [['p1-nav','page1'],['p2-nav','page2View'],['p3-nav','p3View'],['p4-nav','p4View']].forEach(([cls,id])=>document.querySelector('.'+cls)?.classList.toggle('active',id===pageId));
   window.scrollTo(0,0);
+  return true;
 }
 function page2Show(){mantulShowPage_('page2View');if(!p2Meta)page2Init();else if(p2Data&&p2NeedsRender){page2Render();p2NeedsRender=false;}}
 function page1Show(){mantulShowPage_('page1');}
