@@ -21,28 +21,28 @@ function page34Entity_(row,mode){
  return PAGE34_ENTITIES_.includes(key)?key:'';
 }
 function page3BuildMeta_(rows){
- const years=new Set(),subbrands=new Set(),monthsByYear={};let soo=0,soModeRows=0;
+ const years=new Set(),subbrands=new Set(),monthsByYear={},pics=new Set(),brands=new Set(),categories=new Set(),customers=new Set(),days=new Set();let soo=0,soModeRows=0;
  (rows||[]).forEach(r=>{
   const type=page2Key_(r[11]);if(type==='SOO')soo++;soModeRows++;
   const y=String(Number(r[0])||r[0]||'').trim(),m=page2Month_(r[1]),sb=page2Text_(r[8]);
-  if(y)years.add(y);if(sb)subbrands.add(sb);if(y&&m){if(!monthsByYear[y])monthsByYear[y]=new Set();monthsByYear[y].add(m);}
+  if(y)years.add(y);if(sb)subbrands.add(sb);if(page2Text_(r[6]))pics.add(page2Text_(r[6]));if(page2Text_(r[7]))brands.add(page2Text_(r[7]));if(page2Text_(r[9]))categories.add(page2Text_(r[9]));if(page2Text_(r[4]))customers.add(page2Text_(r[4]));const day=String(Number(r[2])||r[2]||'').padStart(2,'0');if(day&&day!=='NaN')days.add(day);if(y&&m){if(!monthsByYear[y])monthsByYear[y]=new Set();monthsByYear[y].add(m);}
  });
  const sort=a=>Array.from(a).sort((x,y)=>x.localeCompare(y,'id'));
  return {years:Array.from(years).sort((a,b)=>Number(a)-Number(b)),monthsByYear:Object.fromEntries(Object.keys(monthsByYear).map(y=>[y,PAGE3_MONTHS_.filter(m=>monthsByYear[y].has(m))])),
-  subdists:PAGE34_ENTITIES_.slice(),subbrands:sort(subbrands),sourceRows:(rows||[]).length,sooRows:soo,soModeRows:soModeRows};
+  subdists:PAGE34_ENTITIES_.slice(),subbrands:sort(subbrands),pics:sort(pics),brands:sort(brands),categories:sort(categories),customers:sort(customers),days:Array.from(days).sort(),sourceRows:(rows||[]).length,sooRows:soo,soModeRows:soModeRows};
 }
 function page3BuildData_(rows,filters,meta){
  filters=filters||{};const mode=page34Mode_(filters.mode),year=Number(filters.year)||Number((meta.years||[]).slice(-1)[0])||new Date().getFullYear();
  const available=(meta.monthsByYear||{})[String(year)]||[],requested=(Array.isArray(filters.months)?filters.months:[]).map(page2Month_).filter(m=>PAGE3_MONTHS_.includes(m));
  const months=requested.length?PAGE3_MONTHS_.filter(m=>requested.includes(m)):available.slice(),monthSet=new Set(months);
- const subdistSet=new Set(page2FilterList_(filters.subdists).map(page2Key_)),subbrandSet=new Set(page2FilterList_(filters.subbrands).map(page2Key_));
- const query=page2Key_(filters.customerName||''),metric=String(filters.metric||'value').toLowerCase()==='carton'?'carton':'value',map=new Map();let matchedSourceRows=0;
+ const subdistSet=new Set(page2FilterList_(filters.subdists).map(page2Key_)),subbrandSet=new Set(page2FilterList_(filters.subbrands).map(page2Key_)),picSet=new Set(page2FilterList_(filters.pics).map(page2Key_)),brandSet=new Set(page2FilterList_(filters.brands).map(page2Key_)),categorySet=new Set(page2FilterList_(filters.categories).map(page2Key_)),customerSet=new Set(page2FilterList_(filters.customers).map(page2Key_)),dateSet=new Set(page2FilterList_(filters.dates).map(v=>String(v).padStart(2,'0')));
+ const map=new Map();let matchedSourceRows=0;
  (rows||[]).forEach(r=>{
   const type=page2Key_(r[11]);if(mode==='SOO'&&type!=='SOO')return;
   if(Number(r[0])!==year)return;
   const m=page2Month_(r[1]),sd=page34Entity_(r,mode),sb=page2Text_(r[8]),customer=page2Text_(r[4]);
-  if(!monthSet.has(m)||!sd||!customer)return;if(subdistSet.size&&!subdistSet.has(page2Key_(sd)))return;
-  if(subbrandSet.size&&!subbrandSet.has(page2Key_(sb)))return;if(query&&!page2Key_(customer).includes(query))return;
+  if(!monthSet.has(m)||!sd||!customer)return;const day=String(Number(r[2])||r[2]||'').padStart(2,'0');if(dateSet.size&&!dateSet.has(day))return;if(subdistSet.size&&!subdistSet.has(page2Key_(sd)))return;
+  if(subbrandSet.size&&!subbrandSet.has(page2Key_(sb)))return;if(picSet.size&&!picSet.has(page2Key_(r[6])))return;if(brandSet.size&&!brandSet.has(page2Key_(r[7])))return;if(categorySet.size&&!categorySet.has(page2Key_(r[9])))return;if(customerSet.size&&!customerSet.has(page2Key_(customer)))return;
   matchedSourceRows++;const key=page2ExactCompositeKey_([sd,customer]);let x=map.get(key);
   if(!x){x={customerName:customer,subdist:sd,monthly:{},total:{value:0,carton:0}};map.set(key,x);}
   if(!x.monthly[m])x.monthly[m]={value:0,carton:0};x.monthly[m].value+=Number(r[14])||0;x.monthly[m].carton+=Number(r[15])||0;x.total.value+=Number(r[14])||0;x.total.carton+=Number(r[15])||0;
