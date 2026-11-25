@@ -25,7 +25,7 @@ function page3BuildMeta_(rows){
  (rows||[]).forEach(r=>{
   const type=page2Key_(r[11]);if(type==='SOO')soo++;soModeRows++;
   const y=String(Number(r[0])||r[0]||'').trim(),m=page2Month_(r[1]),sb=page2Text_(r[8]);
-  if(y)years.add(y);if(sb)subbrands.add(sb);if(page2Text_(r[6]))pics.add(page2Text_(r[6]));if(page2Text_(r[7]))brands.add(page2Text_(r[7]));if(page2Text_(r[9]))categories.add(page2Text_(r[9]));if(page2Text_(r[4]))customers.add(page2Text_(r[4]));const day=String(Number(r[2])||r[2]||'').padStart(2,'0');if(day&&day!=='NaN')days.add(day);if(y&&m){if(!monthsByYear[y])monthsByYear[y]=new Set();monthsByYear[y].add(m);}
+  if(y)years.add(y);if(sb)subbrands.add(sb);if(page2Text_(r[6]))pics.add(page2Text_(r[6]));if(page2Text_(r[7]))brands.add(page2Text_(r[7]));if(page2Text_(r[9]))categories.add(page2Text_(r[9]));if(page2Text_(r[4]))customers.add(page2Text_(r[4]));const dateKey=page2Date_(y,m,r[2]);if(dateKey)days.add(dateKey.slice(8,10));if(y&&m){if(!monthsByYear[y])monthsByYear[y]=new Set();monthsByYear[y].add(m);}
  });
  const sort=a=>Array.from(a).sort((x,y)=>x.localeCompare(y,'id'));
  return {years:Array.from(years).sort((a,b)=>Number(a)-Number(b)),monthsByYear:Object.fromEntries(Object.keys(monthsByYear).map(y=>[y,PAGE3_MONTHS_.filter(m=>monthsByYear[y].has(m))])),
@@ -41,7 +41,7 @@ function page3BuildData_(rows,filters,meta){
   const type=page2Key_(r[11]);if(mode==='SOO'&&type!=='SOO')return;
   if(Number(r[0])!==year)return;
   const m=page2Month_(r[1]),sd=page34Entity_(r,mode),sb=page2Text_(r[8]),customer=page2Text_(r[4]);
-  if(!monthSet.has(m)||!sd||!customer)return;const day=String(Number(r[2])||r[2]||'').padStart(2,'0');if(dateSet.size&&!dateSet.has(day))return;if(subdistSet.size&&!subdistSet.has(page2Key_(sd)))return;
+  if(!monthSet.has(m)||!sd||!customer)return;const dateKey=page2Date_(r[0],r[1],r[2]),day=dateKey?dateKey.slice(8,10):'';if(dateSet.size&&!dateSet.has(day))return;if(subdistSet.size&&!subdistSet.has(page2Key_(sd)))return;
   if(subbrandSet.size&&!subbrandSet.has(page2Key_(sb)))return;if(picSet.size&&!picSet.has(page2Key_(r[6])))return;if(brandSet.size&&!brandSet.has(page2Key_(r[7])))return;if(categorySet.size&&!categorySet.has(page2Key_(r[9])))return;if(customerSet.size&&!customerSet.has(page2Key_(customer)))return;
   matchedSourceRows++;const key=page2ExactCompositeKey_([sd,customer]);let x=map.get(key);
   if(!x){x={customerName:customer,subdist:sd,monthly:{},total:{value:0,carton:0}};map.set(key,x);}
