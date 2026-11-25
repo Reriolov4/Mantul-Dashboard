@@ -6,6 +6,10 @@ on:
     branches:
       - perf/page2-single-pass
 
+concurrency:
+  group: mantul-apps-script-deploy
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
