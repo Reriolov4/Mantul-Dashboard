@@ -1,56 +1,37 @@
 /**
- * MANTUL — SAFE SOURCE VALIDATION
- *
- * Deliberately read-only until the derived-index audit and Page 3 / Page 4
- * services are reviewed. This function does NOT call analyticsBuildDashboardIndexes()
- * and does NOT rewrite, clear, rename, or append to any spreadsheet sheet.
+ * MANTUL — SAFE DASHBOARD REFRESH
+ * Validates existing source and derived sheets. It never runs analyticsBuildDashboardIndexes().
  */
-function refreshMantulDashboard() {
-  const started = Date.now();
-  const validation = validateMantulDashboardSources();
-  const indexStatus = typeof analyticsGetDashboardIndexStatus === 'function'
-    ? analyticsGetDashboardIndexStatus()
-    : { ready: false, status: 'STATUS_SERVICE_UNAVAILABLE' };
-
-  const result = {
-    ok: true,
-    status: 'VALIDATED_ONLY',
-    buildExecuted: false,
-    message: 'Sumber berhasil divalidasi. BUILD indeks sengaja dinonaktifkan sampai audit selesai.',
-    spreadsheetId: validation.spreadsheetId,
-    sources: validation.sources,
-    rawColumns: validation.rawColumns,
-    derivedIndex: indexStatus,
-    elapsedMs: Date.now() - started
-  };
-  Logger.log('MANTUL SAFE VALIDATION RESULT\\n' + JSON.stringify(result, null, 2));
-  console.log('MANTUL SAFE VALIDATION RESULT', result);
-  return result;
+function refreshMantulDashboard(){
+ const props=PropertiesService.getScriptProperties(),oldSales=props.getProperty('SALES_LAST_UPDATED')||'',oldP2=props.getProperty('PAGE2_RAW_UPDATED')||'',started=Date.now();
+ try{
+  const ss=getDatabase_(),p1=ss.getSheetByName('P1_FACT'),p2=ss.getSheetByName('P2_EVENT_INDEX'),raw=ss.getSheetByName('RAW_DATA_SALES');
+  if(!p1||p1.getLastRow()<2)throw new Error('P1_FACT belum tersedia atau belum berisi data.');
+  if(!p2||p2.getLastRow()<2)throw new Error('P2_EVENT_INDEX belum tersedia atau belum berisi data.');
+  if(!raw||raw.getLastRow()<2)throw new Error('RAW_DATA_SALES belum tersedia atau belum berisi data.');
+  analyticsAssertHeaders_(p1,P1_FACT_HEADERS_);analyticsAssertHeaders_(p2,P2_EVENT_HEADERS_);
+  const rawCheck=analyticsAssertRawSheet_(raw),audit=analyticsRegisterExistingIndexes();
+  const stamp=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'dd MMM yyyy HH:mm');
+  props.setProperty('SALES_LAST_UPDATED',stamp);props.setProperty('PAGE2_RAW_UPDATED',stamp);
+  if(typeof cacheDashboardData_==='function')cacheDashboardData_();
+  const result={ok:true,status:'COMPLETE',buildExecuted:false,message:'Refresh selesai. Source dan derived sheets dipertahankan; hanya status/cache yang diperbarui.',
+   spreadsheetId:ss.getId(),sources:{P1_FACT:{rows:p1.getLastRow()-1,columns:p1.getLastColumn()},
+   P2_EVENT_INDEX:{rows:p2.getLastRow()-1,columns:p2.getLastColumn()},RAW_DATA_SALES:{rows:raw.getLastRow()-1,columns:rawCheck.columns}},
+   derived:audit.derived,indexAudit:{ok:audit.ok,auditOnly:audit.auditOnly,sheetsMutated:audit.sheetsMutated},
+   updatedAt:stamp,elapsedMs:Date.now()-started};
+  Logger.log('MANTUL SAFE REFRESH\n'+JSON.stringify(result,null,2));return result;
+ }catch(err){
+  if(oldSales)props.setProperty('SALES_LAST_UPDATED',oldSales);else props.deleteProperty('SALES_LAST_UPDATED');
+  if(oldP2)props.setProperty('PAGE2_RAW_UPDATED',oldP2);else props.deleteProperty('PAGE2_RAW_UPDATED');
+  Logger.log('MANTUL SAFE REFRESH FAILED: '+(err&&err.stack||err));throw err;
+ }
 }
-
-/** Read-only validation of maintained source sheets and their required headers. */
-function validateMantulDashboardSources() {
-  const ss = getDatabase_();
-  const p1 = ss.getSheetByName('P1_FACT');
-  const p2 = ss.getSheetByName('P2_EVENT_INDEX');
-  const raw = ss.getSheetByName('RAW_DATA_SALES');
-  if (!p1 || p1.getLastRow() < 2) throw new Error('P1_FACT belum tersedia atau belum berisi data.');
-  if (!p2 || p2.getLastRow() < 2) throw new Error('P2_EVENT_INDEX belum tersedia atau belum berisi data.');
-  if (!raw || raw.getLastRow() < 2) throw new Error('RAW_DATA_SALES belum tersedia atau belum berisi data.');
-  analyticsAssertHeaders_(p1, P1_FACT_HEADERS_);
-  analyticsAssertHeaders_(p2, P2_EVENT_HEADERS_);
-  const rawCheck = analyticsAssertRawSheet_(raw);
-  const result = {
-    ok: true,
-    readOnly: true,
-    sources: {
-      P1_FACT: p1.getLastRow() - 1,
-      P2_EVENT_INDEX: p2.getLastRow() - 1,
-      RAW_DATA_SALES: raw.getLastRow() - 1
-    },
-    rawColumns: rawCheck.columns,
-    spreadsheetId: ss.getId()
-  };
-  Logger.log('MANTUL SOURCE VALIDATION\\n' + JSON.stringify(result, null, 2));
-  return result;
+function validateMantulDashboardSources(){
+ const ss=getDatabase_(),p1=ss.getSheetByName('P1_FACT'),p2=ss.getSheetByName('P2_EVENT_INDEX'),raw=ss.getSheetByName('RAW_DATA_SALES');
+ if(!p1||p1.getLastRow()<2)throw new Error('P1_FACT belum tersedia atau belum berisi data.');
+ if(!p2||p2.getLastRow()<2)throw new Error('P2_EVENT_INDEX belum tersedia atau belum berisi data.');
+ if(!raw||raw.getLastRow()<2)throw new Error('RAW_DATA_SALES belum tersedia atau belum berisi data.');
+ analyticsAssertHeaders_(p1,P1_FACT_HEADERS_);analyticsAssertHeaders_(p2,P2_EVENT_HEADERS_);
+ const rawCheck=analyticsAssertRawSheet_(raw);
+ return {ok:true,readOnly:true,spreadsheetId:ss.getId(),sources:{P1_FACT:p1.getLastRow()-1,P2_EVENT_INDEX:p2.getLastRow()-1,RAW_DATA_SALES:raw.getLastRow()-1},rawColumns:rawCheck.columns};
 }
