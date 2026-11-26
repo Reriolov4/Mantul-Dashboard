@@ -1,7 +1,6 @@
 /**
  * HALAMAN 2 — OUTLETS | SALES FORCE
- * Menggunakan P2_DASHBOARD_FACT V2 untuk agregasi cepat; P2_EVENT_INDEX
- * dipertahankan sebagai event-level audit index. Tidak membaca RAW langsung.
+ * Membaca transaksi langsung dari RAW_DATA_SALES. Tidak bergantung pada tabel V2.
  *
  * Definisi:
  * - AO = distinct KODE CUSTOMER valid pada periode; baris tanpa kode (termasuk OTHERS) tidak dihitung sebagai outlet.
@@ -27,19 +26,17 @@ function page2NormalizeV2FactRow_(r) {
 }
 
 function page2Source_() {
-  if (PropertiesService.getScriptProperties().getProperty('MANTUL_V2_DATA_STALE') === 'TRUE') throw new Error('Database V2 belum diperbarui setelah import. Selesaikan build, finalize, dan publish Database V2 terlebih dahulu.');
-  // Page 2 is bound to the maintained analytics index; never silently fall
-  // back to RAW_DATA_SALES because its schema and filter universe differ.
-  const ss=getDatabase_();
-  const candidate=ss.getSheetByName('P2_DASHBOARD_FACT');
-  const v2Fact=page2IsV2Fact_(candidate);
-  const derived=v2Fact || analyticsSummaryReady_()?candidate:null;
-  const sh=derived||ss.getSheetByName('P2_EVENT_INDEX');
-  if(!sh||sh.getLastRow()<2)throw new Error('P2_DASHBOARD_FACT / P2_EVENT_INDEX tidak ditemukan atau belum berisi data.');
-  if(page2IsV2Fact_(sh)) return sh;
-  const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'];
-  const actual=sh.getRange(1,1,1,16).getValues()[0].map(page2HeaderKey_);
-  if(!expected.every((v,i)=>actual[i]===v))throw new Error('Header P2_EVENT_INDEX harus 16 kolom termasuk CARTON di kolom P. Terbaca: '+actual.join(' | '));
+  const ss = getDatabase_();
+  const sh = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  if (!sh || sh.getLastRow() < 2) {
+    throw new Error('RAW_DATA_SALES tidak ditemukan atau belum berisi transaksi.');
+  }
+  const actual = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT)
+    .getDisplayValues()[0].map(page2HeaderKey_);
+  const expected = RAW_SALES_HEADERS.map(page2HeaderKey_);
+  if (!expected.every((value, index) => actual[index] === value)) {
+    throw new Error('Header RAW_DATA_SALES tidak sesuai. Terbaca: ' + actual.join(' | '));
+  }
   return sh;
 }
 
@@ -611,14 +608,14 @@ function page2BuildDashboardData_(filters, sourceRows) {
   };
 }
 
-function page2ApplySourceStats_(meta){if(!meta)return meta;const s=analyticsGetSourceStats_();if(!s)return meta;meta.sourceRowCount=Number(s.sourceRowCount)||meta.sourceRowCount;meta.sooRowCount=Number(s.salesTypeCounts&&s.salesTypeCounts.SOO)||meta.sooRowCount;meta.salesTypeCounts=s.salesTypeCounts||meta.salesTypeCounts;meta.summaryRowCount=Number(s.p2SummaryRows)||0;return meta;}
+function page2ApplySourceStats_(meta){return meta;}
 
 function page2SourceVersion_(sheet) {
   const sh = sheet || page2Source_();
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    'page2-database-v2-v10',
+    'page2-raw-direct-v1',
     spreadsheetId, getDatabaseRevision_(), sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');
@@ -826,7 +823,6 @@ function page2CacheGetChunked_(cache, key) {
 }
 
 function getPage2InitialPayload() {
-  if (typeof analyticsEnsureExistingIndexesRegistered_ === 'function') analyticsEnsureExistingIndexesRegistered_();
   const totalStarted = Date.now();
   const sh = page2Source_();
   const version = page2SourceVersion_(sh);
