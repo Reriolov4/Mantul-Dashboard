@@ -251,7 +251,7 @@ function mantulV2PublishStaging() {
     // Freeze staged QUERY outputs in place. This avoids creating full-size
     // temporary copies that would exceed the spreadsheet's 20M-cell limit.
     sources.forEach(({spec,sheet,rows})=>{
-      for(let offset=1;offset<rows;offset+=MANTUL_V2_BUILD_.CHUNK_ROWS){
+      for(let offset=0;offset<rows;offset+=MANTUL_V2_BUILD_.CHUNK_ROWS){
         const n=Math.min(MANTUL_V2_BUILD_.CHUNK_ROWS,rows-offset);
         const values=sheet.getRange(offset+1,1,n,spec.headers.length).getValues();
         sheet.getRange(offset+1,1,n,spec.headers.length).setValues(values);
