@@ -3,7 +3,7 @@
  *
  * Import bulanan: P1_FACT tetap menjadi sumber Page 1, sedangkan
  * Page 2–4 membaca transaksi langsung dari RAW_DATA_SALES.
- * P2/P3 tidak diimpor; indeks turunan dibangun ulang setelah import selesai.
+ * Tidak diperlukan rebuild indeks turunan untuk Page 2–4.
  * Kolom helper RAW di luar A:Z dipertahankan.
  */
 const MONTHLY_IMPORT_PREFIX_ = 'MANTUL_MONTHLY_IMPORT_';
