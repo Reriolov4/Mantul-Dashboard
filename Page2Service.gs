@@ -13,7 +13,7 @@ const PAGE2_FACT_SHEET_ = 'P2_OUTLET_FACT';
 const PAGE2_FACT_STAGE_ = 'P2_OUTLET_FACT_BUILD';
 const PAGE2_FACT_HEADERS_ = [
   'YEAR','MONTH','DD','SUB BRAND','BRAND','CUSTOMER NAME','PIC','SALES TYPE',
-  'SUBDIST','TEAM','ACCOUNT NAME','CATEGORY','SBU','CUSTOMER CODE','VAL','SOURCE ROWS'
+  'SUBDIST','TEAM','SALESMAN','CATEGORY','SBU','CUSTOMER CODE','VAL','SOURCE ROWS'
 ];
 
 function page2Source_() {
@@ -120,6 +120,7 @@ function page2Read_(sheet) {
     salesType:page2FindHeader_(headers,['SALES_TYPE','JENIS SALES','SALES TYPE'],'SALES TYPE'),
     pic:page2FindHeader_(headers,['PIC'],'PIC'),
     team:page2FindHeader_(headers,['TEAM','TIM'],'TEAM'),
+    salesman:page2FindHeader_(headers,['SALESMAN','NAMA SALESMAN','SALES PERSON'],'SALESMAN'),
     sbu:page2FindHeader_(headers,['SBU'],'SBU'),
     value:page2FindHeader_(headers,['VAL','VALUE'],'VAL')
   };
@@ -139,7 +140,7 @@ function page2Read_(sheet) {
       read(i,fields.year),page2Month_(read(i,fields.month)),read(i,fields.day),
       read(i,fields.subbrand),read(i,fields.brand),read(i,fields.customer),
       read(i,fields.pic),read(i,fields.salesType),read(i,fields.subdist),
-      page2Key_(read(i,fields.team))||'SALESMAN',read(i,fields.customer),
+      page2Key_(read(i,fields.team))||'SALESMAN',read(i,fields.salesman),
       read(i,fields.category),read(i,fields.sbu),read(i,fields.customerCode),
       Number(read(i,fields.value))||0,1
     ];

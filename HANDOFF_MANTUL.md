@@ -69,3 +69,10 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Next: run Actions push; after source push succeeds, run `buildPage34EventFact()` once in Apps Script. Then test Page 3 SOO, Page 3 SO (including AP. GEUBRINA RIZKI → EPM LSE and PT RESTU INDO MEDICA → EPM BAC), and Page 4 filters. Compare outputs with existing results. Page 1/P1_FACT untouched.
 - Page 2 AO/EC must still be checked against control values: Jan–Mar AO 1121/1065/1050; AO total 3566; EC valid-code control 19,328 (19,339 only if OTHERSB is included). Do not change KPI formulas before this reconciliation.
 - After appending new source rows, P34 fact becomes stale by row-count mismatch and readers fall back safely to P2_EVENT_INDEX until the fact is rebuilt. Incremental P34 refresh remains future work.
+
+
+## 26 Nov 2026 — Correct Page 2 fact column K mapping
+- User identified that column K in `P2_OUTLET_FACT` was labeled `ACCOUNT NAME`, but the required field is `SALESMAN`.
+- Root cause: Page2 raw reader populated fact position 11 (zero-based index 10) with a duplicate of CUSTOMER NAME instead of reading the actual `SALESMAN` field from `RAW_DATA_SALES` column S.
+- Corrected `PAGE2_FACT_HEADERS_` column K to `SALESMAN`; raw reader now locates the `SALESMAN` header and reads that source field. Existing Page2 consumers already interpret index 10 as salesperson for the salesman picker, so the correction aligns stored data with intended semantics.
+- Important: Existing `P2_OUTLET_FACT` is stale and still has old K values/header. After source push succeeds, run `buildPage2OutletFact()` again to rebuild and replace it. Do not manually edit the fact sheet. Check that K1 says SALESMAN and sample K values are actual salesperson names. Then verify salesman filter/options and AO/EC totals.
