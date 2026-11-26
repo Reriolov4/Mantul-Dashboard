@@ -52,3 +52,10 @@ PR: https://github.com/Reriolov4/Mantul-Dashboard/pull/1
 
 ## Catatan deployment
 Push source ke Apps Script bukan berarti Web App live otomatis memakai versi baru. Workflow sekarang hanya mengunggah source. Pemilik project mengatur deployment/version dari Apps Script. Jangan mengklaim dashboard live telah diperbarui sebelum pemilik menyelesaikan langkah itu dan melakukan uji halaman.
+
+
+## 26 Nov 2026 — RAW_DATA_SALES extra columns compatibility
+- `RAW_DATA_SALES` runtime reported `getLastColumn() = 29` although the dashboard schema is A:Y (25 fields).
+- `Code.gs` validation now requires at least 25 columns and reads/copies only A:Y; columns Z onward are ignored and never overwritten by the read-index refresh.
+- Header validation remains limited to A:Y. This protects helper/formula columns Z:AC while keeping the dashboard's 25-column schema.
+- Next: confirm the GitHub Actions `Push source to Apps Script` step succeeds, then run `refreshMantulDashboard()` and verify `P2_EVENT_INDEX` status COMPLETE before running `buildPage2OutletFact()`.
