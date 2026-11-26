@@ -446,7 +446,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
     // berulang untuk agregasi bulanan, YTD, KPI, dan dailyMap.
     const customerName = String(r[10] == null || r[10] === '' ? (r[5] || '') : r[10]);
     const customerCode = r[13];
-    const outletKey = validCustomerCode_(customerCode) ? page2ExactCompositeKey_([r[8], customerCode]) : '';
+    const outletKey = validCustomerCode_(customerCode) && page2Text_(r[8])
+      ? page2ExactCompositeKey_([r[8], customerCode]) : '';
     const dayKey = page2Day_(r[2]);
     const dateKey = dayKey && monthIndex >= 0
       ? String(y) + '-' + String(monthIndex + 1).padStart(2,'0') + '-' + dayKey
@@ -459,15 +460,16 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if (monthIndex >= 0 && customerName && dayKey) {
       monthly[monthIndex][isCY ? 'value' : 'valueLy'] += value;
       const ms = monthlySets[monthIndex];
-      (isCY ? ms.cyAO : ms.lyAO).add(outletKey);
-      (isCY ? ms.cyEC : ms.lyEC).add(ecKey);
+      if (outletKey) {
+        (isCY ? ms.cyAO : ms.lyAO).add(outletKey);
+        if (ecKey) (isCY ? ms.cyEC : ms.lyEC).add(ecKey);
+      }
     }
 
     // YTD AO/EC memakai identitas unik sepanjang Jan–bulan aktif.
     if (trendMonthSet.has(month) && customerName && dayKey) {
       const bucket = isCY ? trendCY : trendLY;
-      bucket.ao.add(outletKey);
-      bucket.ec.add(ecKey);
+      if (outletKey) { bucket.ao.add(outletKey); if (ecKey) bucket.ec.add(ecKey); }
       bucket.value += value;
     }
 
@@ -478,14 +480,15 @@ function page2BuildDashboardData_(filters, sourceRows) {
     // dan jangan menghitung full-year ketika pengguna memilih bulan tertentu.
     if (periodMonthSet.has(month)) {
       const totalBucket = isCY ? CY : LY;
-      totalBucket.ao.add(outletKey);
-      totalBucket.ec.add(ecKey);
+      if (outletKey) { totalBucket.ao.add(outletKey); if (ecKey) totalBucket.ec.add(ecKey); }
       addGroup(totalBucket, 'sbu', page2Key_(r[12]), outletKey, ecKey);
       addGroup(totalBucket, 'team', page2Key_(r[9]) || 'SALESMAN', outletKey, ecKey, Number(r[14]) || 0);
 
       if (month === mtdMonth) {
-        (isCY ? mtd.cyAO : mtd.lyAO).add(outletKey);
-        (isCY ? mtd.cyEC : mtd.lyEC).add(ecKey);
+        if (outletKey) {
+          (isCY ? mtd.cyAO : mtd.lyAO).add(outletKey);
+          if (ecKey) (isCY ? mtd.cyEC : mtd.lyEC).add(ecKey);
+        }
       }
 
     }
