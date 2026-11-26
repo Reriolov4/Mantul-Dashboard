@@ -1,7 +1,7 @@
 /**
  * HALAMAN 2 — OUTLETS | SALES FORCE
- * Mengutamakan P2_EVENT_INDEX yang sudah tersedia; fallback ke RAW_DATA_SALES.
- * SKU dan MAPPING TEAM tetap menjadi tabel referensi untuk pengembangan berikutnya.
+ * Menggunakan P2_DASHBOARD_FACT V2 untuk agregasi cepat; P2_EVENT_INDEX
+ * dipertahankan sebagai event-level audit index. Tidak membaca RAW langsung.
  *
  * Definisi:
  * - AO = distinct KODE CUSTOMER valid pada periode; baris tanpa kode (termasuk OTHERS) tidak dihitung sebagai outlet.
@@ -617,7 +617,7 @@ function page2SourceVersion_(sheet) {
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    'page2-salesforce-only-v9',
+    'page2-database-v2-v10',
     spreadsheetId, getDatabaseRevision_(), sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');
