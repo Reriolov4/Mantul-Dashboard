@@ -604,10 +604,6 @@ function page2GetMeta() {
   return page2Cached_(key, function() {
     const meta = page2BuildMeta_(page2Read_(sh));
     page2ApplySourceStats_(meta);
-    if (!page2IsV2Fact_(sh) && (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT')) {
-      const raw = getDatabase_().getSheetByName(RAW_DATA_SHEET_NAME);
-      meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
-    }
     return meta;
   }, 1800);
 }
