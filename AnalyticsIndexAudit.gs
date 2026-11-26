@@ -86,22 +86,28 @@ function analyticsEnsureExistingIndexesRegistered_(){
 
 /**
  * Remove the legacy duplicate only after the canonical fact reconciles to source
- * and every cell in the legacy sheet matches the canonical fact.
- * Run manually with the exact confirmation string.
+ * and every value matches. Sorting both sheets first makes row order irrelevant.
  */
 function analyticsRemoveLegacySubdistFact(confirmation){
  if(confirmation!=='REMOVE_DUPLICATE_P2_SUBDIST_FACT')
   throw new Error('Penghapusan ditahan. Gunakan konfirmasi REMOVE_DUPLICATE_P2_SUBDIST_FACT.');
- const audit=analyticsRegisterExistingIndexes();
- if(!audit||!audit.ok)throw new Error('Audit canonical P2 gagal; sheet duplikat tidak dihapus.');
+ const ss=getDatabase_(),canonical=ss.getSheetByName('P2_DASHBOARD_FACT'),
+  legacy=ss.getSheetByName('P2_SUBDIST_FACT');
+ if(!legacy)return {ok:true,removed:false,message:'P2_SUBDIST_FACT sudah tidak ada.'};
+ if(!canonical||canonical.getLastRow()<2)throw new Error('P2_DASHBOARD_FACT tidak tersedia; sheet legacy tidak dihapus.');
+ const rows=canonical.getLastRow()-1,width=P2_DASHBOARD_HEADERS_.length;
+ if(legacy.getLastRow()-1!==rows||legacy.getLastColumn()<width)
+  throw new Error('Jumlah baris/kolom legacy berbeda; sheet tidak dihapus.');
+ // Canonical sort order starts with SUBDIST, then stable dimensions and measures.
+ const sortSpecs=[6,1,2,3,4,5,7,8,9,10,11,12,13,14,15,16,17]
+  .map(column=>({column:column,ascending:true}));
  const lock=LockService.getScriptLock();lock.waitLock(30000);
  try{
-  const ss=getDatabase_(),canonical=ss.getSheetByName('P2_DASHBOARD_FACT'),
-    legacy=ss.getSheetByName('P2_SUBDIST_FACT');
-  if(!legacy)return {ok:true,removed:false,message:'P2_SUBDIST_FACT sudah tidak ada.'};
-  const rows=canonical.getLastRow()-1,width=P2_DASHBOARD_HEADERS_.length;
-  if(legacy.getLastRow()-1!==rows||legacy.getLastColumn()<width)
-    throw new Error('Jumlah baris/kolom legacy berbeda; sheet tidak dihapus.');
+  const currentCanonical=ss.getSheetByName('P2_DASHBOARD_FACT'),
+   currentLegacy=ss.getSheetByName('P2_SUBDIST_FACT');
+  if(!currentCanonical||!currentLegacy)throw new Error('Sheet berubah saat proses validasi; batal.');
+  currentCanonical.getRange(2,1,rows,width).sort(sortSpecs);
+  currentLegacy.getRange(2,1,rows,width).sort(sortSpecs);
   const equalValue=(a,b)=>{
    if(a instanceof Date&&b instanceof Date)return a.getTime()===b.getTime();
    return a===b || (a==null&&b==='') || (a===''&&b==null);
@@ -109,15 +115,22 @@ function analyticsRemoveLegacySubdistFact(confirmation){
   const batch=2000;
   for(let start=2;start<=rows+1;start+=batch){
    const count=Math.min(batch,rows+2-start);
-   const a=canonical.getRange(start,1,count,width).getValues();
-   const b=legacy.getRange(start,1,count,width).getValues();
+   const a=currentCanonical.getRange(start,1,count,width).getValues();
+   const b=currentLegacy.getRange(start,1,count,width).getValues();
    for(let i=0;i<count;i++)for(let j=0;j<width;j++){
     if(!equalValue(a[i][j],b[i][j]))
      throw new Error('Isi P2_SUBDIST_FACT berbeda dari P2_DASHBOARD_FACT pada baris '+(start+i)+', kolom '+(j+1)+'. Sheet tidak dihapus.');
    }
   }
-  ss.deleteSheet(legacy);
-  return {ok:true,removed:true,rowsCompared:rows,columnsCompared:width,
-    remainingCanonicalSheet:'P2_DASHBOARD_FACT'};
  }finally{lock.releaseLock();}
+ // Audit canonical against P2_EVENT_INDEX and P3 before deleting the duplicate.
+ const audit=analyticsRegisterExistingIndexes();
+ if(!audit||!audit.ok)throw new Error('Audit canonical P2 gagal; sheet duplikat tidak dihapus.');
+ const deleteLock=LockService.getScriptLock();deleteLock.waitLock(30000);
+ try{
+  const latest=ss.getSheetByName('P2_SUBDIST_FACT');
+  if(latest)ss.deleteSheet(latest);
+  return {ok:true,removed:!!latest,rowsCompared:rows,columnsCompared:width,
+   sourceAuditPassed:true,remainingCanonicalSheet:'P2_DASHBOARD_FACT'};
+ }finally{deleteLock.releaseLock();}
 }
