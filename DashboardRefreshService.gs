@@ -9,6 +9,7 @@ function mantulV2ValidateLiveDatabase_(){
   event=ss.getSheetByName('P2_EVENT_INDEX'),p2=ss.getSheetByName('P2_DASHBOARD_FACT'),
   p3=ss.getSheetByName('P3_OUTLET_MONTHLY'),p1=ss.getSheetByName('P1_FACT');
  if(!p1||p1.getLastRow()<2)throw new Error('P1_FACT belum tersedia atau belum berisi data.');
+ analyticsAssertHeaders_(p1,P1_FACT_HEADERS_);
  if(!raw||raw.getLastRow()<2)throw new Error('RAW_DATA_SALES belum tersedia atau belum berisi data.');
  if(!event||event.getLastRow()<2||!p2||p2.getLastRow()<2||!p3||p3.getLastRow()<2)
   throw new Error('Database V2 belum lengkap. Dibutuhkan P2_EVENT_INDEX, P2_DASHBOARD_FACT, dan P3_OUTLET_MONTHLY.');
