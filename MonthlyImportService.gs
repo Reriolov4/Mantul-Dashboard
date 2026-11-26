@@ -220,6 +220,12 @@ function monthlyImportWriteBackup_(key, headers, rows) {
   return rows;
 }
 
+function monthlyImportClearPeriodValues_(sheet,year,month,width){
+  const blocks=monthlyImportFindBlocks_(sheet,year,month);
+  blocks.forEach(([start,count])=>sheet.getRange(start,1,count,width).clearContent());
+  return blocks.reduce((sum,x)=>sum+x[1],0);
+}
+
 function monthlyImportDeletePeriod_(sheet, year, month) {
   const blocks = monthlyImportFindBlocks_(sheet,year,month).sort((a,b)=>b[0]-a[0]);
   let removed = 0;
@@ -265,7 +271,7 @@ function finishMonthlyDataImport(payload) {
     const oldSales=props.getProperty('SALES_LAST_UPDATED')||'',oldP2=props.getProperty('PAGE2_RAW_UPDATED')||'',
       oldStale=props.getProperty('MANTUL_V2_DATA_STALE')||'';
     try{
-      Object.keys(live).forEach(key=>monthlyImportDeletePeriod_(live[key],year,month));
+      Object.keys(live).forEach(key=>key==='raw'?monthlyImportClearPeriodValues_(live[key],year,month,widths[key]):monthlyImportDeletePeriod_(live[key],year,month));
       Object.keys(live).forEach(key=>monthlyImportAppendRows_(live[key],newRows[key],widths[key]));
       mantulV2AssertRawHeaders_(live.raw);
       const now=new Date(),formatted=Utilities.formatDate(now,Session.getScriptTimeZone(),'dd MMM yyyy HH:mm');
@@ -284,7 +290,7 @@ function finishMonthlyDataImport(payload) {
     }catch(publishError){
       let rollbackError=null;
       try{
-        Object.keys(live).forEach(key=>monthlyImportDeletePeriod_(live[key],year,month));
+        Object.keys(live).forEach(key=>key==='raw'?monthlyImportClearPeriodValues_(live[key],year,month,widths[key]):monthlyImportDeletePeriod_(live[key],year,month));
         Object.keys(live).forEach(key=>monthlyImportAppendRows_(live[key],oldRows[key],widths[key]));
         props.setProperty('SALES_LAST_UPDATED',oldSales);props.setProperty('PAGE2_RAW_UPDATED',oldP2);
         if(oldStale)props.setProperty('MANTUL_V2_DATA_STALE',oldStale);else props.deleteProperty('MANTUL_V2_DATA_STALE');
