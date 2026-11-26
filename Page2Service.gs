@@ -102,7 +102,7 @@ function page2Read_(sheet) {
   }
 
   // Legacy analytics index: retain compatibility during migration.
-  if (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT') {
+  if (!page2IsV2Fact_(sh) && (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT')) {
     const expectedHeaders = [
       'YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC',
       'BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'
@@ -656,7 +656,7 @@ function page2GetMeta() {
   return page2Cached_(key, function() {
     const meta = page2BuildMeta_(page2Read_(sh));
     page2ApplySourceStats_(meta);
-    if (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT') {
+    if (!page2IsV2Fact_(sh) && (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT')) {
       const raw = getDatabase_().getSheetByName(RAW_DATA_SHEET_NAME);
       meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
     }
@@ -856,7 +856,7 @@ function getPage2InitialPayload() {
   const metaStarted = Date.now();
   const meta = page2BuildMeta_(sourceRows);
   page2ApplySourceStats_(meta);
-  if (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT') {
+  if (!page2IsV2Fact_(sh) && (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT')) {
     const raw = getDatabase_().getSheetByName(RAW_DATA_SHEET_NAME);
     meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
   }
