@@ -318,3 +318,24 @@ function mantulV2SheetTotals_(sheet,width,valueCol,cartonCol) {
   }
   return {rows:Math.max(0,last-1),value:value,carton:carton};
 }
+
+
+/** Read-only inspection after an interrupted V2 publish. */
+function mantulV2InspectPublishState() {
+  const ss=getDatabase_(), props=PropertiesService.getScriptProperties(), p=MANTUL_V2_BUILD_.PREFIX;
+  const sheets=ss.getSheets().map(sh=>({
+    name:sh.getName(),lastRow:sh.getLastRow(),maxRows:sh.getMaxRows(),
+    maxColumns:sh.getMaxColumns(),formulaA1:sh.getRange(1,1).getFormula()
+  }));
+  const result={
+    status:props.getProperty(p+'STATUS')||'',
+    phase:props.getProperty(p+'PHASE')||'',
+    publishedAt:props.getProperty(p+'PUBLISHED_AT')||'',
+    publishCursor:props.getProperty(p+'PUBLISH_CURSOR')||'',
+    publishPhase:props.getProperty(p+'PUBLISH_PHASE')||'',
+    totalCells:sheets.reduce((n,x)=>n+x.maxRows*x.maxColumns,0),
+    sheets:sheets.filter(x=>/^(P2_EVENT_INDEX|P2_DASHBOARD_FACT|P3_OUTLET_MONTHLY|P2_EVENT_INDEX_V2_STAGE|P2_DASHBOARD_FACT_V2_STAGE|P3_OUTLET_MONTHLY_V2_STAGE|P2_FACT_PARTIAL_V2_STAGE|P3_OUTLET_PARTIAL_V2_STAGE|.*_V2_TMP_|.*_V2_BAK_|.*_V2_FAILED_)/.test(x.name))
+  };
+  Logger.log(JSON.stringify(result,null,2));
+  return result;
+}
