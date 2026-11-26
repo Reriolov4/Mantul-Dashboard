@@ -92,10 +92,10 @@ function analyticsEnsureExistingIndexesRegistered_(){
 function analyticsRemoveLegacySubdistFact(confirmation){
  if(confirmation!=='REMOVE_DUPLICATE_P2_SUBDIST_FACT')
   throw new Error('Penghapusan ditahan. Gunakan konfirmasi REMOVE_DUPLICATE_P2_SUBDIST_FACT.');
+ const audit=analyticsRegisterExistingIndexes();
+ if(!audit||!audit.ok)throw new Error('Audit canonical P2 gagal; sheet duplikat tidak dihapus.');
  const lock=LockService.getScriptLock();lock.waitLock(30000);
  try{
-  const audit=analyticsRegisterExistingIndexes();
-  if(!audit||!audit.ok)throw new Error('Audit canonical P2 gagal; sheet duplikat tidak dihapus.');
   const ss=getDatabase_(),canonical=ss.getSheetByName('P2_DASHBOARD_FACT'),
     legacy=ss.getSheetByName('P2_SUBDIST_FACT');
   if(!legacy)return {ok:true,removed:false,message:'P2_SUBDIST_FACT sudah tidak ada.'};
