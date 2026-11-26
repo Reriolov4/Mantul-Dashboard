@@ -36,15 +36,14 @@ const SALES_HEADERS = [
 ];
 
 // ------------------------------------------------------------
-// RAW_DATA_SALES — kontrak final 26 kolom (A:Z).
-// Kolom Z SOURCE_ROWS adalah jumlah baris sumber yang direpresentasikan record.
+// RAW_DATA_SALES — kontrak final 25 kolom (A:Y).
 const RAW_SALES_HEADERS = [
   'YEAR', 'MONTH', 'DD', 'KODE ITEM', 'NAMA ITEM', 'SUB BRAND', 'BRAND',
   'CARTON', 'SUBDIST', 'CUSTOMER_CODE', 'CUSTOMER_NAME', 'KODE SALUR',
   'VAL', 'QTY', 'SALES_TYPE', 'SUB_DIST', 'PIC', 'TEAM', 'SALESMAN',
-  'CATEGORY', 'DOT', 'SBU', 'PF Bulanan', 'PF Triwulan', 'SKU', 'SOURCE_ROWS'
+  'CATEGORY', 'DOT', 'SBU', 'PF Bulanan', 'PF Triwulan', 'SKU'
 ];
-const RAW_SALES_COLUMN_COUNT = 26;
+const RAW_SALES_COLUMN_COUNT = 25;
 
 const RAW_SALES_COL = Object.freeze({
   YEAR: 0, MONTH: 1, DAY: 2, ITEM_CODE: 3, ITEM_NAME: 4,
@@ -53,7 +52,7 @@ const RAW_SALES_COL = Object.freeze({
   VALUE: 12, QTY: 13, SALES_TYPE: 14, SUB_DIST: 15,
   PIC: 16, TEAM: 17, SALESMAN: 18, CATEGORY: 19,
   DOT: 20, SBU: 21, PF_MONTHLY: 22, PF_QUARTERLY: 23,
-  SKU: 24, SOURCE_ROWS: 25
+  SKU: 24
 });
 
 // ------------------------------------------------------------
