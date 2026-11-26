@@ -1,5 +1,5 @@
 /**
- * PAGE 4 — SKU KCH. Reads RAW_DATA_SALES directly (SOO only); SKU sheet supplies product attributes.
+ * PAGE 4 — SKU KCH. Reads validated P34_EVENT_FACT (fallback P2_EVENT_INDEX), SOO only; SKU sheet supplies product attributes.
  */
 const PAGE4_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 function page4HeaderIndex_(headers,aliases,label){
@@ -72,5 +72,16 @@ function page4BuildData_(src,meta,filters){
  const totals=all.reduce((a,r)=>({value:a.value+r.total.value,carton:a.carton+r.total.carton}),{value:0,carton:0});
  return {mode:'SOO',modeSalesType:'SOO',label:'SUBDIST',year:year,monthsUsed:monthsUsed,subdist:selected.size?Array.from(selected).join(', '):'Semua SUBDIST',rows:all,skuCount:all.length,totals:totals,matchedSourceRows:matchedSourceRows,sourceRows:meta.sourceRows};
 }
-function getPage4InitialPayload(mode){const started=Date.now(),src=page4ReadSource_(),meta=page4BuildMeta_(src),selectedMode=page34Mode_(mode),year=meta.years.includes('2026')?2026:Number(meta.years[meta.years.length-1]);return {meta:meta,data:page4BuildData_(src,meta,{mode:selectedMode,year:year}),diagnostics:{source:src.sourceName,readAndAggregateMs:Date.now()-started}};}
-function getPage4SkuData(filters){const started=Date.now(),src=page4ReadSource_(),meta=page4BuildMeta_(src),data=page4BuildData_(src,meta,filters);data.diagnostics={elapsedMs:Date.now()-started};return data;}
+function getPage4InitialPayload(mode){
+ const started=Date.now(),readStarted=Date.now(),src=page4ReadSource_(),readMs=Date.now()-readStarted;
+ const metaStarted=Date.now(),meta=page4BuildMeta_(src),metaMs=Date.now()-metaStarted;
+ const selectedMode=page34Mode_(mode),year=meta.years.includes('2026')?2026:Number(meta.years[meta.years.length-1]);
+ const aggregateStarted=Date.now(),data=page4BuildData_(src,meta,{mode:selectedMode,year:year}),aggregateMs=Date.now()-aggregateStarted;
+ return {meta:meta,data:data,diagnostics:{source:src.sourceName,sourceRows:src.sourceRows,readMs:readMs,metaMs:metaMs,aggregateMs:aggregateMs,totalMs:Date.now()-started}};
+}
+function getPage4SkuData(filters){
+ const started=Date.now(),readStarted=Date.now(),src=page4ReadSource_(),readMs=Date.now()-readStarted;
+ const metaStarted=Date.now(),meta=page4BuildMeta_(src),metaMs=Date.now()-metaStarted;
+ const aggregateStarted=Date.now(),data=page4BuildData_(src,meta,filters),aggregateMs=Date.now()-aggregateStarted;
+ data.diagnostics={source:src.sourceName,sourceRows:src.sourceRows,readMs:readMs,metaMs:metaMs,aggregateMs:aggregateMs,totalMs:Date.now()-started};return data;
+}

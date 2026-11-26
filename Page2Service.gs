@@ -1,6 +1,6 @@
 /**
  * HALAMAN 2 — OUTLETS | SALES FORCE
- * Membaca transaksi langsung dari RAW_DATA_SALES. Tidak bergantung pada tabel V2.
+ * Membaca P2_OUTLET_FACT tervalidasi; fallback ke P2_EVENT_INDEX bila fact belum siap.
  *
  * Definisi:
  * - AO = distinct KODE CUSTOMER valid pada periode; baris tanpa kode (termasuk OTHERS) tidak dihitung sebagai outlet.
@@ -732,8 +732,8 @@ function page2NormalizeFilteredValues_(values,safe){
 }
 
 function page2ReadFiltered_(sheet, filters) {
-  // Seluruh pemilahan dimensi/tahun dilakukan konsisten oleh agregator Page 2.
-  // Sumber transaksi tunggalnya selalu RAW_DATA_SALES.
+  // Filter diterapkan agregator pada read model P2_OUTLET_FACT/P2_EVENT_INDEX.
+  // TODO: gunakan partisi/range index agar tidak memindai seluruh fact pada setiap Apply.
   return page2Read_(sheet || page2Source_());
 }
 

@@ -1,5 +1,5 @@
 /**
- * PAGE 3 — OUTLETS. Reads RAW_DATA_SALES directly; SOO uses SUBDIST, SO uses SUB_DIST.
+ * PAGE 3 — OUTLETS. Reads validated P34_EVENT_FACT (fallback P2_EVENT_INDEX); SOO uses SUBDIST, SO uses SUB_DIST.
  */
 const PAGE3_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const PAGE34_ENTITIES_=['EPM BAC','EPM LSE','GMP BAC','GMP LSE','GMP LGS','DB MBO','DB BAC'];
@@ -165,10 +165,18 @@ function page3BuildData_(rows,filters,meta){
  const monthTotals={};months.forEach(m=>monthTotals[m]={value:0,carton:0});const totals={value:0,carton:0};
  all.forEach(r=>{totals.value+=r.total.value;totals.carton+=r.total.carton;months.forEach(m=>{monthTotals[m].value+=r.monthly[m]?.value||0;monthTotals[m].carton+=r.monthly[m]?.carton||0;});});
  const page=Math.max(1,Number(filters.page)||1),pageSize=Math.max(10,Math.min(100,Number(filters.pageSize)||50)),start=(page-1)*pageSize;
- return {mode:mode,modeSalesType:mode==='SOO'?'SOO':'Semua',label:'SUBDIST',year:year,months:months,metric:metric,rows:all.slice(start,start+pageSize),totalRows:all.length,page:page,pageSize:pageSize,totals:totals,monthTotals:monthTotals,matchedSourceRows:matchedSourceRows,source:'RAW_DATA_SALES'};
+ return {mode:mode,modeSalesType:mode==='SOO'?'SOO':'Semua',label:'SUBDIST',year:year,months:months,metric:metric,rows:all.slice(start,start+pageSize),totalRows:all.length,page:page,pageSize:pageSize,totals:totals,monthTotals:monthTotals,matchedSourceRows:matchedSourceRows,source:'P34_EVENT_FACT'};
 }
 function getPage3InitialPayload(mode){
- const started=Date.now(),src=page34ReadEventIndex_(),meta=page3BuildMeta_(src.rows),selectedMode=page34Mode_(mode),year=meta.years.includes('2026')?'2026':meta.years[meta.years.length-1],months=meta.monthsByYear[year]||[];
- return {meta:meta,data:page3BuildData_(src.rows,{mode:selectedMode,year:year,months:months,page:1,pageSize:50,metric:'value'},meta),diagnostics:{source:src.sheet.getName(),readAndAggregateMs:Date.now()-started}};
+ const started=Date.now(),readStarted=Date.now(),src=page34ReadEventIndex_(),readMs=Date.now()-readStarted;
+ const metaStarted=Date.now(),meta=page3BuildMeta_(src.rows),metaMs=Date.now()-metaStarted;
+ const selectedMode=page34Mode_(mode),year=meta.years.includes('2026')?'2026':meta.years[meta.years.length-1],months=meta.monthsByYear[year]||[];
+ const aggregateStarted=Date.now(),data=page3BuildData_(src.rows,{mode:selectedMode,year:year,months:months,page:1,pageSize:50,metric:'value'},meta),aggregateMs=Date.now()-aggregateStarted;
+ return {meta:meta,data:data,diagnostics:{source:src.sheet.getName(),sourceRows:src.rows.length,readMs:readMs,metaMs:metaMs,aggregateMs:aggregateMs,totalMs:Date.now()-started}};
 }
-function getPage3OutletData(filters){const started=Date.now(),src=page34ReadEventIndex_(),meta=page3BuildMeta_(src.rows),data=page3BuildData_(src.rows,filters,meta);data.diagnostics={elapsedMs:Date.now()-started};return data;}
+function getPage3OutletData(filters){
+ const started=Date.now(),readStarted=Date.now(),src=page34ReadEventIndex_(),readMs=Date.now()-readStarted;
+ const metaStarted=Date.now(),meta=page3BuildMeta_(src.rows),metaMs=Date.now()-metaStarted;
+ const aggregateStarted=Date.now(),data=page3BuildData_(src.rows,filters,meta),aggregateMs=Date.now()-aggregateStarted;
+ data.diagnostics={source:src.sheet.getName(),sourceRows:src.rows.length,readMs:readMs,metaMs:metaMs,aggregateMs:aggregateMs,totalMs:Date.now()-started};return data;
+}
