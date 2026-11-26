@@ -1,4 +1,4 @@
-name: Deploy Mantul Dashboard to Apps Script
+name: Push Mantul Dashboard source to Apps Script
 
 on:
   workflow_dispatch:
@@ -44,9 +44,3 @@ jobs:
       - name: Push source to Apps Script
         run: clasp push --force
 
-      - name: Update existing Web App deployment
-        env:
-          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
-        run: |
-          test -n "$DEPLOYMENT_ID" || (echo "Missing repository secret: DEPLOYMENT_ID" && exit 1)
-          clasp deploy -i "$DEPLOYMENT_ID" -d "Mantul Dashboard deployment from GitHub"
