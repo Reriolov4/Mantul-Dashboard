@@ -59,3 +59,13 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - `Code.gs` validation now requires at least 25 columns and reads/copies only A:Y; columns Z onward are ignored and never overwritten by the read-index refresh.
 - Header validation remains limited to A:Y. This protects helper/formula columns Z:AC while keeping the dashboard's 25-column schema.
 - Next: confirm the GitHub Actions `Push source to Apps Script` step succeeds, then run `refreshMantulDashboard()` and verify `P2_EVENT_INDEX` status COMPLETE before running `buildPage2OutletFact()`.
+
+
+## 26 Nov 2026 — Page 2 fact built; shared Page 3/4 fact implementation
+- User executed `buildPage2OutletFact()`: COMPLETE; sourceRows 130,367; factRows 90,872; compressedRows 39,495; sourceValue 81,777,256,858.05042; factValue 81,777,256,858.05019; validated true. Tiny floating-point delta is within validation tolerance.
+- Added shared `P34_EVENT_FACT` materialized read model with dimensions needed by Page 3 (SOO/SO, SUBDIST/SUB_DIST mappings, customer, date, PIC, brand, subbrand, category) and Page 4 (SKU, SBU, carton/value). It groups exact same dimension rows and stores SOURCE ROWS.
+- Page 3/4 readers prefer P34_EVENT_FACT only when its completion properties, spreadsheet ID, source row count, written count and header all match the current P2_EVENT_INDEX. Otherwise they safely fall back to P2_EVENT_INDEX.
+- Added `buildPage34EventFact()` full rebuild. It validates source row count, VAL and CARTON before publishing. It is not incremental/resumable yet.
+- Next: run Actions push; after source push succeeds, run `buildPage34EventFact()` once in Apps Script. Then test Page 3 SOO, Page 3 SO (including AP. GEUBRINA RIZKI → EPM LSE and PT RESTU INDO MEDICA → EPM BAC), and Page 4 filters. Compare outputs with existing results. Page 1/P1_FACT untouched.
+- Page 2 AO/EC must still be checked against control values: Jan–Mar AO 1121/1065/1050; AO total 3566; EC valid-code control 19,328 (19,339 only if OTHERSB is included). Do not change KPI formulas before this reconciliation.
+- After appending new source rows, P34 fact becomes stale by row-count mismatch and readers fall back safely to P2_EVENT_INDEX until the fact is rebuilt. Incremental P34 refresh remains future work.

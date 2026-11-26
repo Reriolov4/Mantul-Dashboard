@@ -13,48 +13,27 @@ function page4ReadSelectedColumns_(sheet,headerMap){
  const result={};keys.forEach(key=>{const col=headerMap[key],g=groups.find(x=>col>=x.start&&col<=x.end);result[key]=g.values.map(row=>row[col-g.start]);});return {rows:n,columns:result};
 }
 function page4ReadSource_() {
-  const ss = getDatabase_();
-  const raw = mantulGetReadyReadIndex_();
-  const sku = ss.getSheetByName(SKU_SHEET_NAME);
-  if (!raw || raw.getLastRow() < 2) {
-    throw new Error('P2_EVENT_INDEX belum siap atau kedaluwarsa. Jalankan refreshMantulDashboard() terlebih dahulu.');
-  }
-  if (!sku || sku.getLastRow() < 2) {
-    throw new Error('Sheet SKU belum tersedia atau belum berisi master produk.');
-  }
-
-  const actual = raw.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT)
-    .getDisplayValues()[0].map(page2HeaderKey_);
-  const expected = RAW_SALES_HEADERS.map(page2HeaderKey_);
-  if (!expected.every((value, index) => actual[index] === value)) {
-    throw new Error('Header RAW_DATA_SALES tidak sesuai. Terbaca: ' + actual.join(' | '));
-  }
-
-  // Semua kolom transaksi diambil langsung dari schema RAW_DATA_SALES A:Y.
-  const rawColumns = {
-    year:0, month:1, customer:10, subdist:8, brand:6, subbrand:5,
-    category:19, sbu:21, salesType:14, value:12, carton:7, sku:24
+  const ss=getDatabase_(),sku=ss.getSheetByName(SKU_SHEET_NAME);
+  const event=page34ReadEventIndex_();
+  if(!sku||sku.getLastRow()<2)throw new Error('Sheet SKU belum tersedia atau belum berisi master produk.');
+  const rows=event.rows,n=rows.length;
+  const columns={
+    year:rows.map(r=>r[0]),month:rows.map(r=>r[1]),customer:rows.map(r=>r[4]),
+    subdist:rows.map(r=>r[5]),brand:rows.map(r=>r[7]),subbrand:rows.map(r=>r[8]),
+    category:rows.map(r=>r[9]),sbu:rows.map(r=>r[10]),salesType:rows.map(r=>r[11]),
+    value:rows.map(r=>r[14]),carton:rows.map(r=>r[15]),sku:rows.map(r=>r[16]),
+    sourceRows:rows.map(r=>Number(r[18])||1)
   };
-  const eventData = page4ReadSelectedColumns_(raw, rawColumns);
-  eventData.columns.sourceRows = Array(eventData.rows).fill(1);
-
-  const mh = sku.getRange(1, 1, 1, sku.getLastColumn())
-    .getDisplayValues()[0].map(v => String(v || '').trim());
-  const mm = {
+  const mh=sku.getRange(1,1,1,sku.getLastColumn()).getDisplayValues()[0].map(v=>String(v||'').trim());
+  const mm={
     sku:page4HeaderIndex_(mh,['PRODUCT_DESC','PRODUCT DESC'],'SKU master PRODUCT_DESC'),
     subbrand:page4HeaderIndex_(mh,['SUB_BRAND','SUB BRAND','SUBBRAND'],'SKU master SUB_BRAND'),
     brand:page4HeaderIndex_(mh,['BRAND'],'SKU master BRAND'),
     category:page4HeaderIndex_(mh,['CATEGORY'],'SKU master CATEGORY'),
     entity:page4HeaderIndex_(mh,['ENTITAS','ENTITY'],'SKU master ENTITAS')
   };
-  const masterData = page4ReadSelectedColumns_(sku, mm);
-  return {
-    sourceRows:eventData.rows,
-    columns:eventData.columns,
-    master:masterData.columns,
-    masterRows:masterData.rows,
-    sourceName:'P2_EVENT_INDEX'
-  };
+  const masterData=page4ReadSelectedColumns_(sku,mm);
+  return {sourceRows:n,columns:columns,master:masterData.columns,masterRows:masterData.rows,sourceName:event.source};
 }
 function page4BuildMeta_(src){
  const years=new Set(),monthsByYear={},skuAttrs=new Map(),customers=new Set();let sooRows=0,soModeRows=0,sourceRows=0;const c=src.columns;

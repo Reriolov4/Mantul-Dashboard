@@ -3,7 +3,7 @@
  */
 const PAGE3_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const PAGE34_ENTITIES_=['EPM BAC','EPM LSE','GMP BAC','GMP LSE','GMP LGS','DB MBO','DB BAC'];
-function page34ReadEventIndex_() {
+function page34ReadRawIndex_() {
   const ss = getDatabase_();
   const sh = mantulGetReadyReadIndex_();
   if (!sh || sh.getLastRow() < 2) {
@@ -44,6 +44,86 @@ function page34ReadEventIndex_() {
   }
   return {sheet:sh, rows:rows, source:'P2_EVENT_INDEX'};
 }
+
+/**
+ * PAGE 3/4 SHARED FACT — grain transaksi dengan dimensi filter lengkap.
+ * Kolom berurutan sesuai row adapter Page 3/4; SOURCE ROWS menjaga hitungan asal.
+ */
+const PAGE34_FACT_SHEET_='P34_EVENT_FACT';
+const PAGE34_FACT_STAGE_='P34_EVENT_FACT_BUILD';
+const PAGE34_FACT_HEADERS_=[
+ 'YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND',
+ 'SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON',
+ 'SKU','SUB_DIST','SOURCE ROWS'
+];
+function page34FactReady_(ss,index){
+ const props=PropertiesService.getScriptProperties(),fact=ss.getSheetByName(PAGE34_FACT_SHEET_);
+ if(!fact||fact.getLastRow()<2||props.getProperty('PAGE34_FACT_STATUS')!=='COMPLETE'||
+  props.getProperty('PAGE34_FACT_SOURCE_ID')!==ss.getId()||
+  Number(props.getProperty('PAGE34_FACT_SOURCE_ROWS'))!==index.getLastRow()-1||
+  Number(props.getProperty('PAGE34_FACT_WRITTEN'))!==fact.getLastRow()-1)return null;
+ const actual=fact.getRange(1,1,PAGE34_FACT_HEADERS_.length).getDisplayValues()[0].map(page2HeaderKey_);
+ if(!PAGE34_FACT_HEADERS_.every((v,i)=>actual[i]===page2HeaderKey_(v)))return null;
+ return fact;
+}
+function page34ReadEventIndex_(){
+ const ss=getDatabase_(),index=mantulGetReadyReadIndex_();
+ if(!index||index.getLastRow()<2)throw new Error('P2_EVENT_INDEX belum siap atau kedaluwarsa. Jalankan refreshMantulDashboard() terlebih dahulu.');
+ const fact=page34FactReady_(ss,index);
+ if(fact){
+  const values=fact.getRange(2,1,fact.getLastRow()-1,PAGE34_FACT_HEADERS_.length).getValues();
+  return {sheet:fact,rows:values.map(r=>r.slice(0,18).concat([Number(r[18])||1])),source:PAGE34_FACT_SHEET_};
+ }
+ return page34ReadRawIndex_();
+}
+/** Full rebuild terkontrol; bila index bertambah, fact lama otomatis dianggap stale. */
+function buildPage34EventFact(){
+ const lock=LockService.getScriptLock();lock.waitLock(30000);let stage=null;
+ try{
+  const ss=getDatabase_(),src=page34ReadRawIndex_(),grouped=new Map();let sourceRows=0,sourceValue=0,sourceCarton=0;
+  src.rows.forEach(r=>{
+   const key=JSON.stringify(r.slice(0,18));let item=grouped.get(key);
+   if(!item){item=r.slice(0,18).concat([0,0,0]);grouped.set(key,item);}
+   item[18]+=Number(r[18])||1;item[14]+=Number(r[14])||0;item[15]+=Number(r[15])||0;
+   sourceRows+=Number(r[18])||1;sourceValue+=Number(r[14])||0;sourceCarton+=Number(r[15])||0;
+  });
+  const rows=Array.from(grouped.values()),oldStage=ss.getSheetByName(PAGE34_FACT_STAGE_);
+  if(oldStage)ss.deleteSheet(oldStage);
+  stage=ss.insertSheet(PAGE34_FACT_STAGE_);
+  stage.getRange(1,1,1,PAGE34_FACT_HEADERS_.length).setValues([PAGE34_FACT_HEADERS_]);
+  const batch=3000;
+  for(let i=0;i<rows.length;i+=batch){const part=rows.slice(i,i+batch);stage.getRange(i+2,1,part.length,PAGE34_FACT_HEADERS_.length).setValues(part);}
+  SpreadsheetApp.flush();
+  if(stage.getLastRow()!==rows.length+1||stage.getLastColumn()!==PAGE34_FACT_HEADERS_.length)throw new Error('Ukuran P34_EVENT_FACT tidak valid.');
+  let factRows=0,factValue=0,factCarton=0;
+  for(let i=0;i<rows.length;i+=batch){const part=stage.getRange(i+2,1,Math.min(batch,rows.length-i),PAGE34_FACT_HEADERS_.length).getValues();part.forEach(r=>{factRows+=Number(r[18])||0;factValue+=Number(r[14])||0;factCarton+=Number(r[15])||0;});}
+  const close=(a,b)=>Math.abs(a-b)<=Math.max(0.01,Math.abs(a)*1e-10);
+  if(factRows!==sourceRows||!close(factValue,sourceValue)||!close(factCarton,sourceCarton))throw new Error('Validasi P34_EVENT_FACT gagal: SOURCE ROWS/VAL/CARTON tidak cocok.');
+  const stamp=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyyMMdd_HHmmss'),current=ss.getSheetByName(PAGE34_FACT_SHEET_),backup='P34_EVENT_FACT_OLD_'+stamp;
+  if(current)current.setName(backup);
+  try{
+   stage.setName(PAGE34_FACT_SHEET_);stage.setFrozenRows(1);
+   PropertiesService.getScriptProperties().setProperties({
+    PAGE34_FACT_STATUS:'COMPLETE',PAGE34_FACT_SOURCE_ID:ss.getId(),
+    PAGE34_FACT_SOURCE_ROWS:String(src.rows.length),PAGE34_FACT_WRITTEN:String(rows.length),
+    PAGE34_FACT_SOURCE_COUNT:String(sourceRows),PAGE34_FACT_VAL:String(factValue),
+    PAGE34_FACT_CARTON:String(factCarton),PAGE34_FACT_BUILT_AT:new Date().toISOString()
+   });
+   if(current)ss.deleteSheet(ss.getSheetByName(backup));
+  }catch(e){
+   const published=ss.getSheetByName(PAGE34_FACT_SHEET_);if(published&&published.getSheetId()===stage.getSheetId())ss.deleteSheet(published);
+   const prev=ss.getSheetByName(backup);if(prev&&!ss.getSheetByName(PAGE34_FACT_SHEET_))prev.setName(PAGE34_FACT_SHEET_);throw e;
+  }
+  const result={ok:true,status:'COMPLETE',sheet:PAGE34_FACT_SHEET_,sourceRows:sourceRows,factRows:rows.length,
+   compressedRows:sourceRows-rows.length,sourceValue:sourceValue,factValue:factValue,
+   sourceCarton:sourceCarton,factCarton:factCarton,validated:true};
+  Logger.log('PAGE34 EVENT FACT BUILD\\n'+JSON.stringify(result,null,2));return result;
+ }catch(err){
+  if(stage){const sh=stage.getParent().getSheetByName(PAGE34_FACT_STAGE_);if(sh&&sh.getSheetId()===stage.getSheetId())stage.getParent().deleteSheet(sh);}
+  PropertiesService.getScriptProperties().setProperty('PAGE34_FACT_STATUS','FAILED');throw err;
+ }finally{lock.releaseLock();}
+}
+
 function page34Mode_(v){return String(v||'SOO').trim().toUpperCase()==='SO'?'SO':'SOO';}
 function page34Entity_(row,mode){
  const raw=page2Text_(row[mode==='SOO'?5:17]),key=page2Key_(raw);
