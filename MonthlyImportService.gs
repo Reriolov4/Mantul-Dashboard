@@ -1,8 +1,8 @@
 /**
  * MANTUL — MONTHLY PARTITION IMPORT
  *
- * Import bulanan V2: P1_FACT tetap menjadi sumber Page 1, sedangkan
- * RAW_DATA_SALES 26 kolom menjadi source of truth untuk Page 2–4.
+ * Import bulanan: P1_FACT tetap menjadi sumber Page 1, sedangkan
+ * Page 2–4 membaca transaksi langsung dari RAW_DATA_SALES.
  * P2/P3 tidak diimpor; indeks turunan dibangun ulang setelah import selesai.
  * Kolom helper RAW di luar A:Z dipertahankan.
  */
@@ -244,17 +244,17 @@ function finishMonthlyDataImport(payload) {
       mantulV2AssertRawHeaders_(live.raw);
       const now=new Date(),formatted=Utilities.formatDate(now,Session.getScriptTimeZone(),'dd MMM yyyy HH:mm');
       props.setProperty('SALES_LAST_UPDATED',formatted);props.setProperty('PAGE2_RAW_UPDATED',formatted);
-      props.setProperty('MANTUL_V2_DATA_STALE','TRUE');
+      // Page 2–4 membaca RAW_DATA_SALES secara langsung; tidak perlu rebuild V2.
       if(typeof cacheDashboardData_==='function')cacheDashboardData_();
       const log=getOrCreateSheet_('MONTHLY_IMPORT_LOG');
       if(log.getLastRow()===0)log.appendRow(['WAKTU','FILE','PERIODE','P1_FACT ROWS','RAW_DATA_SALES ROWS','P1 SOO','RAW SOO','SELISIH SOO','P1 SO','RAW SO','UPLOADER','STATUS']);
       log.appendRow([now,props.getProperty(prefix+'FILENAME')||'',year+'-'+month,p1Rows.length,rawRows.length,p1Soo,rawSoo,p1Soo-rawSoo,p1So,rawSo,
-        Session.getActiveUser().getEmail()||'email tidak tersedia','SUCCESS — V2 REBUILD REQUIRED']);
+        Session.getActiveUser().getEmail()||'email tidak tersedia','SUCCESS — RAW DIRECT']);
       ['p1','raw'].forEach(key=>{const stage=ss.getSheetByName(MONTHLY_STAGE_NAMES_[key]);if(stage)stage.clearContents();});
       monthlyImportClearSession_(props);
       return {ok:true,year:year,month:month,p1Rows:p1Rows.length,rawRows:rawRows.length,p1Soo:p1Soo,rawSoo:rawSoo,
         p1SooDiff:p1Soo-rawSoo,p1So:p1So,rawSo:rawSo,updatedAt:formatted,
-        v2RebuildRequired:true,message:'P1_FACT dan RAW_DATA_SALES berhasil diperbarui. Jalankan Database V2 rebuild sebelum memakai Page 2–4.'};
+        v2RebuildRequired:false,message:'P1_FACT dan RAW_DATA_SALES berhasil diperbarui. Page 2–4 membaca RAW_DATA_SALES langsung.'};
     }catch(publishError){
       let rollbackError=null;
       try{
