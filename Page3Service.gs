@@ -62,7 +62,7 @@ function page34FactReady_(ss,index){
   props.getProperty('PAGE34_FACT_SOURCE_ID')!==ss.getId()||
   Number(props.getProperty('PAGE34_FACT_SOURCE_ROWS'))!==index.getLastRow()-1||
   Number(props.getProperty('PAGE34_FACT_WRITTEN'))!==fact.getLastRow()-1)return null;
- const actual=fact.getRange(1,1,PAGE34_FACT_HEADERS_.length).getDisplayValues()[0].map(page2HeaderKey_);
+ const actual=fact.getRange(1,1,1,PAGE34_FACT_HEADERS_.length).getDisplayValues()[0].map(page2HeaderKey_);
  if(!PAGE34_FACT_HEADERS_.every((v,i)=>actual[i]===page2HeaderKey_(v)))return null;
  return fact;
 }
@@ -82,8 +82,8 @@ function buildPage34EventFact(){
  try{
   const ss=getDatabase_(),src=page34ReadRawIndex_(),grouped=new Map();let sourceRows=0,sourceValue=0,sourceCarton=0;
   src.rows.forEach(r=>{
-   const key=JSON.stringify(r.slice(0,18));let item=grouped.get(key);
-   if(!item){item=r.slice(0,18).concat([0,0,0]);grouped.set(key,item);}
+   const key=JSON.stringify(r.slice(0,14).concat(r.slice(16,18)));let item=grouped.get(key);
+   if(!item){item=r.slice();item[14]=0;item[15]=0;item[18]=0;grouped.set(key,item);}
    item[18]+=Number(r[18])||1;item[14]+=Number(r[14])||0;item[15]+=Number(r[15])||0;
    sourceRows+=Number(r[18])||1;sourceValue+=Number(r[14])||0;sourceCarton+=Number(r[15])||0;
   });
