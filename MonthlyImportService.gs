@@ -8,12 +8,7 @@
  * SKU dan MAPPING TEAM tidak disentuh oleh proses bulanan.
  */
 const MONTHLY_IMPORT_PREFIX_ = 'MANTUL_MONTHLY_IMPORT_';
-const MONTHLY_RAW_HEADERS_ = [
-  'TAHUN','BULAN','DATE','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND','KARTON',
-  'DISTRIBUTORS','KODE CUSTOMER','CUSTOMER NAME','KODE SALUR','VAL','QTY',
-  'JENIS SALES','SUBDIST','PIC','TIM','NAMA AKUN','CATEGORY','DOT','SBU',
-  'PF Bulanan','PF Triwulan','SKU KCH'
-];
+const MONTHLY_RAW_HEADERS_ = MANTUL_V2_SCHEMA_.RAW.slice();
 const MONTHLY_STAGE_NAMES_ = {
   p1:'P1_MONTH_STAGING',
   p2:'P2_MONTH_STAGING',
@@ -55,76 +50,34 @@ function monthlyImportAssertHeaders_(sheet, expected) {
 }
 
 function beginMonthlyDataImport(meta) {
-  assertUploadPermission_();
-  meta = meta || {};
-  const year = Number(meta.year);
-  const month = monthlyImportMonth_(meta.month);
-  const p1Total = Number(meta.p1Total);
-  const p2Total = Number(meta.p2Total);
-  const rawTotal = Number(meta.rawTotal);
-  const allowedMonths = PAGE2_MONTHS_;
-
-  if (!Number.isInteger(year) || year < 2000 || year > 2100 ||
-      allowedMonths.indexOf(month) < 0 ||
-      !Number.isInteger(p1Total) || p1Total < 1 ||
-      !Number.isInteger(p2Total) || p2Total < 1 ||
-      !Number.isInteger(rawTotal) || rawTotal < 1 ||
-      p2Total !== rawTotal) {
-    throw new Error('Periode atau jumlah baris bulanan tidak valid. P2_EVENT_INDEX dan RAW_DATA_SALES harus memiliki jumlah baris yang sama.');
-  }
-  if (p1Total > 5000 || p2Total > 30000 || rawTotal > 30000) {
-    throw new Error('Jumlah baris periode melebihi batas aman import bulanan.');
-  }
-
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    const props = PropertiesService.getScriptProperties();
-    const prefix = MONTHLY_IMPORT_PREFIX_;
-    const existingToken = props.getProperty(prefix+'TOKEN');
-    const startedAt = Number(props.getProperty(prefix+'STARTED') || 0);
-    if (existingToken && startedAt && Date.now()-startedAt < 2*60*60*1000) {
-      throw new Error('Import bulanan lain masih berlangsung. Selesaikan atau tunggu sesi kedaluwarsa.');
-    }
-
-    const ss = getDatabase_();
-    const p1 = ss.getSheetByName('P1_FACT');
-    const p2 = ss.getSheetByName('P2_EVENT_INDEX');
-    const raw = ss.getSheetByName('RAW_DATA_SALES');
-    if (!p1 || !p2 || !raw) throw new Error('P1_FACT, P2_EVENT_INDEX, dan RAW_DATA_SALES wajib tersedia.');
-    analyticsAssertHeaders_(p1, P1_FACT_HEADERS_);
-    analyticsAssertHeaders_(p2, P2_EVENT_HEADERS_);
-    monthlyImportAssertHeaders_(p2, P2_EVENT_INDEX_HEADERS_);
-    monthlyImportAssertHeaders_(raw, MONTHLY_RAW_HEADERS_);
-
-    const stageSpecs = [
-      ['p1',P1_FACT_HEADERS_],['p2',P2_EVENT_INDEX_HEADERS_],['raw',MONTHLY_RAW_HEADERS_]
-    ];
-    stageSpecs.forEach(([key,headers]) => {
-      const stage = getOrCreateSheet_(MONTHLY_STAGE_NAMES_[key]);
-      stage.clearContents();
-      ensureSheetGrid_(stage,1,headers.length);
-      stage.getRange(1,1,1,headers.length).setValues([headers]);
+  assertUploadPermission_(); meta=meta||{};
+  const year=Number(meta.year),month=monthlyImportMonth_(meta.month),
+    p1Total=Number(meta.p1Total),rawTotal=Number(meta.rawTotal);
+  if(!Number.isInteger(year)||year<2000||year>2100||PAGE2_MONTHS_.indexOf(month)<0||
+     !Number.isInteger(p1Total)||p1Total<1||!Number.isInteger(rawTotal)||rawTotal<1)
+    throw new Error('Periode atau jumlah baris P1/RAW tidak valid.');
+  if(p1Total>5000||rawTotal>30000)throw new Error('Jumlah baris periode melebihi batas aman import bulanan.');
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  try{
+    const props=PropertiesService.getScriptProperties(),prefix=MONTHLY_IMPORT_PREFIX_,
+      existing=props.getProperty(prefix+'TOKEN'),started=Number(props.getProperty(prefix+'STARTED')||0);
+    if(existing&&started&&Date.now()-started<2*60*60*1000)throw new Error('Import bulanan lain masih berlangsung.');
+    const ss=getDatabase_(),p1=ss.getSheetByName('P1_FACT'),raw=ss.getSheetByName('RAW_DATA_SALES');
+    if(!p1||!raw)throw new Error('P1_FACT dan RAW_DATA_SALES wajib tersedia.');
+    analyticsAssertHeaders_(p1,P1_FACT_HEADERS_);mantulV2AssertRawHeaders_(raw);
+    [['p1',P1_FACT_HEADERS_],['raw',MONTHLY_RAW_HEADERS_]].forEach(([key,headers])=>{
+      const stage=getOrCreateSheet_(MONTHLY_STAGE_NAMES_[key]);stage.clearContents();
+      ensureSheetGrid_(stage,1,headers.length);stage.getRange(1,1,1,headers.length).setValues([headers]);
     });
-
-    const token = Utilities.getUuid();
+    const token=Utilities.getUuid();
     props.setProperties({
-      [prefix+'TOKEN']:token,
-      [prefix+'YEAR']:String(year),
-      [prefix+'MONTH']:month,
-      [prefix+'P1_EXPECTED']:String(p1Total),
-      [prefix+'P2_EXPECTED']:String(p2Total),
-      [prefix+'RAW_EXPECTED']:String(rawTotal),
-      [prefix+'P1_WRITTEN']:'0',
-      [prefix+'P2_WRITTEN']:'0',
-      [prefix+'RAW_WRITTEN']:'0',
-      [prefix+'STARTED']:String(Date.now()),
-      [prefix+'FILENAME']:safeText_(meta.filename || 'Workbook sales',200)
+      [prefix+'TOKEN']:token,[prefix+'YEAR']:String(year),[prefix+'MONTH']:month,
+      [prefix+'P1_EXPECTED']:String(p1Total),[prefix+'RAW_EXPECTED']:String(rawTotal),
+      [prefix+'P1_WRITTEN']:'0',[prefix+'RAW_WRITTEN']:'0',
+      [prefix+'STARTED']:String(Date.now()),[prefix+'FILENAME']:safeText_(meta.filename||'Workbook sales',200)
     });
-    return {ok:true,token:token,year:year,month:month,p1Expected:p1Total,p2Expected:p2Total,rawExpected:rawTotal};
-  } finally {
-    lock.releaseLock();
-  }
+    return {ok:true,token:token,year:year,month:month,p1Expected:p1Total,rawExpected:rawTotal};
+  }finally{lock.releaseLock();}
 }
 
 function monthlyImportAssertSession_(props, token) {
@@ -157,51 +110,29 @@ function monthlyImportValidateChunk_(rows, width, year, month, sheetLabel, yearI
 }
 
 function appendMonthlyDataImportChunk(payload) {
-  assertUploadPermission_();
-  payload = payload || {};
-  const p1Chunk = Array.isArray(payload.p1Chunk) ? payload.p1Chunk : [];
-  const p2Chunk = Array.isArray(payload.p2Chunk) ? payload.p2Chunk : [];
-  const rawChunk = Array.isArray(payload.rawChunk) ? payload.rawChunk : [];
-  if (!p1Chunk.length && !p2Chunk.length && !rawChunk.length) return {written:0};
-  if (p1Chunk.length>1000 || p2Chunk.length>1000 || rawChunk.length>1000) {
-    throw new Error('Maksimal 1.000 baris per sheet per batch.');
-  }
-
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    const props = PropertiesService.getScriptProperties();
-    monthlyImportAssertSession_(props,payload.token);
-    const prefix = MONTHLY_IMPORT_PREFIX_;
-    const year = Number(props.getProperty(prefix+'YEAR'));
-    const month = props.getProperty(prefix+'MONTH');
-    const specs = [
-      ['p1',p1Chunk,14,0,1,'P1_FACT'],
-      ['p2',p2Chunk,18,0,1,'P2_EVENT_INDEX'],
-      ['raw',rawChunk,25,0,1,'RAW_DATA_SALES']
-    ];
-    specs.forEach(([key,rows,width,yearIndex,monthIndex,label]) => {
-      if (!rows.length) return;
-      const expected = Number(props.getProperty(prefix+key.toUpperCase()+'_EXPECTED') || 0);
-      const written = Number(props.getProperty(prefix+key.toUpperCase()+'_WRITTEN') || 0);
-      if (written + rows.length > expected) throw new Error(label + ' melebihi jumlah baris yang didaftarkan.');
-      monthlyImportValidateChunk_(rows,width,year,month,label,yearIndex,monthIndex);
-      const stage = getOrCreateSheet_(MONTHLY_STAGE_NAMES_[key]);
-      ensureSheetGrid_(stage,written+rows.length+1,width);
+  assertUploadPermission_();payload=payload||{};
+  const p1Chunk=Array.isArray(payload.p1Chunk)?payload.p1Chunk:[],
+    rawChunk=Array.isArray(payload.rawChunk)?payload.rawChunk:[];
+  if(!p1Chunk.length&&!rawChunk.length)return {written:0};
+  if(p1Chunk.length>1000||rawChunk.length>1000)throw new Error('Maksimal 1.000 baris per sheet per batch.');
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  try{
+    const props=PropertiesService.getScriptProperties();monthlyImportAssertSession_(props,payload.token);
+    const prefix=MONTHLY_IMPORT_PREFIX_,year=Number(props.getProperty(prefix+'YEAR')),month=props.getProperty(prefix+'MONTH');
+    [['p1',p1Chunk,14,'P1_FACT'],['raw',rawChunk,27,'RAW_DATA_SALES']].forEach(([key,rows,width,label])=>{
+      if(!rows.length)return;
+      const expected=Number(props.getProperty(prefix+key.toUpperCase()+'_EXPECTED')||0),
+        written=Number(props.getProperty(prefix+key.toUpperCase()+'_WRITTEN')||0);
+      if(written+rows.length>expected)throw new Error(label+' melebihi jumlah baris yang didaftarkan.');
+      monthlyImportValidateChunk_(rows,width,year,month,label,0,1);
+      if(key==='raw'&&rows.some(r=>r.length!==27))throw new Error('RAW_DATA_SALES wajib 27 kolom sesuai schema V2.');
+      const stage=getOrCreateSheet_(MONTHLY_STAGE_NAMES_[key]);ensureSheetGrid_(stage,written+rows.length+1,width);
       stage.getRange(written+2,1,rows.length,width).setValues(rows);
       props.setProperty(prefix+key.toUpperCase()+'_WRITTEN',String(written+rows.length));
     });
-    return {
-      p1Written:Number(props.getProperty(prefix+'P1_WRITTEN')||0),
-      p1Expected:Number(props.getProperty(prefix+'P1_EXPECTED')||0),
-      p2Written:Number(props.getProperty(prefix+'P2_WRITTEN')||0),
-      p2Expected:Number(props.getProperty(prefix+'P2_EXPECTED')||0),
-      rawWritten:Number(props.getProperty(prefix+'RAW_WRITTEN')||0),
-      rawExpected:Number(props.getProperty(prefix+'RAW_EXPECTED')||0)
-    };
-  } finally {
-    lock.releaseLock();
-  }
+    return {p1Written:Number(props.getProperty(prefix+'P1_WRITTEN')||0),p1Expected:Number(props.getProperty(prefix+'P1_EXPECTED')||0),
+      rawWritten:Number(props.getProperty(prefix+'RAW_WRITTEN')||0),rawExpected:Number(props.getProperty(prefix+'RAW_EXPECTED')||0)};
+  }finally{lock.releaseLock();}
 }
 
 function monthlyImportReadStage_(key, expected, width) {
@@ -309,110 +240,60 @@ function monthlyImportAppendRows_(sheet, rows, width) {
 }
 
 function finishMonthlyDataImport(payload) {
-  assertUploadPermission_();
-  payload = payload || {};
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    const props = PropertiesService.getScriptProperties();
-    monthlyImportAssertSession_(props,payload.token);
-    const prefix = MONTHLY_IMPORT_PREFIX_;
-    const year = Number(props.getProperty(prefix+'YEAR'));
-    const month = props.getProperty(prefix+'MONTH');
-    const p1Expected = Number(props.getProperty(prefix+'P1_EXPECTED')||0);
-    const p2Expected = Number(props.getProperty(prefix+'P2_EXPECTED')||0);
-    const rawExpected = Number(props.getProperty(prefix+'RAW_EXPECTED')||0);
-    if (Number(props.getProperty(prefix+'P1_WRITTEN')||0)!==p1Expected ||
-        Number(props.getProperty(prefix+'P2_WRITTEN')||0)!==p2Expected ||
-        Number(props.getProperty(prefix+'RAW_WRITTEN')||0)!==rawExpected) {
-      throw new Error('Import belum lengkap. P1/P2/RAW belum mencapai jumlah baris yang didaftarkan.');
-    }
-
-    const p1Rows = monthlyImportReadStage_('p1',p1Expected,14);
-    const p2Rows = monthlyImportReadStage_('p2',p2Expected,18);
-    const rawRows = monthlyImportReadStage_('raw',rawExpected,25);
+  assertUploadPermission_();payload=payload||{};
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  try{
+    const props=PropertiesService.getScriptProperties();monthlyImportAssertSession_(props,payload.token);
+    const prefix=MONTHLY_IMPORT_PREFIX_,year=Number(props.getProperty(prefix+'YEAR')),month=props.getProperty(prefix+'MONTH'),
+      p1Expected=Number(props.getProperty(prefix+'P1_EXPECTED')||0),rawExpected=Number(props.getProperty(prefix+'RAW_EXPECTED')||0);
+    if(Number(props.getProperty(prefix+'P1_WRITTEN')||0)!==p1Expected||Number(props.getProperty(prefix+'RAW_WRITTEN')||0)!==rawExpected)
+      throw new Error('Import belum lengkap. P1_FACT dan RAW_DATA_SALES belum mencapai jumlah baris yang didaftarkan.');
+    const p1Rows=monthlyImportReadStage_('p1',p1Expected,14),rawRows=monthlyImportReadStage_('raw',rawExpected,27);
     monthlyImportValidateChunk_(p1Rows,14,year,month,'P1_FACT',0,1);
-    monthlyImportValidateChunk_(p2Rows,18,year,month,'P2_EVENT_INDEX',0,1);
-    monthlyImportValidateChunk_(rawRows,25,year,month,'RAW_DATA_SALES',0,1);
-    monthlyImportCompareP2Raw_(p2Rows,rawRows);
-
-    const p1Soo = p1Rows.filter(r=>String(r[11]||'').trim().toUpperCase()==='SOO')
-      .reduce((sum,r)=>sum+(Number(r[10])||0),0);
-    const p2Soo = p2Rows.filter(r=>String(r[11]||'').trim().toUpperCase()==='SOO')
-      .reduce((sum,r)=>sum+(Number(r[14])||0),0);
-    const p1SooDiff = p1Soo-p2Soo;
-
-    const ss = getDatabase_();
-    const live = {
-      p1:ss.getSheetByName('P1_FACT'),
-      p2:ss.getSheetByName('P2_EVENT_INDEX'),
-      raw:ss.getSheetByName('RAW_DATA_SALES')
-    };
-    const headers = {p1:P1_FACT_HEADERS_,p2:P2_EVENT_INDEX_HEADERS_,raw:MONTHLY_RAW_HEADERS_};
-    const widths = {p1:14,p2:18,raw:25};
-    const newRows = {p1:p1Rows,p2:p2Rows,raw:rawRows};
-    const oldRows = {};
-    Object.keys(live).forEach(key => {
-      if (!live[key]) throw new Error('Sheet live ' + key + ' tidak ditemukan.');
-      const captured = monthlyImportReadPeriodRows_(live[key],year,month,widths[key]);
-      oldRows[key] = captured.rows;
+    monthlyImportValidateChunk_(rawRows,27,year,month,'RAW_DATA_SALES',0,1);
+    const p1Soo=p1Rows.filter(r=>page2Key_(r[11])==='SOO').reduce((a,r)=>a+(Number(r[10])||0),0),
+      rawSoo=rawRows.filter(r=>page2Key_(r[18])==='SOO').reduce((a,r)=>a+(Number(r[12])||0),0),
+      p1So=p1Rows.filter(r=>page2Key_(r[11])==='SO').reduce((a,r)=>a+(Number(r[10])||0),0),
+      rawSo=rawRows.filter(r=>page2Key_(r[18])==='SO').reduce((a,r)=>a+(Number(r[12])||0),0);
+    const ss=getDatabase_(),live={p1:ss.getSheetByName('P1_FACT'),raw:ss.getSheetByName('RAW_DATA_SALES')},
+      headers={p1:P1_FACT_HEADERS_,raw:MONTHLY_RAW_HEADERS_},widths={p1:14,raw:27},newRows={p1:p1Rows,raw:rawRows},oldRows={};
+    Object.keys(live).forEach(key=>{
+      if(!live[key])throw new Error('Sheet live '+key+' tidak ditemukan.');
+      const captured=monthlyImportReadPeriodRows_(live[key],year,month,widths[key]);oldRows[key]=captured.rows;
       monthlyImportWriteBackup_(key,headers[key],captured.rows);
     });
-
-    const oldSalesUpdated = props.getProperty('SALES_LAST_UPDATED') || '';
-    const oldPage2Updated = props.getProperty('PAGE2_RAW_UPDATED') || '';
-    try {
-      Object.keys(live).forEach(key => monthlyImportDeletePeriod_(live[key],year,month));
-      Object.keys(live).forEach(key => monthlyImportAppendRows_(live[key],newRows[key],widths[key]));
-
-      const now = new Date();
-      const formatted = Utilities.formatDate(now,Session.getScriptTimeZone(),'dd MMM yyyy HH:mm');
-      props.setProperty('SALES_LAST_UPDATED',formatted);
-      props.setProperty('PAGE2_RAW_UPDATED',formatted);
-      analyticsStartInitialBuild();
-      analyticsUpdateDashboardPeriod_(year,month,p2Rows);
-      cacheDashboardData_();
-
-      const log = getOrCreateSheet_('MONTHLY_IMPORT_LOG');
-      if (log.getLastRow()===0) {
-        log.appendRow(['WAKTU','FILE','PERIODE','P1_FACT ROWS','P2_EVENT_INDEX ROWS','RAW_DATA_SALES ROWS','P1 SOO','P2 SOO','SELISIH SOO','UPLOADER','STATUS']);
-      }
-      log.appendRow([now,props.getProperty(prefix+'FILENAME')||'',year+'-'+month,
-        p1Rows.length,p2Rows.length,rawRows.length,p1Soo,p2Soo,p1SooDiff,
-        Session.getActiveUser().getEmail()||'email tidak tersedia','SUCCESS']);
-
-      Object.keys(MONTHLY_STAGE_NAMES_).forEach(key => {
-        const stage = ss.getSheetByName(MONTHLY_STAGE_NAMES_[key]);
-        if (stage) stage.clearContents();
-      });
+    const oldSales=props.getProperty('SALES_LAST_UPDATED')||'',oldP2=props.getProperty('PAGE2_RAW_UPDATED')||'',
+      oldStale=props.getProperty('MANTUL_V2_DATA_STALE')||'';
+    try{
+      Object.keys(live).forEach(key=>monthlyImportDeletePeriod_(live[key],year,month));
+      Object.keys(live).forEach(key=>monthlyImportAppendRows_(live[key],newRows[key],widths[key]));
+      mantulV2AssertRawHeaders_(live.raw);
+      const now=new Date(),formatted=Utilities.formatDate(now,Session.getScriptTimeZone(),'dd MMM yyyy HH:mm');
+      props.setProperty('SALES_LAST_UPDATED',formatted);props.setProperty('PAGE2_RAW_UPDATED',formatted);
+      props.setProperty('MANTUL_V2_DATA_STALE','TRUE');
+      if(typeof cacheDashboardData_==='function')cacheDashboardData_();
+      const log=getOrCreateSheet_('MONTHLY_IMPORT_LOG');
+      if(log.getLastRow()===0)log.appendRow(['WAKTU','FILE','PERIODE','P1_FACT ROWS','RAW_DATA_SALES ROWS','P1 SOO','RAW SOO','SELISIH SOO','P1 SO','RAW SO','UPLOADER','STATUS']);
+      log.appendRow([now,props.getProperty(prefix+'FILENAME')||'',year+'-'+month,p1Rows.length,rawRows.length,p1Soo,rawSoo,p1Soo-rawSoo,p1So,rawSo,
+        Session.getActiveUser().getEmail()||'email tidak tersedia','SUCCESS — V2 REBUILD REQUIRED']);
+      ['p1','raw'].forEach(key=>{const stage=ss.getSheetByName(MONTHLY_STAGE_NAMES_[key]);if(stage)stage.clearContents();});
       monthlyImportClearSession_(props);
-      return {
-        ok:true,year:year,month:month,
-        p1Rows:p1Rows.length,p2Rows:p2Rows.length,rawRows:rawRows.length,
-        p1Soo:p1Soo,p2Soo:p2Soo,p1SooDiff:p1SooDiff,updatedAt:formatted,
-        message:'Periode berhasil diganti. Baris lama untuk periode yang sama tidak digandakan.'
-      };
-    } catch (publishError) {
-      let rollbackError = null;
-      try {
-        Object.keys(live).forEach(key => monthlyImportDeletePeriod_(live[key],year,month));
-        Object.keys(live).forEach(key => monthlyImportAppendRows_(live[key],oldRows[key],widths[key]));
-        props.setProperty('SALES_LAST_UPDATED',oldSalesUpdated);
-        props.setProperty('PAGE2_RAW_UPDATED',oldPage2Updated);
-        analyticsStartInitialBuild();
-        analyticsUpdateDashboardPeriod_(year,month,oldRows.p2);
-        cacheDashboardData_();
-      } catch (err) {
-        rollbackError = err;
-      }
-      if (rollbackError) {
-        throw new Error('Import gagal: '+publishError.message+'. Rollback juga gagal: '+rollbackError.message+'. Periksa backup P1_MONTH_BACKUP, P2_MONTH_BACKUP, dan RAW_MONTH_BACKUP.');
-      }
+      return {ok:true,year:year,month:month,p1Rows:p1Rows.length,rawRows:rawRows.length,p1Soo:p1Soo,rawSoo:rawSoo,
+        p1SooDiff:p1Soo-rawSoo,p1So:p1So,rawSo:rawSo,updatedAt:formatted,
+        v2RebuildRequired:true,message:'P1_FACT dan RAW_DATA_SALES berhasil diperbarui. Jalankan Database V2 rebuild sebelum memakai Page 2–4.'};
+    }catch(publishError){
+      let rollbackError=null;
+      try{
+        Object.keys(live).forEach(key=>monthlyImportDeletePeriod_(live[key],year,month));
+        Object.keys(live).forEach(key=>monthlyImportAppendRows_(live[key],oldRows[key],widths[key]));
+        props.setProperty('SALES_LAST_UPDATED',oldSales);props.setProperty('PAGE2_RAW_UPDATED',oldP2);
+        if(oldStale)props.setProperty('MANTUL_V2_DATA_STALE',oldStale);else props.deleteProperty('MANTUL_V2_DATA_STALE');
+        if(typeof cacheDashboardData_==='function')cacheDashboardData_();
+      }catch(err){rollbackError=err;}
+      if(rollbackError)throw new Error('Import gagal: '+publishError.message+'. Rollback juga gagal: '+rollbackError.message+'. Periksa backup P1_MONTH_BACKUP dan RAW_MONTH_BACKUP.');
       throw new Error('Import gagal dan data periode sebelumnya sudah dipulihkan: '+publishError.message);
     }
-  } finally {
-    lock.releaseLock();
-  }
+  }finally{lock.releaseLock();}
 }
 
 function abortMonthlyDataImport(payload) {
