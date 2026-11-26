@@ -40,7 +40,7 @@ function mantulV2BuildStart() {
       ensureSheetGrid_(sh, 1, headers.length);
       sh.getRange(1, 1, 1, headers.length).setValues([headers]);
     });
-    const total = raw.getLastRow() - 1;
+    const total = mantulV2LastRawDataRow_(raw) - 1;
     props.setProperties({
       [p+'STATUS']:'RUNNING',
       [p+'PHASE']:'EVENTS',
@@ -281,8 +281,15 @@ function mantulV2PublishStaging() {
   }finally{lock.releaseLock();}
 }
 
+function mantulV2LastRawDataRow_(sheet) {
+  if(!sheet)return 1;
+  const last=sheet.getRange(sheet.getMaxRows(),1).getNextDataCell(SpreadsheetApp.Direction.UP).getRow();
+  return Math.max(1,last);
+}
+
 function mantulV2SheetTotals_(sheet,width,valueCol,cartonCol) {
-  const last=sheet.getLastRow(); let value=0,carton=0;
+  const last=sheet.getName()==='RAW_DATA_SALES'?mantulV2LastRawDataRow_(sheet):sheet.getLastRow();
+  let value=0,carton=0;
   for(let row=2;row<=last;row+=5000){
     const n=Math.min(5000,last-row+1);
     const vals=sheet.getRange(row,1,n,width).getValues();
