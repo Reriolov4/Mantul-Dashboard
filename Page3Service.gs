@@ -4,12 +4,22 @@
 const PAGE3_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const PAGE34_ENTITIES_=['EPM BAC','EPM LSE','GMP BAC','GMP LSE','GMP LGS','DB MBO','DB BAC'];
 function page34ReadEventIndex_(){
- const sh=getDatabase_().getSheetByName('P2_EVENT_INDEX');
- if(!sh||sh.getLastRow()<2)throw new Error('P2_EVENT_INDEX belum berisi data.');
+ const ss=getDatabase_(),p3=ss.getSheetByName('P3_OUTLET_MONTHLY');
+ const p3Headers=['YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','SUB_DIST','SALES_TYPE','PIC','BRAND','SUBBRAND','CATEGORY','SBU','ITEM_CODE','SKU','VAL','CARTON','SOURCE_ROWS'];
+ if(p3&&p3.getLastRow()>1&&p3.getLastColumn()>=18){
+  const actual=p3.getRange(1,1,1,18).getDisplayValues()[0].map(page2HeaderKey_);
+  if(p3Headers.every((v,i)=>page2HeaderKey_(v)===actual[i])){
+   const values=p3.getRange(2,1,p3.getLastRow()-1,18).getValues();
+   const rows=values.map(r=>[r[0],r[1],r[2],r[3],r[4],r[5],r[8],r[9],r[10],r[11],r[12],r[7],'', '',r[15],r[16],r[14],r[6],r[17]]);
+   return {sheet:p3,rows:rows,source:'P3_OUTLET_MONTHLY'};
+  }
+ }
+ const sh=ss.getSheetByName('P2_EVENT_INDEX');
+ if(!sh||sh.getLastRow()<2)throw new Error('P3_OUTLET_MONTHLY V2 atau P2_EVENT_INDEX belum berisi data.');
  const expected=(typeof P2_EVENT_INDEX_HEADERS_!=='undefined'?P2_EVENT_INDEX_HEADERS_:P2_EVENT_HEADERS_.concat(['SKU','SUB_DIST']));
  const actual=sh.getRange(1,1,1,18).getDisplayValues()[0].map(page2HeaderKey_);
  if(!expected.every((v,i)=>page2HeaderKey_(v)===actual[i]))throw new Error('Header P2_EVENT_INDEX harus 18 kolom termasuk SKU dan SUB_DIST. Terbaca: '+actual.join(' | '));
- return {sheet:sh,rows:sh.getRange(2,1,sh.getLastRow()-1,18).getValues()};
+ return {sheet:sh,rows:sh.getRange(2,1,sh.getLastRow()-1,18).getValues(),source:'P3_OUTLET_MONTHLY'};
 }
 function page34Mode_(v){return String(v||'SOO').trim().toUpperCase()==='SO'?'SO':'SOO';}
 function page34Entity_(row,mode){
@@ -44,7 +54,7 @@ function page3BuildData_(rows,filters,meta){
   const m=page2Month_(r[1]),sd=page34Entity_(r,mode),sb=page2Text_(r[8]),customer=page2Text_(r[4]);
   if(!monthSet.has(m)||!sd||!customer)return;const dateKey=page2Date_(r[0],r[1],r[2]),day=dateKey?dateKey.slice(8,10):'';if(dateSet.size&&!dateSet.has(day))return;if(subdistSet.size&&!subdistSet.has(page2Key_(sd)))return;
   if(subbrandSet.size&&!subbrandSet.has(page2Key_(sb)))return;if(picSet.size&&!picSet.has(page2Key_(r[6])))return;if(brandSet.size&&!brandSet.has(page2Key_(r[7])))return;if(categorySet.size&&!categorySet.has(page2Key_(r[9])))return;if(customerSet.size&&!customerSet.has(page2Key_(customer)))return;
-  matchedSourceRows++;const key=page2ExactCompositeKey_([sd,customer]);let x=map.get(key);
+  matchedSourceRows+=Number(r[18])||1;const key=page2ExactCompositeKey_([sd,customer]);let x=map.get(key);
   if(!x){x={customerName:customer,subdist:sd,monthly:{},total:{value:0,carton:0}};map.set(key,x);}
   if(!x.monthly[m])x.monthly[m]={value:0,carton:0};x.monthly[m].value+=Number(r[14])||0;x.monthly[m].carton+=Number(r[15])||0;x.total.value+=Number(r[14])||0;x.total.carton+=Number(r[15])||0;
  });
