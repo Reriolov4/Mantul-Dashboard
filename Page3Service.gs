@@ -20,7 +20,7 @@ function page34ReadEventIndex_(){
  const expected=(typeof P2_EVENT_INDEX_HEADERS_!=='undefined'?P2_EVENT_INDEX_HEADERS_:P2_EVENT_HEADERS_.concat(['SKU','SUB_DIST']));
  const actual=sh.getRange(1,1,1,18).getDisplayValues()[0].map(page2HeaderKey_);
  if(!expected.every((v,i)=>page2HeaderKey_(v)===actual[i]))throw new Error('Header P2_EVENT_INDEX harus 18 kolom termasuk SKU dan SUB_DIST. Terbaca: '+actual.join(' | '));
- return {sheet:sh,rows:sh.getRange(2,1,sh.getLastRow()-1,18).getValues(),source:'P3_OUTLET_MONTHLY'};
+ return {sheet:sh,rows:sh.getRange(2,1,sh.getLastRow()-1,18).getValues(),source:'P2_EVENT_INDEX'};
 }
 function page34Mode_(v){return String(v||'SOO').trim().toUpperCase()==='SO'?'SO':'SOO';}
 function page34Entity_(row,mode){
