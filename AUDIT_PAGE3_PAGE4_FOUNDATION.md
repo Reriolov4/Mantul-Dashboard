@@ -17,7 +17,9 @@ Production deployment: existing Apps Script Web App deployment ID / URL (via Git
 
 ### Page 3 — Outlets
 - Dedicated `Page3Service.gs`, `Page3.html`, and `Page3Scripts.html`.
-- SOO scope includes every TIM present in the maintained data (not hard-coded to a single team).
+- SOO scope includes every TIM present in the maintained data; no SALESMAN-only restriction.
+- SO mode reads all sales types and uses SUB_DIST; excludes `0` and maps AP. GEUBRINA RIZKI to EPM LSE and PT RESTU INDO MEDICA to EPM BAC.
+- Both modes retain the visible entity label `SUBDIST`.
 - Customer Name search, year/month selection, Subdist, Subbrand, Value/Karton toggle.
 - Monthly trend table by Customer Name + Subdist, with selected months, total, and pagination.
 - No Target, ACH, TRG BE, or %BE columns.
@@ -25,9 +27,9 @@ Production deployment: existing Apps Script Web App deployment ID / URL (via Git
 
 ### Page 4 — SKU KCH
 - Dedicated `Page4Service.gs`, `Page4.html`, and `Page4Scripts.html`.
-- Subdist and year filters.
-- SOO YTD aggregation from `RAW_DATA_SALES`.
-- SKU KCH resolved by header name; SKU master mapping uses `SKU.PRODUCT_DESC`.
+- Customer and SUBDIST filters only, matching the Page 2 filter pattern.
+- SOO-only YTD aggregation from `P2_EVENT_INDEX`, with distributor identity read from `SUBDIST`.
+- SKU KCH resolved from the `SKU` field; SKU master mapping uses `SKU.PRODUCT_DESC`.
 - Ambiguous product attributes are labeled `MULTI` instead of assigning an arbitrary Brand/Subbrand/Category/Entitas.
 
 ### Safe index handling
