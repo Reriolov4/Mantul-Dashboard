@@ -17,7 +17,7 @@ function analyticsRegisterExistingIndexes(){
   let sooRows=0,sooValue=0,sooCarton=0;const salesTypeCounts={},teamCounts={};
   for(let i=0;i<sourceCount;i++){const type=page2Key_(meta[i][0]),team=page2Key_(meta[i][2]);if(type)salesTypeCounts[type]=(salesTypeCounts[type]||0)+1;if(team)teamCounts[team]=(teamCounts[team]||0)+1;
    if(type!=='SOO')continue;sooRows++;sooValue+=Number(vals[i][0])||0;sooCarton+=Number(vals[i][1])||0;
-   if(team==='SALESMAN'){salesmanValue+=Number(vals[i][0])||0;salesmanCarton+=Number(vals[i][1])||0;}}
+  }
   const readTotals=(sh,sourceRows,start)=>{const n=sh.getLastRow()-1,a=sh.getRange(2,start,n,sourceRows?3:2).getValues();
    return a.reduce((t,r)=>{t.value+=Number(r[0])||0;t.carton+=Number(r[1])||0;if(sourceRows)t.sourceRows+=Number(r[2])||0;return t;},{value:0,carton:0,sourceRows:0});};
   const a=readTotals(p2,true,15),b=readTotals(sub,true,15),c=readTotals(p3,false,5),close=(x,y,t)=>Math.abs(x-y)<=Math.max(t,Math.abs(y)*1e-9);
