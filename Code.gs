@@ -62,7 +62,7 @@ function refreshMantulDashboard() {
   const started = Date.now();
   try {
     const validation = mantulV2ValidateLiveDatabase_();
-    const readIndex = buildMantulReadIndex();
+    const readIndex = refreshMantulReadIndexIncremental_();
     const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm');
     props.setProperty('SALES_LAST_UPDATED', stamp);
     props.setProperty('PAGE2_RAW_UPDATED', stamp);
@@ -173,6 +173,83 @@ function buildMantulReadIndex() {
     throw err;
   } finally {
     lock.releaseLock();
+  }
+}
+
+/**
+ * Refresh read index append-only. Asumsi: histori lama tidak diedit,
+ * transaksi baru selalu ditambahkan di bawah. Jika tidak valid, full rebuild.
+ */
+function refreshMantulReadIndexIncremental_() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  let lockHeld = true;
+  const ss = getDatabase_();
+  const props = PropertiesService.getScriptProperties();
+  try {
+    const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+    if (!raw || raw.getLastRow() < 2) throw new Error('RAW_DATA_SALES kosong atau tidak ditemukan.');
+    if (raw.getLastColumn() !== RAW_SALES_COLUMN_COUNT) throw new Error('RAW_DATA_SALES harus tepat 25 kolom A:Y. Terbaca ' + raw.getLastColumn() + ' kolom.');
+    validateRawDatabaseHeaders_(raw.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getDisplayValues()[0]);
+
+    const index = ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
+    const previousLastRow = Number(props.getProperty('MANTUL_READ_INDEX_SOURCE_LASTROW') || 0);
+    const previousRows = Number(props.getProperty('MANTUL_READ_INDEX_SOURCE_ROWS') || 0);
+    const previousValue = Number(props.getProperty('MANTUL_READ_INDEX_VAL') || 0);
+    const ready = props.getProperty('MANTUL_READ_INDEX_STATUS') === 'COMPLETE' &&
+      props.getProperty('MANTUL_READ_INDEX_SOURCE_ID') === ss.getId() &&
+      index && previousLastRow >= 2 && index.getLastRow() === previousLastRow &&
+      previousRows === previousLastRow - 1;
+
+    if (!ready || raw.getLastRow() < previousLastRow) {
+      lock.releaseLock(); lockHeld = false;
+      return buildMantulReadIndex();
+    }
+    if (raw.getLastRow() === previousLastRow) {
+      return {ok:true,status:'UNCHANGED',sheet:MANTUL_READ_INDEX_SHEET_,rows:previousRows,
+        columns:RAW_SALES_COLUMN_COUNT,indexValue:previousValue,appendedRows:0};
+    }
+
+    const appendCount = raw.getLastRow() - previousLastRow;
+    const batchSize = 4000;
+    let appendedValue = 0, verifiedValue = 0, written = 0;
+    try {
+      for (let offset = 0; offset < appendCount; offset += batchSize) {
+        const count = Math.min(batchSize, appendCount - offset);
+        const values = raw.getRange(previousLastRow + offset + 1, 1, count, RAW_SALES_COLUMN_COUNT).getValues();
+        values.forEach(row => appendedValue += Number(row[RAW_SALES_COL.VALUE]) || 0);
+        index.getRange(previousLastRow + offset + 1, 1, count, RAW_SALES_COLUMN_COUNT).setValues(values);
+        written += count;
+      }
+      SpreadsheetApp.flush();
+      if (written !== appendCount || index.getLastRow() !== raw.getLastRow() || index.getLastColumn() !== RAW_SALES_COLUMN_COUNT) {
+        throw new Error('Validasi append index gagal: jumlah baris/kolom tidak cocok.');
+      }
+      for (let offset = 0; offset < appendCount; offset += batchSize) {
+        const count = Math.min(batchSize, appendCount - offset);
+        index.getRange(previousLastRow + offset + 1, 1, count, RAW_SALES_COLUMN_COUNT).getValues()
+          .forEach(row => verifiedValue += Number(row[RAW_SALES_COL.VALUE]) || 0);
+      }
+      if (Math.abs(appendedValue - verifiedValue) > Math.max(0.01, Math.abs(appendedValue) * 1e-10)) {
+        throw new Error('Validasi total VAL baris baru gagal. RAW=' + appendedValue + '; INDEX=' + verifiedValue);
+      }
+      const totalValue = previousValue + verifiedValue;
+      props.setProperties({
+        MANTUL_READ_INDEX_STATUS:'COMPLETE', MANTUL_READ_INDEX_SOURCE_ID:ss.getId(),
+        MANTUL_READ_INDEX_SOURCE_ROWS:String(raw.getLastRow()-1),
+        MANTUL_READ_INDEX_SOURCE_LASTROW:String(raw.getLastRow()),
+        MANTUL_READ_INDEX_VAL:String(totalValue), MANTUL_READ_INDEX_BUILT_AT:new Date().toISOString()
+      });
+      return {ok:true,status:'APPENDED',sheet:MANTUL_READ_INDEX_SHEET_,rows:raw.getLastRow()-1,
+        columns:RAW_SALES_COLUMN_COUNT,appendedRows:appendCount,appendedValue:appendedValue,
+        indexValue:totalValue,validated:true};
+    } catch (err) {
+      const last=index.getLastRow();
+      if(last>previousLastRow) index.getRange(previousLastRow+1,1,last-previousLastRow,RAW_SALES_COLUMN_COUNT).clearContent();
+      throw err;
+    }
+  } finally {
+    if (lockHeld) lock.releaseLock();
   }
 }
 
