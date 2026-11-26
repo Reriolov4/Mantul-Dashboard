@@ -29,8 +29,9 @@ jobs:
             console.log('PASS', file);
           }
           const html = fs.readFileSync('Scripts.html', 'utf8');
-          const match = html.match(/<script>([\\s\\S]*?)<\\/script>/i);
-          if (!match) throw new Error('Main script block not found in Scripts.html');
-          new Function(match[1]);
+          const start = html.indexOf('<script>');
+          const end = html.indexOf('</script>', start);
+          if (start < 0 || end < 0) throw new Error('Main script block not found in Scripts.html');
+          new Function(html.slice(start + 8, end));
           console.log('PASS Scripts.html main JavaScript');
           NODE
