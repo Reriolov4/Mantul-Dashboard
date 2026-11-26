@@ -36,73 +36,24 @@ const SALES_HEADERS = [
 ];
 
 // ------------------------------------------------------------
-// RAW_DATA_SALES — transaksi utama tepat 27 kolom (A:AA).
-// Kolom transaksi yang dipakai dashboard hanya A:AA (27 kolom).
-// Kolom AH:AI adalah tabel pembantu/formula pada workbook sumber untuk
-// membantu pengisian array A:AA; bukan sumber transaksi dan tidak diimpor.
-// ------------------------------------------------------------
+// RAW_DATA_SALES — kontrak final 26 kolom (A:Z).
+// Kolom Z SOURCE_ROWS adalah jumlah baris sumber yang direpresentasikan record.
 const RAW_SALES_HEADERS = [
-  'TAHUN',          // A
-  'BULAN',          // B
-  'TANGGAL',        // C — angka/hari dalam bulan pada workbook
-  'KODE ITEM',      // D
-  'NAMA ITEM',      // E
-  'SUB BRAND',      // F
-  'BRAND',          // G
-  'KARTON',         // H
-  'SUBDIST',        // I
-  'KODE CUSTOMER',  // J
-  'CUSTOMER NAME',  // K
-  'KODE SALUR',     // L
-  'VAL',            // M
-  'QTY',            // N
-  'CLASS PRODUCT',  // O
-  'UMBRAND',        // P
-  'DOT',            // Q
-  'CATEGORY',       // R
-  'JENIS SALES',    // S
-  'PIC',            // T
-  'SUB_DIST',       // U
-  'TIM',            // V
-  'SALESMAN',       // W
-  'SBU',            // X
-  'PF Bulanan',     // Y
-  'PF Triwulan',    // Z
-  'PRODUCT_DESC'    // AA
+  'YEAR', 'MONTH', 'DD', 'KODE ITEM', 'NAMA ITEM', 'SUB BRAND', 'BRAND',
+  'CARTON', 'SUBDIST', 'CUSTOMER_CODE', 'CUSTOMER_NAME', 'KODE SALUR',
+  'VAL', 'QTY', 'SALES_TYPE', 'SUB_DIST', 'PIC', 'TEAM', 'SALESMAN',
+  'CATEGORY', 'DOT', 'SBU', 'PF Bulanan', 'PF Triwulan', 'SKU', 'SOURCE_ROWS'
 ];
+const RAW_SALES_COLUMN_COUNT = 26;
 
-const RAW_SALES_COLUMN_COUNT = RAW_SALES_HEADERS.length; // 27
-
-// Indeks kolom RAW_DATA_SALES berbasis 0 untuk JavaScript.
-// Gunakan konstanta ini agar kode tidak memakai angka indeks tersebar.
 const RAW_SALES_COL = Object.freeze({
-  YEAR: 0,
-  MONTH: 1,
-  DAY: 2,
-  ITEM_CODE: 3,
-  ITEM_NAME: 4,
-  SUBBRAND: 5,
-  BRAND: 6,
-  CARTON: 7,
-  SUBDIST: 8,
-  CUSTOMER_CODE: 9,
-  CUSTOMER_NAME: 10,
-  CHANNEL_CODE: 11,
-  VALUE: 12,
-  QTY: 13,
-  CLASS_PRODUCT: 14,
-  UMBRAND: 15,
-  DOT: 16,
-  CATEGORY: 17,
-  SALES_TYPE: 18,
-  PIC: 19,
-  SUB_DIST: 20,
-  TEAM: 21,
-  SALESMAN: 22,
-  SBU: 23,
-  PF_MONTHLY: 24,
-  PF_QUARTERLY: 25,
-  PRODUCT_DESC: 26
+  YEAR: 0, MONTH: 1, DAY: 2, ITEM_CODE: 3, ITEM_NAME: 4,
+  SUBBRAND: 5, BRAND: 6, CARTON: 7, SUBDIST: 8,
+  CUSTOMER_CODE: 9, CUSTOMER_NAME: 10, CHANNEL_CODE: 11,
+  VALUE: 12, QTY: 13, SALES_TYPE: 14, SUB_DIST: 15,
+  PIC: 16, TEAM: 17, SALESMAN: 18, CATEGORY: 19,
+  DOT: 20, SBU: 21, PF_MONTHLY: 22, PF_QUARTERLY: 23,
+  SKU: 24, SOURCE_ROWS: 25
 });
 
 // ------------------------------------------------------------
