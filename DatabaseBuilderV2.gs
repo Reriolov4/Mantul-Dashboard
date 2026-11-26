@@ -48,6 +48,7 @@ function mantulV2BuildStart() {
       [p+'SOURCE_ROWS']:String(total),
       [p+'NEXT_ROW']:'2',
       [p+'EVENT_ROWS']:'0',
+      [p+'NONEMPTY_ROWS']:'0',
       [p+'P3_ROWS']:'0',
       [p+'PARTIAL_ROWS']:'0',
       [p+'STARTED_AT']:new Date().toISOString(),
