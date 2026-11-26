@@ -23,10 +23,10 @@ function mantulV2ValidateLiveDatabase_(){
  check(event,MANTUL_V2_SCHEMA_.P2_EVENT_INDEX,'P2_EVENT_INDEX');
  check(p2,MANTUL_V2_SCHEMA_.P2_DASHBOARD_FACT,'P2_DASHBOARD_FACT');
  check(p3,MANTUL_V2_SCHEMA_.P3_OUTLET_MONTHLY,'P3_OUTLET_MONTHLY');
- const rawTotals=mantulV2SheetTotals_(raw,27,13,8),
-  eventTotals=mantulV2SheetTotals_(event,19,15,16),
-  p2Totals=mantulV2SheetTotals_(p2,17,15,16),
-  p3Totals=mantulV2SheetTotals_(p3,18,16,17),
+ const rawTotals=mantulV2SheetTotals_(raw,MANTUL_V2_SCHEMA_.RAW.length,13,8),
+  eventTotals=mantulV2SheetTotals_(event,MANTUL_V2_SCHEMA_.P2_EVENT_INDEX.length,15,16),
+  p2Totals=mantulV2SheetTotals_(p2,MANTUL_V2_SCHEMA_.P2_DASHBOARD_FACT.length,15,16),
+  p3Totals=mantulV2SheetTotals_(p3,MANTUL_V2_SCHEMA_.P3_OUTLET_MONTHLY.length,16,17),
   close=(a,b)=>Math.abs(a-b)<=Math.max(.01,Math.abs(b)*1e-9);
  const checks={eventValue:close(eventTotals.value,rawTotals.value),eventCarton:close(eventTotals.carton,rawTotals.carton),
   p2Value:close(p2Totals.value,rawTotals.value),p2Carton:close(p2Totals.carton,rawTotals.carton),
@@ -36,7 +36,7 @@ function mantulV2ValidateLiveDatabase_(){
   '; EVENT='+JSON.stringify(eventTotals)+'; P2='+JSON.stringify(p2Totals)+'; P3='+JSON.stringify(p3Totals));
  return {ok:true,version:'V2',spreadsheetId:ss.getId(),sheets:{
   P1_FACT:{rows:p1.getLastRow()-1,columns:p1.getLastColumn()},
-  RAW_DATA_SALES:{rows:mantulV2LastRawDataRow_(raw)-1,columns:27},
+  RAW_DATA_SALES:{rows:mantulV2LastRawDataRow_(raw)-1,columns:MANTUL_V2_SCHEMA_.RAW.length},
   P2_EVENT_INDEX:{rows:eventTotals.rows,columns:19},P2_DASHBOARD_FACT:{rows:p2Totals.rows,columns:17},
   P3_OUTLET_MONTHLY:{rows:p3Totals.rows,columns:18}},totals:{raw:rawTotals,event:eventTotals,p2:p2Totals,p3:p3Totals},checks:checks};
 }

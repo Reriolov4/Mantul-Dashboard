@@ -348,7 +348,7 @@ function finishSalesImport(payload) {
 
 function normalizeRawImportRow_(row, rowNumber) {
   if (!Array.isArray(row) || row.length < RAW_SALES_HEADERS.length) {
-    throw new Error('RAW_DATA_SALES baris ' + rowNumber + ' tidak memiliki 27 kolom A:AA.');
+    throw new Error('RAW_DATA_SALES baris ' + rowNumber + ' tidak memiliki 26 kolom A:Z.');
   }
   const out = row.slice(0, RAW_SALES_HEADERS.length).map(value => {
     if (value === undefined || value === null) return '';
@@ -371,7 +371,7 @@ function validateRawDatabaseHeaders_(headers) {
   const actual = (headers || []).slice(0, RAW_SALES_HEADERS.length).map(normalize);
   const expected = RAW_SALES_HEADERS.map(normalize);
   if (actual.length !== expected.length || !actual.every((value, index) => value === expected[index])) {
-    throw new Error('Header RAW_DATA_SALES tidak sesuai struktur A:AA pada workbook terbaru. Tidak ada database yang dipublikasikan.');
+    throw new Error('Header RAW_DATA_SALES tidak sesuai struktur A:Z pada workbook terbaru. Tidak ada database yang dipublikasikan.');
   }
 }
 

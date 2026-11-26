@@ -87,7 +87,7 @@ function page2FindHeader_(headers, aliases, fieldName) {
 
 /**
  * Membaca hanya kolom transaksi yang dibutuhkan. Kolom dikelompokkan menjadi
- * rentang berurutan A:C, F:G, I:K, R:X; AH:AI helper formula tidak dibaca.
+ * rentang berurutan A:C, F:G, I:K, M:M, O:V; AH:AI helper formula tidak dibaca.
  */
 function page2Read_(sheet) {
   const sh = sheet || page2Source_();
@@ -124,12 +124,12 @@ function page2Read_(sheet) {
     ]);
   }
 
-  // Header hanya A:AA. AH:AI merupakan helper formula workbook, bukan data dashboard.
+  // Header RAW final hanya A:Z; kolom helper di luar Z tidak dibaca.
   const headers = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getValues()[0];
   const fields = {
     year: page2FindHeader_(headers, ['TAHUN','YEAR'], 'TAHUN'),
     month: page2FindHeader_(headers, ['BULAN','MONTH'], 'BULAN'),
-    day: page2FindHeader_(headers, ['TANGGAL','DATE','DAY'], 'TANGGAL'),
+    day: page2FindHeader_(headers, ['DD','TANGGAL','DATE','DAY'], 'TANGGAL'),
     subbrand: page2FindHeader_(headers, ['SUB BRAND','SUBBRAND'], 'SUB BRAND'),
     brand: page2FindHeader_(headers, ['BRAND'], 'BRAND'),
     customerCode: page2FindHeader_(headers, ['KODE CUSTOMER','CUSTOMER CODE','KODE AKUN'], 'KODE CUSTOMER'),
@@ -144,14 +144,14 @@ function page2Read_(sheet) {
   };
 
   // Empat batch berurutan menggantikan banyak getRange kecil:
-  // A:C, F:G, I:K, R:X. Total 15 kolom yang benar-benar dibutuhkan.
+  // A:C, F:G, I:K, M:M, O:V. Rentang mengikuti urutan RAW final 26 kolom.
   const rowCount = lastRow - 1;
   const blocks = [
     {start:0,end:2,values:sh.getRange(2,1,rowCount,3).getValues()},
     {start:5,end:6,values:sh.getRange(2,6,rowCount,2).getValues()},
     {start:8,end:10,values:sh.getRange(2,9,rowCount,3).getValues()},
     {start:12,end:12,values:sh.getRange(2,13,rowCount,1).getValues()},
-    {start:17,end:23,values:sh.getRange(2,18,rowCount,7).getValues()}
+    {start:14,end:21,values:sh.getRange(2,15,rowCount,8).getValues()}
   ];
   // Bangun lookup kolom satu kali. Hindari Array.find() untuk setiap sel
   // pada 132 ribu baris (lebih dari 1,8 juta pencarian blok).

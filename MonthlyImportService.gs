@@ -2,17 +2,12 @@
  * MANTUL — MONTHLY PARTITION IMPORT
  *
  * Import bulanan V2: P1_FACT tetap menjadi sumber Page 1, sedangkan
- * RAW_DATA_SALES 27 kolom menjadi source of truth untuk Page 2–4.
+ * RAW_DATA_SALES 26 kolom menjadi source of truth untuk Page 2–4.
  * P2/P3 tidak diimpor; indeks turunan dibangun ulang setelah import selesai.
- * Kolom helper RAW di luar A:AA dipertahankan.
+ * Kolom helper RAW di luar A:Z dipertahankan.
  */
 const MONTHLY_IMPORT_PREFIX_ = 'MANTUL_MONTHLY_IMPORT_';
-const MONTHLY_RAW_HEADERS_ = [
-  'TAHUN','BULAN','TANGGAL','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND',
-  'KARTON','SUBDIST','KODE CUSTOMER','CUSTOMER NAME','KODE SALUR','VAL',
-  'QTY','CLASS PRODUCT','UMBRAND','DOT','CATEGORY','JENIS SALES','PIC',
-  'SUB_DIST','TIM','SALESMAN','SBU','PF Bulanan','PF Triwulan','PRODUCT_DESC'
-];
+const MONTHLY_RAW_HEADERS_ = RAW_SALES_HEADERS.slice();
 const MONTHLY_STAGE_NAMES_ = {
   p1:'P1_MONTH_STAGING',
   raw:'RAW_MONTH_STAGING'
@@ -121,13 +116,13 @@ function appendMonthlyDataImportChunk(payload) {
   try{
     const props=PropertiesService.getScriptProperties();monthlyImportAssertSession_(props,payload.token);
     const prefix=MONTHLY_IMPORT_PREFIX_,year=Number(props.getProperty(prefix+'YEAR')),month=props.getProperty(prefix+'MONTH');
-    [['p1',p1Chunk,14,'P1_FACT'],['raw',rawChunk,27,'RAW_DATA_SALES']].forEach(([key,rows,width,label])=>{
+    [['p1',p1Chunk,14,'P1_FACT'],['raw',rawChunk,26,'RAW_DATA_SALES']].forEach(([key,rows,width,label])=>{
       if(!rows.length)return;
       const expected=Number(props.getProperty(prefix+key.toUpperCase()+'_EXPECTED')||0),
         written=Number(props.getProperty(prefix+key.toUpperCase()+'_WRITTEN')||0);
       if(written+rows.length>expected)throw new Error(label+' melebihi jumlah baris yang didaftarkan.');
       monthlyImportValidateChunk_(rows,width,year,month,label,0,1);
-      if(key==='raw'&&rows.some(r=>r.length!==27))throw new Error('RAW_DATA_SALES wajib 27 kolom sesuai schema V2.');
+      if(key==='raw'&&rows.some(r=>r.length!==26))throw new Error('RAW_DATA_SALES wajib 26 kolom sesuai schema V2.');
       const stage=getOrCreateSheet_(MONTHLY_STAGE_NAMES_[key]);ensureSheetGrid_(stage,written+rows.length+1,width);
       stage.getRange(written+2,1,rows.length,width).setValues(rows);
       props.setProperty(prefix+key.toUpperCase()+'_WRITTEN',String(written+rows.length));
@@ -211,7 +206,7 @@ function monthlyImportDeletePeriod_(sheet, year, month) {
 
 function monthlyImportAppendRows_(sheet, rows, width) {
   if (!rows.length) return;
-  // RAW_DATA_SALES may have helper formulas in columns beyond A:Y.
+  // RAW_DATA_SALES may have helper formulas in columns beyond A:Z.
   // Use the last populated YEAR row, not getLastRow() from helper formulas.
   const start = monthlyImportLastDataRow_(sheet)+1;
   ensureSheetGrid_(sheet,start+rows.length-1,width);
@@ -227,15 +222,15 @@ function finishMonthlyDataImport(payload) {
       p1Expected=Number(props.getProperty(prefix+'P1_EXPECTED')||0),rawExpected=Number(props.getProperty(prefix+'RAW_EXPECTED')||0);
     if(Number(props.getProperty(prefix+'P1_WRITTEN')||0)!==p1Expected||Number(props.getProperty(prefix+'RAW_WRITTEN')||0)!==rawExpected)
       throw new Error('Import belum lengkap. P1_FACT dan RAW_DATA_SALES belum mencapai jumlah baris yang didaftarkan.');
-    const p1Rows=monthlyImportReadStage_('p1',p1Expected,14),rawRows=monthlyImportReadStage_('raw',rawExpected,27);
+    const p1Rows=monthlyImportReadStage_('p1',p1Expected,14),rawRows=monthlyImportReadStage_('raw',rawExpected,26);
     monthlyImportValidateChunk_(p1Rows,14,year,month,'P1_FACT',0,1);
-    monthlyImportValidateChunk_(rawRows,27,year,month,'RAW_DATA_SALES',0,1);
+    monthlyImportValidateChunk_(rawRows,26,year,month,'RAW_DATA_SALES',0,1);
     const p1Soo=p1Rows.filter(r=>page2Key_(r[11])==='SOO').reduce((a,r)=>a+(Number(r[10])||0),0),
-      rawSoo=rawRows.filter(r=>page2Key_(r[18])==='SOO').reduce((a,r)=>a+(Number(r[12])||0),0),
+      rawSoo=rawRows.filter(r=>page2Key_(r[14])==='SOO').reduce((a,r)=>a+(Number(r[12])||0),0),
       p1So=p1Rows.filter(r=>page2Key_(r[11])==='SO').reduce((a,r)=>a+(Number(r[10])||0),0),
-      rawSo=rawRows.filter(r=>page2Key_(r[18])==='SO').reduce((a,r)=>a+(Number(r[12])||0),0);
+      rawSo=rawRows.filter(r=>page2Key_(r[14])==='SO').reduce((a,r)=>a+(Number(r[12])||0),0);
     const ss=getDatabase_(),live={p1:ss.getSheetByName('P1_FACT'),raw:ss.getSheetByName('RAW_DATA_SALES')},
-      headers={p1:P1_FACT_HEADERS_,raw:MONTHLY_RAW_HEADERS_},widths={p1:14,raw:27},newRows={p1:p1Rows,raw:rawRows},oldRows={};
+      headers={p1:P1_FACT_HEADERS_,raw:MONTHLY_RAW_HEADERS_},widths={p1:14,raw:26},newRows={p1:p1Rows,raw:rawRows},oldRows={};
     Object.keys(live).forEach(key=>{
       if(!live[key])throw new Error('Sheet live '+key+' tidak ditemukan.');
       const captured=monthlyImportReadPeriodRows_(live[key],year,month,widths[key]);oldRows[key]=captured.rows;

@@ -2,7 +2,7 @@
 
 ## Keputusan schema
 
-- `RAW_DATA_SALES`: sumber transaksi asli, 27 kolom, tidak pernah ditulis oleh builder.
+- `RAW_DATA_SALES`: sumber transaksi asli, 26 kolom A:Z, tidak pernah ditulis oleh builder.
 - `P2_EVENT_INDEX`: 19 kolom; 18 kolom transaksi kanonis ditambah `SOURCE_ROW`.
 - `P2_DASHBOARD_FACT`: 17 kolom; agregat Page 2 dengan `SOURCE_ROWS`.
 - `P3_OUTLET_MONTHLY`: 18 kolom; grain harian outlet–brand–SKU, mencakup SOO dan SO, dipakai bersama oleh Page 3 dan Page 4.

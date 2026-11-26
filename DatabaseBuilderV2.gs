@@ -87,19 +87,19 @@ function mantulV2BuildContinue() {
       if (!p3g) { p3g = p3.slice(0,15).concat([0,0,0]); p3Grouped.set(p3Key,p3g); }
       p3g[15] += Number(p3[15]) || 0;
       p3g[16] += Number(p3[16]) || 0;
-      p3g[17] += 1;
+      p3g[17] += Number(p3[17]) || 1;
       const key = ev.slice(0,14).map(mantulV2KeyPart_).join('\u001f');
       let g = grouped.get(key);
       if (!g) { g = ev.slice(0,14).concat([0,0,0]); grouped.set(key,g); }
       g[14] += Number(ev[14]) || 0;
       g[15] += Number(ev[15]) || 0;
-      g[16] += 1;
+      g[16] += Number(r[RAW_SALES_COL.SOURCE_ROWS]) || 1;
     });
-    mantulV2AppendStage_(ss, MANTUL_V2_BUILD_.EVENT_STAGE, eventRows, 19);
+    mantulV2AppendStage_(ss, MANTUL_V2_BUILD_.EVENT_STAGE, eventRows, MANTUL_V2_SCHEMA_.P2_EVENT_INDEX.length);
     const p3PartialRows = Array.from(p3Grouped.values());
-    mantulV2AppendStage_(ss, MANTUL_V2_BUILD_.P3_PARTIAL_STAGE, p3PartialRows, 18);
+    mantulV2AppendStage_(ss, MANTUL_V2_BUILD_.P3_PARTIAL_STAGE, p3PartialRows, MANTUL_V2_SCHEMA_.P3_OUTLET_MONTHLY.length);
     const partialRows = Array.from(grouped.values());
-    mantulV2AppendStage_(ss, MANTUL_V2_BUILD_.PARTIAL_STAGE, partialRows, 17);
+    mantulV2AppendStage_(ss, MANTUL_V2_BUILD_.PARTIAL_STAGE, partialRows, MANTUL_V2_SCHEMA_.P2_DASHBOARD_FACT.length);
     const eventWritten = Number(props.getProperty(p+'EVENT_ROWS')||0)+eventRows.length;
     const p3Written = Number(props.getProperty(p+'P3_ROWS')||0)+p3PartialRows.reduce((n,r)=>n+Number(r[17]||0),0);
     const partialWritten = Number(props.getProperty(p+'PARTIAL_ROWS')||0)+partialRows.length;
@@ -181,11 +181,11 @@ function mantulV2BuildFinalize() {
     SpreadsheetApp.flush();
     const p2Rows=Math.max(0,p2.getLastRow()-1), p3Rows=Math.max(0,p3.getLastRow()-1);
     if(!p2Rows||!p3Rows) throw new Error('Hasil agregasi P2/P3 kosong. Periksa formula QUERY dan data staging.');
-    const eventTotals=mantulV2SheetTotals_(event,19,15,16);
-    const p2Totals=mantulV2SheetTotals_(p2,17,15,16);
-    const p3Totals=mantulV2SheetTotals_(p3,18,16,17);
+    const eventTotals=mantulV2SheetTotals_(event,MANTUL_V2_SCHEMA_.P2_EVENT_INDEX.length,15,16);
+    const p2Totals=mantulV2SheetTotals_(p2,MANTUL_V2_SCHEMA_.P2_DASHBOARD_FACT.length,15,16);
+    const p3Totals=mantulV2SheetTotals_(p3,MANTUL_V2_SCHEMA_.P3_OUTLET_MONTHLY.length,16,17);
     const raw=ss.getSheetByName('RAW_DATA_SALES');
-    const rawTotals=mantulV2SheetTotals_(raw,27,13,8);
+    const rawTotals=mantulV2SheetTotals_(raw,MANTUL_V2_SCHEMA_.RAW.length,13,8);
     const close=(a,b)=>Math.abs(a-b)<=Math.max(0.01,Math.abs(b)*1e-9);
     if(event.getLastRow()-1!==status.eventRows || eventTotals.rows!==expectedNonempty ||
        !close(eventTotals.value,rawTotals.value)||!close(eventTotals.carton,rawTotals.carton)||
@@ -244,7 +244,7 @@ function mantulV2PublishStaging() {
       copy.setFrozenRows(1);
       temp.push({spec:spec,sheet:copy});
     });
-    const raw=ss.getSheetByName('RAW_DATA_SALES'),rawTotals=mantulV2SheetTotals_(raw,27,13,8);
+    const raw=ss.getSheetByName('RAW_DATA_SALES'),rawTotals=mantulV2SheetTotals_(raw,MANTUL_V2_SCHEMA_.RAW.length,13,8);
     const totals=temp.map(x=>mantulV2SheetTotals_(x.sheet,x.spec.headers.length,x.spec.value,x.spec.carton));
     const close=(a,b)=>Math.abs(a-b)<=Math.max(.01,Math.abs(b)*1e-9);
     if(totals[0].rows!==status.eventRows||
