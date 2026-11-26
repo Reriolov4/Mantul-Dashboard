@@ -134,3 +134,8 @@ function analyticsRemoveLegacySubdistFact(confirmation){
    sourceAuditPassed:true,remainingCanonicalSheet:'P2_DASHBOARD_FACT'};
  }finally{deleteLock.releaseLock();}
 }
+
+/** One-click guarded cleanup; compares all rows and audits source before deletion. */
+function runMantulRemoveLegacyP2Duplicate(){
+ return analyticsRemoveLegacySubdistFact('REMOVE_DUPLICATE_P2_SUBDIST_FACT');
+}
