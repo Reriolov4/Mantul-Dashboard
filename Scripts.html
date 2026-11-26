@@ -572,8 +572,8 @@ function attachUploadHandler(){
    if(!p1Rows.length||!rawRows.length)throw new Error('Data periode '+year+'-'+month+' tidak lengkap pada P1_FACT atau RAW_DATA_SALES.');
    if(!p1Rows.some(r=>r[10]!==null&&r[10]!==''))throw new Error('P1_FACT belum memiliki nilai aktual untuk periode '+year+'-'+month+'.');
    const sumType=(rows,typeIndex,valueIndex,type)=>rows.filter(r=>String(r[typeIndex]||'').trim().toUpperCase()===type).reduce((v,r)=>v+(Number(r[valueIndex])||0),0);
-   const p1Soo=sumType(p1Rows,11,10,'SOO'),rawSoo=sumType(rawRows,18,12,'SOO');
-   const p1So=sumType(p1Rows,11,10,'SO'),rawSo=sumType(rawRows,18,12,'SO');
+   const p1Soo=sumType(p1Rows,11,10,'SOO'),rawSoo=sumType(rawRows,14,12,'SOO');
+   const p1So=sumType(p1Rows,11,10,'SO'),rawSo=sumType(rawRows,14,12,'SO');
    let confirmText='UPDATE DATA SALES '+year+'-'+month+'\\n\\nP1_FACT: '+p1Rows.length.toLocaleString('id-ID')+' baris\\nRAW_DATA_SALES: '+rawRows.length.toLocaleString('id-ID')+' baris\\nP1 SOO: '+Math.round(p1Soo).toLocaleString('id-ID')+'\\nRAW SOO: '+Math.round(rawSoo).toLocaleString('id-ID')+'\\nP1 SO: '+Math.round(p1So).toLocaleString('id-ID')+'\\nRAW SO: '+Math.round(rawSo).toLocaleString('id-ID');
    if(Math.abs(p1Soo-rawSoo)>0.01)confirmText+='\\n\\nPERINGATAN: nilai SOO P1 dan RAW berbeda '+Math.round(p1Soo-rawSoo).toLocaleString('id-ID')+'.';
    if(Math.abs(p1So-rawSo)>0.01)confirmText+='\\nCatatan: nilai SO P1 dan RAW berbeda; Page 1 tetap memakai P1_FACT.';
