@@ -1,5 +1,5 @@
 /**
- * PAGE 3 — OUTLETS. SOO uses SUBDIST; SO uses SUB_DIST and all sales types.
+ * PAGE 3 — OUTLETS. Reads RAW_DATA_SALES directly; SOO uses SUBDIST, SO uses SUB_DIST.
  */
 const PAGE3_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const PAGE34_ENTITIES_=['EPM BAC','EPM LSE','GMP BAC','GMP LSE','GMP LGS','DB MBO','DB BAC'];
