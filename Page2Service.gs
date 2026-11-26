@@ -394,7 +394,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   let matchedRowCount = 0;
   all.forEach(r => {
     if (!matches(r)) return;
-    matchedRowCount++;
+    matchedRowCount += Number(r[15]) || 1;
 
     const y = Number(r[0]);
     if (y !== year && y !== ly) return;
