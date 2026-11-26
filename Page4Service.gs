@@ -49,7 +49,7 @@ function page4BuildData_(src,meta,filters){
   x.total.value+=Number(c.value[i])||0;x.total.carton+=Number(c.carton[i])||0;
  }
  const all=Array.from(map.values()).sort((a,b)=>(b.total.value-a.total.value)||a.sku.localeCompare(b.sku,'id')),totals=all.reduce((a,r)=>({value:a.value+r.total.value,carton:a.carton+r.total.carton}),{value:0,carton:0});
- return {mode:mode,modeSalesType:mode==='SOO'?'SOO':'Semua',label:'SUBDIST',year:year,monthsUsed:monthsUsed,subdist:selected.size?Array.from(selected).join(', '):'Semua SUBDIST',rows:all,skuCount:all.length,totals:totals,matchedSourceRows:matchedSourceRows,sourceRows:src.sourceRows};
+ return {mode:mode,modeSalesType:mode==='SOO'?'SOO':'Semua',label:'SUBDIST',year:year,monthsUsed:monthsUsed,subdist:selected.size?Array.from(selected).join(', '):'Semua SUBDIST',rows:all,skuCount:all.length,totals:totals,matchedSourceRows:matchedSourceRows,sourceRows:meta.sourceRows};
 }
 function getPage4InitialPayload(mode){const started=Date.now(),src=page4ReadSource_(),meta=page4BuildMeta_(src),selectedMode=page34Mode_(mode),year=meta.years.includes('2026')?'2026':meta.years[meta.years.length-1];return {meta:meta,data:page4BuildData_(src,meta,{mode:selectedMode,year:year}),diagnostics:{source:'P3_OUTLET_MONTHLY',readAndAggregateMs:Date.now()-started}};}
 function getPage4SkuData(filters){const started=Date.now(),src=page4ReadSource_(),meta=page4BuildMeta_(src),data=page4BuildData_(src,meta,filters);data.diagnostics={elapsedMs:Date.now()-started};return data;}
