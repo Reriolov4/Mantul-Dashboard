@@ -80,7 +80,7 @@ function mantulV2BuildContinue() {
       const ev = mantulV2MapRawToP2Event_(r, sourceRow);
       eventRows.push(ev);
       const p3 = mantulV2MapRawToP3Outlet_(r);
-      const p3Key = p3.slice(0,15).map(mantulV2KeyPart_).join('\\u001f');
+      const p3Key = p3.slice(0,15).map(mantulV2KeyPart_).join('\u001f');
       let p3g = p3Grouped.get(p3Key);
       if (!p3g) { p3g = p3.slice(0,15).concat([0,0,0]); p3Grouped.set(p3Key,p3g); }
       p3g[15] += Number(p3[15]) || 0;
