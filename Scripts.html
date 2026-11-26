@@ -531,8 +531,7 @@ function attachUploadHandler(){
     return XLSX.utils.sheet_to_json(sh,{header:1,defval:null,raw:true,range});
    };
    const p1Matrix=readMatrix('P1_FACT',14);
-   const p2Matrix=readMatrix('P2_EVENT_INDEX',18);
-   const rawMatrix=readMatrix('RAW_DATA_SALES',25);
+   const rawMatrix=readMatrix('RAW_DATA_SALES',27);
    const normalizeHeader=v=>String(v==null?'':v).trim().toUpperCase().replace(/[_-]+/g,' ').replace(/\\s+/g,' ');
    const assertHeaders=(matrix,expected,name)=>{
     const actual=(matrix[0]||[]).slice(0,expected.length).map(normalizeHeader);
@@ -542,8 +541,7 @@ function attachUploadHandler(){
     }
    };
    assertHeaders(p1Matrix,['YEAR','MONTH','SUBDIST','SUBBRAND','BRAND','CATEGORY','SBU','PIC','PF_MONTHLY','PF_QUARTERLY','VAL','SALES_TYPE','TARGET','BE'],'P1_FACT');
-   assertHeaders(p2Matrix,['YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES_TYPE','SALESMAN','TEAM','VAL','CARTON','SKU','SUB_DIST'],'P2_EVENT_INDEX');
-   assertHeaders(rawMatrix,['TAHUN','BULAN','DATE','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND','KARTON','DISTRIBUTORS','KODE CUSTOMER','CUSTOMER NAME','KODE SALUR','VAL','QTY','JENIS SALES','SUBDIST','PIC','TIM','NAMA AKUN','CATEGORY','DOT','SBU','PF Bulanan','PF Triwulan','SKU KCH'],'RAW_DATA_SALES');
+   assertHeaders(rawMatrix,['TAHUN','BULAN','TANGGAL','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND','KARTON','SUBDIST','KODE CUSTOMER','CUSTOMER NAME','KODE SALUR','VAL','QTY','CLASS PRODUCT','UMBRAND','DOT','CATEGORY','JENIS SALES','PIC','SUB_DIST','TIM','SALESMAN','SBU','PF Bulanan','PF Triwulan','PRODUCT_DESC'],'RAW_DATA_SALES');
    const monthList=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
    const monthCode=v=>{
     const x=String(v==null?'':v).trim().toUpperCase();
@@ -570,50 +568,30 @@ function attachUploadHandler(){
    const month=monthList[monthIndex];
    const inPeriod=(r)=>r&&r.some(v=>v!==null&&v!=='')&&Number(r[0])===year&&monthCode(r[1])===month;
    const p1Rows=p1Matrix.slice(1).filter(inPeriod).map(r=>r.slice(0,14));
-   const p2Rows=p2Matrix.slice(1).filter(inPeriod).map(r=>r.slice(0,18));
-   const rawRows=rawMatrix.slice(1).filter(inPeriod).map(r=>r.slice(0,25));
-   if(!p1Rows.length||!p2Rows.length||!rawRows.length)throw new Error('Data periode '+year+'-'+month+' tidak lengkap pada salah satu sheet.');
+   const rawRows=rawMatrix.slice(1).filter(inPeriod).map(r=>r.slice(0,27));
+   if(!p1Rows.length||!rawRows.length)throw new Error('Data periode '+year+'-'+month+' tidak lengkap pada P1_FACT atau RAW_DATA_SALES.');
    if(!p1Rows.some(r=>r[10]!==null&&r[10]!==''))throw new Error('P1_FACT belum memiliki nilai aktual untuk periode '+year+'-'+month+'.');
-   if(p2Rows.length!==rawRows.length)throw new Error('Jumlah P2_EVENT_INDEX ('+p2Rows.length+') dan RAW_DATA_SALES ('+rawRows.length+') berbeda.');
-   const summary=(rows,distIndex,typeIndex,valueIndex)=>{
-    const map=new Map();
-    rows.forEach(r=>{
-     const key=String(r[distIndex]==null?'':r[distIndex]).trim().toUpperCase()+'|'+String(r[typeIndex]==null?'':r[typeIndex]).trim().toUpperCase();
-     const item=map.get(key)||{count:0,value:0};item.count++;item.value+=Number(r[valueIndex])||0;map.set(key,item);
-    });
-    return map;
-   };
-   const p2Summary=summary(p2Rows,5,11,14),rawSummary=summary(rawRows,8,14,12);
-   const keys=new Set([...p2Summary.keys(),...rawSummary.keys()]);
-   for(const key of keys){
-    const a=p2Summary.get(key)||{count:0,value:0},b=rawSummary.get(key)||{count:0,value:0};
-    if(a.count!==b.count||Math.abs(a.value-b.value)>0.01)throw new Error('P2_EVENT_INDEX dan RAW_DATA_SALES tidak cocok pada '+key+'.');
-   }
-   const p1Soo=p1Rows.filter(r=>String(r[11]||'').trim().toUpperCase()==='SOO').reduce((v,r)=>v+(Number(r[10])||0),0);
-   const p2Soo=p2Rows.filter(r=>String(r[11]||'').trim().toUpperCase()==='SOO').reduce((v,r)=>v+(Number(r[14])||0),0);
-   const p1So=p1Rows.filter(r=>String(r[11]||'').trim().toUpperCase()==='SO').reduce((v,r)=>v+(Number(r[10])||0),0);
-   const p2So=p2Rows.filter(r=>String(r[11]||'').trim().toUpperCase()==='SO').reduce((v,r)=>v+(Number(r[14])||0),0);
-   let confirmText='UPDATE DATA SALES '+year+'-'+month+'\\n\\nP1_FACT: '+p1Rows.length.toLocaleString('id-ID')+' baris\\nP2_EVENT_INDEX: '+p2Rows.length.toLocaleString('id-ID')+' baris\\nRAW_DATA_SALES: '+rawRows.length.toLocaleString('id-ID')+' baris\\nP1 SOO: '+Math.round(p1Soo).toLocaleString('id-ID')+'\\nP2 SOO: '+Math.round(p2Soo).toLocaleString('id-ID')+'\\nP1 SO: '+Math.round(p1So).toLocaleString('id-ID')+'\\nP2 SO: '+Math.round(p2So).toLocaleString('id-ID');
-   if(Math.abs(p1Soo-p2Soo)>0.01)confirmText+='\\n\\nPERINGATAN: nilai SOO P1 dan P2 berbeda '+Math.round(p1Soo-p2Soo).toLocaleString('id-ID')+'.';
-   if(Math.abs(p1So-p2So)>0.01)confirmText+='\\nCatatan: nilai SO P1 dan P2 berbeda; dashboard Page 1 memakai P1_FACT.';
+   const sumType=(rows,typeIndex,valueIndex,type)=>rows.filter(r=>String(r[typeIndex]||'').trim().toUpperCase()===type).reduce((v,r)=>v+(Number(r[valueIndex])||0),0);
+   const p1Soo=sumType(p1Rows,11,10,'SOO'),rawSoo=sumType(rawRows,18,12,'SOO');
+   const p1So=sumType(p1Rows,11,10,'SO'),rawSo=sumType(rawRows,18,12,'SO');
+   let confirmText='UPDATE DATA SALES '+year+'-'+month+'\\n\\nP1_FACT: '+p1Rows.length.toLocaleString('id-ID')+' baris\\nRAW_DATA_SALES: '+rawRows.length.toLocaleString('id-ID')+' baris\\nP1 SOO: '+Math.round(p1Soo).toLocaleString('id-ID')+'\\nRAW SOO: '+Math.round(rawSoo).toLocaleString('id-ID')+'\\nP1 SO: '+Math.round(p1So).toLocaleString('id-ID')+'\\nRAW SO: '+Math.round(rawSo).toLocaleString('id-ID');
+   if(Math.abs(p1Soo-rawSoo)>0.01)confirmText+='\\n\\nPERINGATAN: nilai SOO P1 dan RAW berbeda '+Math.round(p1Soo-rawSoo).toLocaleString('id-ID')+'.';
+   if(Math.abs(p1So-rawSo)>0.01)confirmText+='\\nCatatan: nilai SO P1 dan RAW berbeda; Page 1 tetap memakai P1_FACT.';
    confirmText+='\\n\\nLanjutkan mengganti data bulan ini?';
    if(!confirm(confirmText))return;
    status.textContent='Menyiapkan import '+year+'-'+month+'...';
-   session=await gasCall('beginMonthlyDataImport',{year:year,month:month,p1Total:p1Rows.length,p2Total:p2Rows.length,rawTotal:rawRows.length,filename:file.name});
-   const chunkSize=500;
-   const totalChunks=Math.max(Math.ceil(p1Rows.length/chunkSize),Math.ceil(p2Rows.length/chunkSize),Math.ceil(rawRows.length/chunkSize));
+   session=await gasCall('beginMonthlyDataImport',{year:year,month:month,p1Total:p1Rows.length,rawTotal:rawRows.length,filename:file.name});
+   const chunkSize=500,totalChunks=Math.max(Math.ceil(p1Rows.length/chunkSize),Math.ceil(rawRows.length/chunkSize));
    for(let i=0;i<totalChunks;i++){
-    const p1Chunk=p1Rows.slice(i*chunkSize,(i+1)*chunkSize);
-    const p2Chunk=p2Rows.slice(i*chunkSize,(i+1)*chunkSize);
-    const rawChunk=rawRows.slice(i*chunkSize,(i+1)*chunkSize);
-    await gasCall('appendMonthlyDataImportChunk',{token:session.token,p1Chunk:p1Chunk,p2Chunk:p2Chunk,rawChunk:rawChunk});
-    status.textContent='Mengunggah '+year+'-'+month+' • batch '+(i+1)+'/'+totalChunks+' • P1 '+Math.min((i+1)*chunkSize,p1Rows.length).toLocaleString('id-ID')+'/'+p1Rows.length.toLocaleString('id-ID')+' • P2/RAW '+Math.min((i+1)*chunkSize,p2Rows.length).toLocaleString('id-ID')+'/'+p2Rows.length.toLocaleString('id-ID');
+    const p1Chunk=p1Rows.slice(i*chunkSize,(i+1)*chunkSize),rawChunk=rawRows.slice(i*chunkSize,(i+1)*chunkSize);
+    await gasCall('appendMonthlyDataImportChunk',{token:session.token,p1Chunk:p1Chunk,rawChunk:rawChunk});
+    status.textContent='Mengunggah '+year+'-'+month+' • batch '+(i+1)+'/'+totalChunks+' • P1 '+Math.min((i+1)*chunkSize,p1Rows.length).toLocaleString('id-ID')+'/'+p1Rows.length.toLocaleString('id-ID')+' • RAW '+Math.min((i+1)*chunkSize,rawRows.length).toLocaleString('id-ID')+'/'+rawRows.length.toLocaleString('id-ID');
    }
    const result=await gasCall('finishMonthlyDataImport',{token:session.token});
    session=null;
    await loadDashboardData();
-   status.textContent='Update '+year+'-'+month+' berhasil • P1 '+result.p1Rows.toLocaleString('id-ID')+' • P2/RAW '+result.p2Rows.toLocaleString('id-ID')+' • '+result.updatedAt;
-   alert('Update berhasil. Data '+year+'-'+month+' telah diganti pada P1_FACT, P2_EVENT_INDEX, dan RAW_DATA_SALES. Baris lama tidak digandakan.');
+   status.textContent='Update '+year+'-'+month+' berhasil • P1 '+result.p1Rows.toLocaleString('id-ID')+' • RAW '+result.rawRows.toLocaleString('id-ID')+' • Database V2 perlu dibangun ulang • '+result.updatedAt;
+   alert('Update berhasil. P1_FACT dan RAW_DATA_SALES telah diperbarui. Jalankan Database V2 rebuild sebelum menggunakan Page 2, 3, dan 4.');
   }catch(err){
    if(session&&session.token){try{await gasCall('abortMonthlyDataImport',{token:session.token});}catch(abortError){}}
    status.textContent='Import gagal: '+err.message;
