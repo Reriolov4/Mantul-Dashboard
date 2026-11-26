@@ -170,8 +170,8 @@ function mantulV2BuildFinalize() {
     const p3=ss.getSheetByName(MANTUL_V2_BUILD_.P3_STAGE);
     if(event.getLastRow()-1!==status.eventRows) throw new Error('Jumlah event staging tidak sama dengan jumlah baris sumber non-kosong yang diproses.');
     p2.clearContents(); p3.clearContents();
-    const q2="=QUERY('"+MANTUL_V2_BUILD_.PARTIAL_STAGE+"'!A:Q,\"select A,B,C,D,E,F,G,H,I,J,K,L,M,N,sum(O),sum(P),sum(Q) where A is not null group by A,B,C,D,E,F,G,H,I,J,K,L,M,N\",1)";
-    const q3="=QUERY('"+MANTUL_V2_BUILD_.P3_PARTIAL_STAGE+"'!A:R,\"select A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,sum(P),sum(Q),sum(R) where A is not null group by A,B,C,D,E,F,G,H,I,J,K,L,M,N,O\",1)";
+    const q2="=QUERY('"+MANTUL_V2_BUILD_.PARTIAL_STAGE+"'!A:Q,\"select A,B,C,D,E,F,G,H,I,J,K,L,M,N,sum(O),sum(P),sum(Q) where A is not null group by A,B,C,D,E,F,G,H,I,J,K,L,M,N label sum(O) 'VAL',sum(P) 'CARTON',sum(Q) 'SOURCE_ROWS'\",1)";
+    const q3="=QUERY('"+MANTUL_V2_BUILD_.P3_PARTIAL_STAGE+"'!A:R,\"select A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,sum(P),sum(Q),sum(R) where A is not null group by A,B,C,D,E,F,G,H,I,J,K,L,M,N,O label sum(P) 'VAL',sum(Q) 'CARTON',sum(R) 'SOURCE_ROWS'\",1)";
     p2.getRange(1,1).setFormula(q2); p3.getRange(1,1).setFormula(q3);
     SpreadsheetApp.flush();
     const p2Rows=Math.max(0,p2.getLastRow()-1), p3Rows=Math.max(0,p3.getLastRow()-1);
