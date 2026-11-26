@@ -4,7 +4,7 @@
  * Import bulanan V2: P1_FACT tetap menjadi sumber Page 1, sedangkan
  * RAW_DATA_SALES 26 kolom menjadi source of truth untuk Page 2–4.
  * P2/P3 tidak diimpor; indeks turunan dibangun ulang setelah import selesai.
- * Kolom helper RAW di luar A:AA dipertahankan.
+ * Kolom helper RAW di luar A:Z dipertahankan.
  */
 const MONTHLY_IMPORT_PREFIX_ = 'MANTUL_MONTHLY_IMPORT_';
 const MONTHLY_RAW_HEADERS_ = RAW_SALES_HEADERS.slice();
@@ -206,7 +206,7 @@ function monthlyImportDeletePeriod_(sheet, year, month) {
 
 function monthlyImportAppendRows_(sheet, rows, width) {
   if (!rows.length) return;
-  // RAW_DATA_SALES may have helper formulas in columns beyond A:Y.
+  // RAW_DATA_SALES may have helper formulas in columns beyond A:Z.
   // Use the last populated YEAR row, not getLastRow() from helper formulas.
   const start = monthlyImportLastDataRow_(sheet)+1;
   ensureSheetGrid_(sheet,start+rows.length-1,width);
