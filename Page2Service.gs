@@ -1,7 +1,7 @@
 /**
  * HALAMAN 2 — OUTLETS | SALES FORCE
- * Mengutamakan P2_EVENT_INDEX yang sudah tersedia; fallback ke RAW_DATA_SALES.
- * SKU dan MAPPING TEAM tetap menjadi tabel referensi untuk pengembangan berikutnya.
+ * Menggunakan P2_DASHBOARD_FACT V2 untuk agregasi cepat; P2_EVENT_INDEX
+ * dipertahankan sebagai event-level audit index. Tidak membaca RAW langsung.
  *
  * Definisi:
  * - AO = distinct KODE CUSTOMER valid pada periode; baris tanpa kode (termasuk OTHERS) tidak dihitung sebagai outlet.
@@ -10,13 +10,33 @@
  */
 const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
+const PAGE2_V2_FACT_HEADERS_ = ['YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES_TYPE','SALESMAN','TEAM','VAL','CARTON','SOURCE_ROWS'];
+
+function page2IsV2Fact_(sheet) {
+  if (!sheet || sheet.getName() !== 'P2_DASHBOARD_FACT' || sheet.getLastColumn() < 17) return false;
+  const h = sheet.getRange(1,1,1,17).getDisplayValues()[0].map(page2HeaderKey_);
+  return PAGE2_V2_FACT_HEADERS_.every((v,i) => h[i] === page2HeaderKey_(v));
+}
+
+function page2NormalizeV2FactRow_(r) {
+  return [
+    r[0], page2Month_(r[1]), r[2], r[8], r[7], r[4], r[6],
+    r[11], r[5], page2Key_(r[13]) || 'SALESMAN', r[4], r[9],
+    r[10], r[3], Number(r[14]) || 0, Number(r[16]) || 1
+  ];
+}
+
 function page2Source_() {
+  if (PropertiesService.getScriptProperties().getProperty('MANTUL_V2_DATA_STALE') === 'TRUE') throw new Error('Database V2 belum diperbarui setelah import. Selesaikan build, finalize, dan publish Database V2 terlebih dahulu.');
   // Page 2 is bound to the maintained analytics index; never silently fall
   // back to RAW_DATA_SALES because its schema and filter universe differ.
   const ss=getDatabase_();
-  const derived=analyticsSummaryReady_()?ss.getSheetByName('P2_DASHBOARD_FACT'):null;
+  const candidate=ss.getSheetByName('P2_DASHBOARD_FACT');
+  const v2Fact=page2IsV2Fact_(candidate);
+  const derived=v2Fact || analyticsSummaryReady_()?candidate:null;
   const sh=derived||ss.getSheetByName('P2_EVENT_INDEX');
-  if(!sh||sh.getLastRow()<2)throw new Error('P2_EVENT_INDEX tidak ditemukan atau belum berisi data.');
+  if(!sh||sh.getLastRow()<2)throw new Error('P2_DASHBOARD_FACT / P2_EVENT_INDEX tidak ditemukan atau belum berisi data.');
+  if(page2IsV2Fact_(sh)) return sh;
   const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'];
   const actual=sh.getRange(1,1,1,16).getValues()[0].map(page2HeaderKey_);
   if(!expected.every((v,i)=>actual[i]===v))throw new Error('Header P2_EVENT_INDEX harus 16 kolom termasuk CARTON di kolom P. Terbaca: '+actual.join(' | '));
@@ -74,9 +94,15 @@ function page2Read_(sheet) {
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
 
-  // Analytics index is already normalized to 15 columns (including VAL) and contains SOO only.
-  // Convert it into the exact internal row shape consumed by existing KPI logic.
-  if (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT') {
+  // Canonical V2 aggregate fact: YEAR..SOURCE_ROWS (17 columns).
+  // Convert it into the stable internal Page 2 row contract.
+  if (page2IsV2Fact_(sh)) {
+    const values = sh.getRange(2,1,lastRow-1,17).getValues();
+    return values.map(page2NormalizeV2FactRow_);
+  }
+
+  // Legacy analytics index: retain compatibility during migration.
+  if (!page2IsV2Fact_(sh) && (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT')) {
     const expectedHeaders = [
       'YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC',
       'BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'
@@ -217,13 +243,14 @@ function page2BuildMeta_(sourceRows) {
   const subbrands = new Set(), categories = new Set();
   const dateSet = new Set(), monthsByYear = {};
   const salesTypeCounts = {};
-  let sooRowCount = 0;
+  let sooRowCount = 0, sourceRowCount = 0;
 
   values.forEach(r => {
-    const type = page2Key_(r[7]);
-    if (type) salesTypeCounts[type] = (salesTypeCounts[type] || 0) + 1;
+    const type = page2Key_(r[7]), sourceCount = Number(r[15]) || 1;
+    sourceRowCount += sourceCount;
+    if (type) salesTypeCounts[type] = (salesTypeCounts[type] || 0) + sourceCount;
     if (type !== 'SOO') return;
-    sooRowCount++;
+    sooRowCount += sourceCount;
 
     const year = page2Text_(r[0]);
     const month = page2Month_(r[1]);
@@ -260,7 +287,7 @@ function page2BuildMeta_(sourceRows) {
     categories: sorted(categories),
     salesTypes: ['SOO'],
     distributors: ['ALL'],
-    sourceRowCount: values.length,
+    sourceRowCount: sourceRowCount,
     sooRowCount: sooRowCount,
     salesTypeCounts: salesTypeCounts,
     updatedAt: PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED') || 'Live dari Google Sheets'
@@ -367,7 +394,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   let matchedRowCount = 0;
   all.forEach(r => {
     if (!matches(r)) return;
-    matchedRowCount++;
+    matchedRowCount += Number(r[15]) || 1;
 
     const y = Number(r[0]);
     if (y !== year && y !== ly) return;
@@ -591,7 +618,7 @@ function page2SourceVersion_(sheet) {
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    'page2-salesforce-only-v9',
+    'page2-database-v2-v10',
     spreadsheetId, getDatabaseRevision_(), sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');
@@ -629,7 +656,7 @@ function page2GetMeta() {
   return page2Cached_(key, function() {
     const meta = page2BuildMeta_(page2Read_(sh));
     page2ApplySourceStats_(meta);
-    if (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT') {
+    if (!page2IsV2Fact_(sh) && (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT')) {
       const raw = getDatabase_().getSheetByName(RAW_DATA_SHEET_NAME);
       meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
     }
@@ -667,6 +694,27 @@ function page2NormalizeFilteredValues_(values,safe){
 
 function page2ReadFiltered_(sheet, filters) {
   const sh=sheet||page2Source_(),safe=filters||{};
+  if (page2IsV2Fact_(sh)) {
+    const last=sh.getLastRow();
+    if(last<=1)return [];
+    const values=sh.getRange(2,1,last-1,17).getValues();
+    const year=Number(safe.year)||0, pics=new Set(page2FilterList_(safe.pics)),
+      subdists=new Set(page2FilterList_(safe.subdists)), brands=new Set(page2FilterList_(safe.brands)),
+      subbrands=new Set(page2FilterList_(safe.subbrands)), categories=new Set(page2FilterList_(safe.categories));
+    const rows=[];
+    for(let i=0;i<values.length;i++){
+      const r=values[i], y=Number(r[0]);
+      if(year&&y!==year&&y!==year-1)continue;
+      if(page2Key_(r[11])!=='SOO')continue;
+      if(pics.size&&!pics.has(page2Key_(r[6])))continue;
+      if(subdists.size&&!subdists.has(page2Key_(r[5])))continue;
+      if(brands.size&&!brands.has(page2Key_(r[7])))continue;
+      if(subbrands.size&&!subbrands.has(page2Key_(r[8])))continue;
+      if(categories.size&&!categories.has(page2Key_(r[9])))continue;
+      rows.push(page2NormalizeV2FactRow_(r));
+    }
+    return rows;
+  }
   // P2_EVENT_INDEX is already normalized and contains SOO only. Apply the
   // dimension filters before materializing rows for the dashboard aggregation.
   // selected dimensions while rows are being decoded, so the expensive KPI
@@ -808,7 +856,7 @@ function getPage2InitialPayload() {
   const metaStarted = Date.now();
   const meta = page2BuildMeta_(sourceRows);
   page2ApplySourceStats_(meta);
-  if (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT') {
+  if (!page2IsV2Fact_(sh) && (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT')) {
     const raw = getDatabase_().getSheetByName(RAW_DATA_SHEET_NAME);
     meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
   }

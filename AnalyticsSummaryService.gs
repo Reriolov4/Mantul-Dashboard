@@ -37,7 +37,14 @@ function analyticsSummaryReadiness_(){
       p3SummaryRows:stats.p3SummaryRows,builtAt:stats.builtAt}:null,
     rangeIndex:ranges?{rowCount:ranges.rowCount,subdistCount:Object.keys(ranges.ranges||{}).length,builtAt:ranges.builtAt}:null};
 }
-function analyticsSummaryReady_(){return analyticsSummaryReadiness_().ready;}
+function analyticsSummaryReady_(){
+ const p2=getDatabase_().getSheetByName('P2_DASHBOARD_FACT');
+ if(p2&&p2.getLastRow()>1&&p2.getLastColumn()>=17){
+  const h=p2.getRange(1,1,1,17).getDisplayValues()[0].map(page2HeaderKey_);
+  if(MANTUL_V2_SCHEMA_.P2_DASHBOARD_FACT.every((v,i)=>page2HeaderKey_(v)===h[i]))return false;
+ }
+ return analyticsSummaryReadiness_().ready;
+}
 function analyticsGetSourceStats_(){if(!analyticsSummaryReady_())return null;try{return JSON.parse(PropertiesService.getScriptProperties().getProperty(ANALYTICS_SUMMARY_STATS_KEY_)||'null');}catch(e){return null;}}
 function analyticsSortP2BySubdist_(rows){
   return (rows||[]).slice().sort((a,b)=>{const x=page2Key_(a[5]),y=page2Key_(b[5]);return x<y?-1:x>y?1:0;});

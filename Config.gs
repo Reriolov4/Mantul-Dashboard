@@ -1,7 +1,7 @@
 // ============================================================
 // MANTUL DASHBOARD — CONFIGURATION / SOURCE OF TRUTH
-// Database aktif: P1_FACT, P2_EVENT_INDEX, RAW_DATA_SALES, SKU,
-// dan MAPPING TEAM. P1_FACT/P2_EVENT_INDEX adalah sumber analitik utama.
+// Database aktif: P1_FACT (dipertahankan untuk Page 1), RAW_DATA_SALES
+// sebagai source of truth, serta indeks turunan Database V2 untuk Page 2–4.
 // ============================================================
 
 // ID spreadsheet utama. Script Property SPREADSHEET_ID boleh override.

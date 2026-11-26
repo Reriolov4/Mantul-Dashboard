@@ -1,0 +1,37 @@
+name: Validate Apps Script syntax
+
+on:
+  pull_request:
+    branches:
+      - perf/page2-single-pass
+  workflow_dispatch:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate Apps Script and embedded browser JavaScript syntax
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const files = fs.readdirSync('.').filter(name => name.endsWith('.gs'));
+          if (!files.length) throw new Error('No .gs files found');
+          for (const file of files) {
+            new Function(fs.readFileSync(file, 'utf8'));
+            console.log('PASS', file);
+          }
+          const html = fs.readFileSync('Scripts.html', 'utf8');
+          const start = html.indexOf('<script>');
+          const end = html.indexOf('</script>', start);
+          if (start < 0 || end < 0) throw new Error('Main script block not found in Scripts.html');
+          new Function(html.slice(start + 8, end));
+          console.log('PASS Scripts.html main JavaScript');
+          NODE

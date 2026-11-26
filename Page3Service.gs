@@ -4,12 +4,23 @@
 const PAGE3_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const PAGE34_ENTITIES_=['EPM BAC','EPM LSE','GMP BAC','GMP LSE','GMP LGS','DB MBO','DB BAC'];
 function page34ReadEventIndex_(){
- const sh=getDatabase_().getSheetByName('P2_EVENT_INDEX');
- if(!sh||sh.getLastRow()<2)throw new Error('P2_EVENT_INDEX belum berisi data.');
+ if(PropertiesService.getScriptProperties().getProperty('MANTUL_V2_DATA_STALE')==='TRUE')throw new Error('Database V2 belum diperbarui setelah import. Selesaikan build, finalize, dan publish terlebih dahulu.');
+ const ss=getDatabase_(),p3=ss.getSheetByName('P3_OUTLET_MONTHLY');
+ const p3Headers=['YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','SUB_DIST','SALES_TYPE','PIC','BRAND','SUBBRAND','CATEGORY','SBU','ITEM_CODE','SKU','VAL','CARTON','SOURCE_ROWS'];
+ if(p3&&p3.getLastRow()>1&&p3.getLastColumn()>=18){
+  const actual=p3.getRange(1,1,1,18).getDisplayValues()[0].map(page2HeaderKey_);
+  if(p3Headers.every((v,i)=>page2HeaderKey_(v)===actual[i])){
+   const values=p3.getRange(2,1,p3.getLastRow()-1,18).getValues();
+   const rows=values.map(r=>[r[0],r[1],r[2],r[3],r[4],r[5],r[8],r[9],r[10],r[11],r[12],r[7],'', '',r[15],r[16],r[14],r[6],r[17]]);
+   return {sheet:p3,rows:rows,source:'P3_OUTLET_MONTHLY'};
+  }
+ }
+ const sh=ss.getSheetByName('P2_EVENT_INDEX');
+ if(!sh||sh.getLastRow()<2)throw new Error('P3_OUTLET_MONTHLY V2 atau P2_EVENT_INDEX belum berisi data.');
  const expected=(typeof P2_EVENT_INDEX_HEADERS_!=='undefined'?P2_EVENT_INDEX_HEADERS_:P2_EVENT_HEADERS_.concat(['SKU','SUB_DIST']));
  const actual=sh.getRange(1,1,1,18).getDisplayValues()[0].map(page2HeaderKey_);
  if(!expected.every((v,i)=>page2HeaderKey_(v)===actual[i]))throw new Error('Header P2_EVENT_INDEX harus 18 kolom termasuk SKU dan SUB_DIST. Terbaca: '+actual.join(' | '));
- return {sheet:sh,rows:sh.getRange(2,1,sh.getLastRow()-1,18).getValues()};
+ return {sheet:sh,rows:sh.getRange(2,1,sh.getLastRow()-1,18).getValues(),source:'P2_EVENT_INDEX'};
 }
 function page34Mode_(v){return String(v||'SOO').trim().toUpperCase()==='SO'?'SO':'SOO';}
 function page34Entity_(row,mode){
@@ -22,15 +33,15 @@ function page34Entity_(row,mode){
  return PAGE34_ENTITIES_.includes(key)?key:'';
 }
 function page3BuildMeta_(rows){
- const years=new Set(),subbrands=new Set(),monthsByYear={},pics=new Set(),brands=new Set(),categories=new Set(),customers=new Set(),dateKeys=new Set();let soo=0,soModeRows=0;
+ const years=new Set(),subbrands=new Set(),monthsByYear={},pics=new Set(),brands=new Set(),categories=new Set(),customers=new Set(),dateKeys=new Set();let soo=0,soModeRows=0,sourceRows=0;
  (rows||[]).forEach(r=>{
-  const type=page2Key_(r[11]);if(type==='SOO')soo++;soModeRows++;
+  const type=page2Key_(r[11]),sourceCount=Number(r[18])||1;sourceRows+=sourceCount;if(type==='SOO')soo+=sourceCount;soModeRows+=sourceCount;
   const y=String(Number(r[0])||r[0]||'').trim(),m=page2Month_(r[1]),sb=page2Text_(r[8]);
   if(y)years.add(y);if(sb)subbrands.add(sb);if(page2Text_(r[6]))pics.add(page2Text_(r[6]));if(page2Text_(r[7]))brands.add(page2Text_(r[7]));if(page2Text_(r[9]))categories.add(page2Text_(r[9]));if(page2Text_(r[4]))customers.add(page2Text_(r[4]));const dateKey=page2Date_(y,m,r[2]);if(dateKey)dateKeys.add(dateKey);if(y&&m){if(!monthsByYear[y])monthsByYear[y]=new Set();monthsByYear[y].add(m);}
  });
  const sort=a=>Array.from(a).sort((x,y)=>x.localeCompare(y,'id'));
  return {years:Array.from(years).sort((a,b)=>Number(a)-Number(b)),monthsByYear:Object.fromEntries(Object.keys(monthsByYear).map(y=>[y,PAGE3_MONTHS_.filter(m=>monthsByYear[y].has(m))])),
-  subdists:PAGE34_ENTITIES_.slice(),subbrands:sort(subbrands),pics:sort(pics),brands:sort(brands),categories:sort(categories),customers:sort(customers),dateKeys:Array.from(dateKeys).sort(),sourceRows:(rows||[]).length,sooRows:soo,soModeRows:soModeRows};
+  subdists:PAGE34_ENTITIES_.slice(),subbrands:sort(subbrands),pics:sort(pics),brands:sort(brands),categories:sort(categories),customers:sort(customers),dateKeys:Array.from(dateKeys).sort(),sourceRows:sourceRows,sooRows:soo,soModeRows:soModeRows};
 }
 function page3BuildData_(rows,filters,meta){
  filters=filters||{};const mode=page34Mode_(filters.mode),year=Number(filters.year)||Number((meta.years||[]).slice(-1)[0])||new Date().getFullYear();
@@ -44,7 +55,7 @@ function page3BuildData_(rows,filters,meta){
   const m=page2Month_(r[1]),sd=page34Entity_(r,mode),sb=page2Text_(r[8]),customer=page2Text_(r[4]);
   if(!monthSet.has(m)||!sd||!customer)return;const dateKey=page2Date_(r[0],r[1],r[2]),day=dateKey?dateKey.slice(8,10):'';if(dateSet.size&&!dateSet.has(day))return;if(subdistSet.size&&!subdistSet.has(page2Key_(sd)))return;
   if(subbrandSet.size&&!subbrandSet.has(page2Key_(sb)))return;if(picSet.size&&!picSet.has(page2Key_(r[6])))return;if(brandSet.size&&!brandSet.has(page2Key_(r[7])))return;if(categorySet.size&&!categorySet.has(page2Key_(r[9])))return;if(customerSet.size&&!customerSet.has(page2Key_(customer)))return;
-  matchedSourceRows++;const key=page2ExactCompositeKey_([sd,customer]);let x=map.get(key);
+  matchedSourceRows+=Number(r[18])||1;const key=page2ExactCompositeKey_([sd,customer]);let x=map.get(key);
   if(!x){x={customerName:customer,subdist:sd,monthly:{},total:{value:0,carton:0}};map.set(key,x);}
   if(!x.monthly[m])x.monthly[m]={value:0,carton:0};x.monthly[m].value+=Number(r[14])||0;x.monthly[m].carton+=Number(r[15])||0;x.total.value+=Number(r[14])||0;x.total.carton+=Number(r[15])||0;
  });
