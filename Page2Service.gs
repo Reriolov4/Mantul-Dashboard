@@ -637,8 +637,9 @@ function page2GetMeta() {
   }, 1800);
 }
 
-function page2ReadSubdistBlocks_(subdists){
-  const ss=getDatabase_(),sheet=ss.getSheetByName('P2_SUBDIST_FACT');
+function page2ReadSubdistBlocks_(sheet,subdists){
+  // The single canonical fact sheet is sorted by SUBDIST; the range index
+  // points directly into that same sheet (no duplicate P2_SUBDIST_FACT).
   if(!sheet||sheet.getLastRow()<2)return {ready:false,ranges:[]};
   let index=null;
   try{index=JSON.parse(PropertiesService.getScriptProperties().getProperty('MANTUL_P2_SUBDIST_RANGES')||'null');}catch(e){}
@@ -679,7 +680,7 @@ function page2ReadFiltered_(sheet, filters) {
     brands=new Set(page2FilterList_(safe.brands)),subbrands=new Set(page2FilterList_(safe.subbrands)),
     categories=new Set(page2FilterList_(safe.categories));
   if(subdists.size && sh.getName()==='P2_DASHBOARD_FACT'){
-    const indexed=page2ReadSubdistBlocks_(subdists);
+    const indexed=page2ReadSubdistBlocks_(sh,subdists);
     if(indexed && indexed.ready){
       if(!indexed.ranges.length)return [];
       const selectedRows=[];
