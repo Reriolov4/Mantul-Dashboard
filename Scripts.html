@@ -541,7 +541,7 @@ function attachUploadHandler(){
     }
    };
    assertHeaders(p1Matrix,['YEAR','MONTH','SUBDIST','SUBBRAND','BRAND','CATEGORY','SBU','PIC','PF_MONTHLY','PF_QUARTERLY','VAL','SALES_TYPE','TARGET','BE'],'P1_FACT');
-   assertHeaders(rawMatrix,['YEAR','MONTH','DD','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND','CARTON','SUBDIST','CUSTOMER_CODE','CUSTOMER_NAME','KODE SALUR','VAL','QTY','SALES_TYPE','SUB_DIST','PIC','TEAM','SALESMAN','CATEGORY','DOT','SBU','PF Bulanan','PF Triwulan','SKU','SOURCE_ROWS'],'RAW_DATA_SALES');
+   assertHeaders(rawMatrix,['YEAR','MONTH','DD','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND','CARTON','SUBDIST','CUSTOMER_CODE','CUSTOMER_NAME','KODE SALUR','VAL','QTY','SALES_TYPE','SUB_DIST','PIC','TEAM','SALESMAN','CATEGORY','DOT','SBU','PF Bulanan','PF Triwulan','SKU'],'RAW_DATA_SALES');
    const monthList=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
    const monthCode=v=>{
     const x=String(v==null?'':v).trim().toUpperCase();
@@ -568,7 +568,7 @@ function attachUploadHandler(){
    const month=monthList[monthIndex];
    const inPeriod=(r)=>r&&r.some(v=>v!==null&&v!=='')&&Number(r[0])===year&&monthCode(r[1])===month;
    const p1Rows=p1Matrix.slice(1).filter(inPeriod).map(r=>r.slice(0,14));
-   const rawRows=rawMatrix.slice(1).filter(inPeriod).map(r=>r.slice(0,26));
+   const rawRows=rawMatrix.slice(1).filter(inPeriod).map(r=>r.slice(0,25));
    if(!p1Rows.length||!rawRows.length)throw new Error('Data periode '+year+'-'+month+' tidak lengkap pada P1_FACT atau RAW_DATA_SALES.');
    if(!p1Rows.some(r=>r[10]!==null&&r[10]!==''))throw new Error('P1_FACT belum memiliki nilai aktual untuk periode '+year+'-'+month+'.');
    const sumType=(rows,typeIndex,valueIndex,type)=>rows.filter(r=>String(r[typeIndex]||'').trim().toUpperCase()===type).reduce((v,r)=>v+(Number(r[valueIndex])||0),0);
