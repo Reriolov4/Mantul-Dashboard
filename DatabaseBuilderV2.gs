@@ -229,7 +229,14 @@ function mantulV2PublishStaging() {
       const name=(spec.target+'_V2_TMP_'+stamp).slice(0,99),copy=ss.insertSheet(name);
       created.push(name);
       ensureSheetGrid_(copy,source.getLastRow(),spec.headers.length);
-      source.getRange(1,1,source.getLastRow(),spec.headers.length).copyTo(copy.getRange(1,1),{contentsOnly:true});
+      // Materialize evaluated QUERY results as values; do not retain formulas
+      // that point to partial staging sheets in the published database.
+      const totalRows=source.getLastRow();
+      for(let offset=0;offset<totalRows;offset+=MANTUL_V2_BUILD_.CHUNK_ROWS){
+        const n=Math.min(MANTUL_V2_BUILD_.CHUNK_ROWS,totalRows-offset);
+        const values=source.getRange(offset+1,1,n,spec.headers.length).getValues();
+        copy.getRange(offset+1,1,n,spec.headers.length).setValues(values);
+      }
       copy.setFrozenRows(1);
       temp.push({spec:spec,sheet:copy});
     });
