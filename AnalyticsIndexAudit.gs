@@ -14,7 +14,7 @@ function analyticsRegisterExistingIndexes(){
   analyticsAssertHeaders_(src,P2_EVENT_HEADERS_);analyticsAssertHeaders_(p2,P2_DASHBOARD_HEADERS_);
   analyticsAssertHeaders_(sub,P2_DASHBOARD_HEADERS_);analyticsAssertHeaders_(p3,P3_OUTLET_HEADERS_);
   const sourceCount=src.getLastRow()-1,meta=src.getRange(2,12,sourceCount,3).getValues(),vals=src.getRange(2,15,sourceCount,2).getValues();
-  let sooRows=0,sooValue=0,sooCarton=0,salesmanValue=0,salesmanCarton=0;const salesTypeCounts={},teamCounts={};
+  let sooRows=0,sooValue=0,sooCarton=0;const salesTypeCounts={},teamCounts={};
   for(let i=0;i<sourceCount;i++){const type=page2Key_(meta[i][0]),team=page2Key_(meta[i][2]);if(type)salesTypeCounts[type]=(salesTypeCounts[type]||0)+1;if(team)teamCounts[team]=(teamCounts[team]||0)+1;
    if(type!=='SOO')continue;sooRows++;sooValue+=Number(vals[i][0])||0;sooCarton+=Number(vals[i][1])||0;
    if(team==='SALESMAN'){salesmanValue+=Number(vals[i][0])||0;salesmanCarton+=Number(vals[i][1])||0;}}
