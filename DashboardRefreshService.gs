@@ -41,6 +41,7 @@ function mantulV2ValidateLiveDatabase_(){
 }
 
 function refreshMantulDashboard(){
+ if(PropertiesService.getScriptProperties().getProperty('MANTUL_V2_DATA_STALE')==='TRUE')throw new Error('Import data terbaru sudah mengubah RAW_DATA_SALES. Selesaikan Database V2 build, finalize, dan publish sebelum refresh.');
  const props=PropertiesService.getScriptProperties(),oldSales=props.getProperty('SALES_LAST_UPDATED')||'',
   oldP2=props.getProperty('PAGE2_RAW_UPDATED')||'',started=Date.now();
  try{
@@ -77,6 +78,7 @@ function refreshMantulDashboard(){
 }
 
 function validateMantulDashboardSources(){
+ if(PropertiesService.getScriptProperties().getProperty('MANTUL_V2_DATA_STALE')==='TRUE')throw new Error('Database V2 stale setelah import. Selesaikan build, finalize, dan publish terlebih dahulu.');
  const ss=getDatabase_(),p2=ss.getSheetByName('P2_EVENT_INDEX');
  if(p2&&p2.getLastColumn()>=19&&page2HeaderKey_(p2.getRange(1,18).getDisplayValue())==='SUB DIST')
   return Object.assign({readOnly:true},mantulV2ValidateLiveDatabase_());
