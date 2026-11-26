@@ -590,8 +590,8 @@ function attachUploadHandler(){
    const result=await gasCall('finishMonthlyDataImport',{token:session.token});
    session=null;
    await loadDashboardData();
-   status.textContent='Update '+year+'-'+month+' berhasil • P1 '+result.p1Rows.toLocaleString('id-ID')+' • RAW '+result.rawRows.toLocaleString('id-ID')+' • Database V2 perlu dibangun ulang • '+result.updatedAt;
-   alert('Update berhasil. P1_FACT dan RAW_DATA_SALES telah diperbarui. Jalankan Database V2 rebuild sebelum menggunakan Page 2, 3, dan 4.');
+   status.textContent='Update '+year+'-'+month+' berhasil • P1 '+result.p1Rows.toLocaleString('id-ID')+' • RAW '+result.rawRows.toLocaleString('id-ID')+' • Page 2–4 membaca RAW langsung • '+result.updatedAt;
+   alert('Update berhasil. P1_FACT dan RAW_DATA_SALES telah diperbarui. Page 2, 3, dan 4 siap membaca data terbaru secara langsung.');
   }catch(err){
    if(session&&session.token){try{await gasCall('abortMonthlyDataImport',{token:session.token});}catch(abortError){}}
    status.textContent='Import gagal: '+err.message;
