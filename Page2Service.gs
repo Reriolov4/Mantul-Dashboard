@@ -27,6 +27,7 @@ function page2NormalizeV2FactRow_(r) {
 }
 
 function page2Source_() {
+  if (PropertiesService.getScriptProperties().getProperty('MANTUL_V2_DATA_STALE') === 'TRUE') throw new Error('Database V2 belum diperbarui setelah import. Selesaikan build, finalize, dan publish Database V2 terlebih dahulu.');
   // Page 2 is bound to the maintained analytics index; never silently fall
   // back to RAW_DATA_SALES because its schema and filter universe differ.
   const ss=getDatabase_();
