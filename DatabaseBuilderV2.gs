@@ -227,6 +227,58 @@ function mantulV2BuildFinalize() {
  * Publish only a fully reconciled V2 build. Existing live sheets are renamed
  * to timestamped backups; P1_FACT and RAW_DATA_SALES are never replaced.
  */
+/**
+ * Restore aggregate QUERY outputs from intact partial staging sheets.
+ * Safe to rerun while the build is READY_FOR_REVIEW.
+ */
+function mantulV2RestoreReadyAggregation() {
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  try {
+    const status=mantulV2BuildStatus();
+    if(status.status!=='READY_FOR_REVIEW')throw new Error('Pemulihan hanya diizinkan pada READY_FOR_REVIEW, terbaca '+status.status+'.');
+    const ss=getDatabase_(),props=PropertiesService.getScriptProperties(),p=MANTUL_V2_BUILD_.PREFIX;
+    const event=ss.getSheetByName(MANTUL_V2_BUILD_.EVENT_STAGE);
+    const p2=ss.getSheetByName(MANTUL_V2_BUILD_.P2_STAGE);
+    const p3=ss.getSheetByName(MANTUL_V2_BUILD_.P3_STAGE);
+    const p2partial=ss.getSheetByName(MANTUL_V2_BUILD_.PARTIAL_STAGE);
+    const p3partial=ss.getSheetByName(MANTUL_V2_BUILD_.P3_PARTIAL_STAGE);
+    if(!event||!p2||!p3||!p2partial||!p3partial)throw new Error('Salah satu sheet staging/partial tidak ditemukan.');
+    if(p2partial.getLastRow()<2||p3partial.getLastRow()<2)throw new Error('Sumber partial kosong; pemulihan dibatalkan.');
+    p2.clearContents();p3.clearContents();
+    const q2="=QUERY('"+MANTUL_V2_BUILD_.PARTIAL_STAGE+"'!A:Q;\"select A,B,C,D,E,F,G,H,I,J,K,L,M,N,sum(O),sum(P),sum(Q) where A is not null group by A,B,C,D,E,F,G,H,I,J,K,L,M,N label sum(O) 'VAL',sum(P) 'CARTON',sum(Q) 'SOURCE_ROWS'\";1)";
+    const q3="=QUERY('"+MANTUL_V2_BUILD_.P3_PARTIAL_STAGE+"'!A:R;\"select A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,sum(P),sum(Q),sum(R) where A is not null group by A,B,C,D,E,F,G,H,I,J,K,L,M,N,O label sum(P) 'VAL',sum(Q) 'CARTON',sum(R) 'SOURCE_ROWS'\";1)";
+    p2.getRange(1,1).setFormula(q2);p3.getRange(1,1).setFormula(q3);
+    SpreadsheetApp.flush();
+    const raw=ss.getSheetByName('RAW_DATA_SALES');
+    const eventTotals=mantulV2SheetTotals_(event,MANTUL_V2_SCHEMA_.P2_EVENT_INDEX.length,15,16);
+    const p2Totals=mantulV2SheetTotals_(p2,MANTUL_V2_SCHEMA_.P2_DASHBOARD_FACT.length,15,16);
+    const p3Totals=mantulV2SheetTotals_(p3,MANTUL_V2_SCHEMA_.P3_OUTLET_MONTHLY.length,16,17);
+    const rawTotals=mantulV2SheetTotals_(raw,MANTUL_V2_SCHEMA_.RAW.length,13,8);
+    const expected=Number(props.getProperty(p+'NONEMPTY_ROWS')||0);
+    const close=(x,y)=>Math.abs(x-y)<=Math.max(.01,Math.abs(y)*1e-9);
+    if(eventTotals.rows!==status.eventRows||eventTotals.rows!==expected||
+       p2Totals.rows<1||p3Totals.rows<1||
+       !close(eventTotals.value,rawTotals.value)||!close(eventTotals.carton,rawTotals.carton)||
+       !close(p2Totals.value,rawTotals.value)||!close(p2Totals.carton,rawTotals.carton)||
+       !close(p3Totals.value,rawTotals.value)||!close(p3Totals.carton,rawTotals.carton)) {
+      throw new Error('Pemulihan belum lolos rekonsiliasi. RAW='+JSON.stringify(rawTotals)+
+        '; EVENT='+JSON.stringify(eventTotals)+'; P2='+JSON.stringify(p2Totals)+'; P3='+JSON.stringify(p3Totals));
+    }
+    props.setProperties({
+      [p+'STATUS']:'READY_FOR_REVIEW',[p+'PHASE']:'RECONCILED',
+      [p+'P2_FACT_ROWS']:String(p2Totals.rows),[p+'P3_FACT_ROWS']:String(p3Totals.rows),
+      [p+'RAW_VALUE']:String(rawTotals.value),[p+'RAW_CARTON']:String(rawTotals.carton)
+    });
+    return {ok:true,status:'READY_FOR_REVIEW',p2Rows:p2Totals.rows,p3Rows:p3Totals.rows,
+      reconciliation:{raw:rawTotals,event:eventTotals,p2:p2Totals,p3:p3Totals}};
+  } finally {lock.releaseLock();}
+}
+
+/**
+ * Publish reconciled sheets by renaming the staging sheets in place.
+ * QUERY formulas intentionally remain linked to the retained partial sheets;
+ * this avoids costly full-sheet copies and keeps execution below Apps Script limits.
+ */
 function mantulV2PublishStaging() {
   const lock=LockService.getScriptLock();lock.waitLock(30000);
   const ss=getDatabase_(),props=PropertiesService.getScriptProperties(),prefix=MANTUL_V2_BUILD_.PREFIX;
@@ -241,56 +293,36 @@ function mantulV2PublishStaging() {
     ];
     const stamp=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyyMMdd_HHmmss');
     const sources=specs.map(spec=>{
-      const source=ss.getSheetByName(spec.stage);
-      if(!source||source.getLastRow()<2)throw new Error('Stage '+spec.stage+' kosong.');
-      const actual=source.getRange(1,1,1,spec.headers.length).getDisplayValues()[0].map(v=>String(v||'').trim().toUpperCase());
+      const sheet=ss.getSheetByName(spec.stage);
+      if(!sheet||sheet.getLastRow()<2)throw new Error('Stage '+spec.stage+' kosong.');
+      const actual=sheet.getRange(1,1,1,spec.headers.length).getDisplayValues()[0].map(v=>String(v||'').trim().toUpperCase());
       if(!spec.headers.every((v,i)=>actual[i]===String(v).toUpperCase()))throw new Error('Header stage '+spec.stage+' tidak sesuai schema.');
-      return {spec:spec,sheet:source,rows:source.getLastRow()};
+      return {spec,sheet};
     });
-
-    // Freeze staged QUERY outputs in place. This avoids creating full-size
-    // temporary copies that would exceed the spreadsheet's 20M-cell limit.
-    sources.forEach(({spec,sheet,rows})=>{
-      for(let offset=0;offset<rows;offset+=MANTUL_V2_BUILD_.CHUNK_ROWS){
-        const n=Math.min(MANTUL_V2_BUILD_.CHUNK_ROWS,rows-offset);
-        const values=sheet.getRange(offset+1,1,n,spec.headers.length).getValues();
-        sheet.getRange(offset+1,1,n,spec.headers.length).setValues(values);
-      }
-      sheet.setFrozenRows(1);
-    });
-
     const raw=ss.getSheetByName('RAW_DATA_SALES'),rawTotals=mantulV2SheetTotals_(raw,MANTUL_V2_SCHEMA_.RAW.length,13,8);
     const totals=sources.map(({spec,sheet})=>mantulV2SheetTotals_(sheet,spec.headers.length,spec.value,spec.carton));
-    const close=(a,b)=>Math.abs(a-b)<=Math.max(.01,Math.abs(b)*1e-9);
+    const close=(x,y)=>Math.abs(x-y)<=Math.max(.01,Math.abs(y)*1e-9);
     if(totals[0].rows!==status.eventRows||
        totals.some(t=>!close(t.value,rawTotals.value)||!close(t.carton,rawTotals.carton)))
       throw new Error('Validasi sebelum publish gagal. RAW='+JSON.stringify(rawTotals)+'; staged='+JSON.stringify(totals));
-
-    // Promote the existing staging sheets directly; preserve old live sheets
-    // as timestamped backups. No additional full-size sheet grids are created.
     sources.forEach(({spec,sheet})=>{
       const old=ss.getSheetByName(spec.target);
       if(old){
         const backup=(spec.target+'_V2_BAK_'+stamp).slice(0,99);
         old.setName(backup);
-        renamed.push({target:spec.target,backup:backup});
+        renamed.push({target:spec.target,backup});
       }
+      sheet.setFrozenRows(1);
       sheet.setName(spec.target);
       promoted.push({target:spec.target,stage:spec.stage});
     });
     props.deleteProperty('MANTUL_V2_DATA_STALE');
-    props.setProperties({
-      [prefix+'STATUS']:'PUBLISHED',
-      [prefix+'PHASE']:'LIVE',
-      [prefix+'PUBLISHED_AT']:new Date().toISOString()
-    });
+    props.setProperties({[prefix+'STATUS']:'PUBLISHED',[prefix+'PHASE']:'LIVE',[prefix+'PUBLISHED_AT']:new Date().toISOString()});
     return {ok:true,status:'PUBLISHED',publishedAt:props.getProperty(prefix+'PUBLISHED_AT'),
       sheets:specs.map(x=>x.target),backups:renamed.map(x=>x.backup),
       rows:{P2_EVENT_INDEX:totals[0].rows,P2_DASHBOARD_FACT:totals[1].rows,P3_OUTLET_MONTHLY:totals[2].rows},
       reconciliation:{raw:rawTotals,event:totals[0],p2:totals[1],p3:totals[2]}};
   }catch(err){
-    // Return promoted staging sheets to their original names, then restore
-    // every old live sheet from its backup. Never delete user data here.
     promoted.slice().reverse().forEach(x=>{
       const current=ss.getSheetByName(x.target);
       if(current&&!ss.getSheetByName(x.stage))current.setName(x.stage);
@@ -302,6 +334,7 @@ function mantulV2PublishStaging() {
     throw err;
   }finally{lock.releaseLock();}
 }
+
 function mantulV2LastRawDataRow_(sheet) {
   if(!sheet)return 1;
   const last=sheet.getRange(sheet.getMaxRows(),1).getNextDataCell(SpreadsheetApp.Direction.UP).getRow();
