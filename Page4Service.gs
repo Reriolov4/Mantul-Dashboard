@@ -13,6 +13,7 @@ function page4ReadSelectedColumns_(sheet,headerMap){
  const result={};keys.forEach(key=>{const col=headerMap[key],g=groups.find(x=>col>=x.start&&col<=x.end);result[key]=g.values.map(row=>row[col-g.start]);});return {rows:n,columns:result};
 }
 function page4ReadSource_(){
+ if(PropertiesService.getScriptProperties().getProperty('MANTUL_V2_DATA_STALE')==='TRUE')throw new Error('Database V2 belum diperbarui setelah import. Selesaikan build, finalize, dan publish terlebih dahulu.');
  const ss=getDatabase_(),source=ss.getSheetByName('P3_OUTLET_MONTHLY'),sku=ss.getSheetByName('SKU');
  if(!source||source.getLastRow()<2)throw new Error('P3_OUTLET_MONTHLY belum berisi data. Jalankan builder Database V2 terlebih dahulu.');
  if(!sku||sku.getLastRow()<2)throw new Error('Sheet SKU belum tersedia.');
