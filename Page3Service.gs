@@ -3,24 +3,28 @@
  */
 const PAGE3_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const PAGE34_ENTITIES_=['EPM BAC','EPM LSE','GMP BAC','GMP LSE','GMP LGS','DB MBO','DB BAC'];
-function page34ReadEventIndex_(){
- if(PropertiesService.getScriptProperties().getProperty('MANTUL_V2_DATA_STALE')==='TRUE')throw new Error('Database V2 belum diperbarui setelah import. Selesaikan build, finalize, dan publish terlebih dahulu.');
- const ss=getDatabase_(),p3=ss.getSheetByName('P3_OUTLET_MONTHLY');
- const p3Headers=['YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','SUB_DIST','SALES_TYPE','PIC','BRAND','SUBBRAND','CATEGORY','SBU','ITEM_CODE','SKU','VAL','CARTON','SOURCE_ROWS'];
- if(p3&&p3.getLastRow()>1&&p3.getLastColumn()>=18){
-  const actual=p3.getRange(1,1,1,18).getDisplayValues()[0].map(page2HeaderKey_);
-  if(p3Headers.every((v,i)=>page2HeaderKey_(v)===actual[i])){
-   const values=p3.getRange(2,1,p3.getLastRow()-1,18).getValues();
-   const rows=values.map(r=>[r[0],r[1],r[2],r[3],r[4],r[5],r[8],r[9],r[10],r[11],r[12],r[7],'', '',r[15],r[16],r[14],r[6],r[17]]);
-   return {sheet:p3,rows:rows,source:'P3_OUTLET_MONTHLY'};
+function page34ReadEventIndex_() {
+  const ss = getDatabase_();
+  const sh = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  if (!sh || sh.getLastRow() < 2) {
+    throw new Error('RAW_DATA_SALES tidak ditemukan atau belum berisi transaksi.');
   }
- }
- const sh=ss.getSheetByName('P2_EVENT_INDEX');
- if(!sh||sh.getLastRow()<2)throw new Error('P3_OUTLET_MONTHLY V2 atau P2_EVENT_INDEX belum berisi data.');
- const expected=(typeof P2_EVENT_INDEX_HEADERS_!=='undefined'?P2_EVENT_INDEX_HEADERS_:P2_EVENT_HEADERS_.concat(['SKU','SUB_DIST']));
- const actual=sh.getRange(1,1,1,18).getDisplayValues()[0].map(page2HeaderKey_);
- if(!expected.every((v,i)=>page2HeaderKey_(v)===actual[i]))throw new Error('Header P2_EVENT_INDEX harus 18 kolom termasuk SKU dan SUB_DIST. Terbaca: '+actual.join(' | '));
- return {sheet:sh,rows:sh.getRange(2,1,sh.getLastRow()-1,18).getValues(),source:'P2_EVENT_INDEX'};
+  const actual = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT)
+    .getDisplayValues()[0].map(page2HeaderKey_);
+  const expected = RAW_SALES_HEADERS.map(page2HeaderKey_);
+  if (!expected.every((value, index) => actual[index] === value)) {
+    throw new Error('Header RAW_DATA_SALES tidak sesuai. Terbaca: ' + actual.join(' | '));
+  }
+
+  const rowCount = sh.getLastRow() - 1;
+  const values = sh.getRange(2, 1, rowCount, RAW_SALES_COLUMN_COUNT).getValues();
+  // Kontrak internal Page 3: 19 kolom dengan posisi yang sama seperti
+  // event index lama; kolom terakhir adalah jumlah baris sumber (1 per transaksi).
+  const rows = values.map(r => [
+    r[0], r[1], r[2], r[9], r[10], r[8], r[16], r[6], r[5],
+    r[19], r[21], r[14], r[18], r[17], r[12], r[7], r[24], r[15], 1
+  ]);
+  return {sheet:sh, rows:rows, source:'RAW_DATA_SALES'};
 }
 function page34Mode_(v){return String(v||'SOO').trim().toUpperCase()==='SO'?'SO':'SOO';}
 function page34Entity_(row,mode){
@@ -63,10 +67,9 @@ function page3BuildData_(rows,filters,meta){
  const monthTotals={};months.forEach(m=>monthTotals[m]={value:0,carton:0});const totals={value:0,carton:0};
  all.forEach(r=>{totals.value+=r.total.value;totals.carton+=r.total.carton;months.forEach(m=>{monthTotals[m].value+=r.monthly[m]?.value||0;monthTotals[m].carton+=r.monthly[m]?.carton||0;});});
  const page=Math.max(1,Number(filters.page)||1),pageSize=Math.max(10,Math.min(100,Number(filters.pageSize)||50)),start=(page-1)*pageSize;
- return {mode:mode,modeSalesType:mode==='SOO'?'SOO':'Semua',label:'SUBDIST',year:year,months:months,metric:metric,rows:all.slice(start,start+pageSize),totalRows:all.length,page:page,pageSize:pageSize,totals:totals,monthTotals:monthTotals,matchedSourceRows:matchedSourceRows,source:'P2_EVENT_INDEX'};
+ return {mode:mode,modeSalesType:mode==='SOO'?'SOO':'Semua',label:'SUBDIST',year:year,months:months,metric:metric,rows:all.slice(start,start+pageSize),totalRows:all.length,page:page,pageSize:pageSize,totals:totals,monthTotals:monthTotals,matchedSourceRows:matchedSourceRows,source:'RAW_DATA_SALES'};
 }
 function getPage3InitialPayload(mode){
- if(typeof analyticsEnsureExistingIndexesRegistered_==='function')analyticsEnsureExistingIndexesRegistered_();
  const started=Date.now(),src=page34ReadEventIndex_(),meta=page3BuildMeta_(src.rows),selectedMode=page34Mode_(mode),year=meta.years.includes('2026')?'2026':meta.years[meta.years.length-1],months=meta.monthsByYear[year]||[];
  return {meta:meta,data:page3BuildData_(src.rows,{mode:selectedMode,year:year,months:months,page:1,pageSize:50,metric:'value'},meta),diagnostics:{source:src.sheet.getName(),readAndAggregateMs:Date.now()-started}};
 }
