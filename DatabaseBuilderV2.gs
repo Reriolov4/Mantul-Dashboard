@@ -51,7 +51,8 @@ function mantulV2BuildStart() {
       [p+'P3_ROWS']:'0',
       [p+'PARTIAL_ROWS']:'0',
       [p+'STARTED_AT']:new Date().toISOString(),
-      [p+'ERROR']:''
+      [p+'ERROR']:'',
+      MANTUL_V2_DATA_STALE:'TRUE'
     });
     return {status:'RUNNING', sourceRows:total, nextRow:2, chunkRows:MANTUL_V2_BUILD_.CHUNK_ROWS};
   } finally { lock.releaseLock(); }
