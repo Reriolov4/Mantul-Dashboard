@@ -175,6 +175,21 @@ function mantulV2BuildFinalize() {
     const expectedNonempty=Number(props.getProperty(p+'NONEMPTY_ROWS')||0);
     if(event.getLastRow()-1!==status.eventRows || status.eventRows!==expectedNonempty)
       throw new Error('Jumlah event staging tidak sama dengan jumlah baris sumber non-kosong yang diproses. Event='+status.eventRows+', nonempty='+expectedNonempty+'.');
+
+    // QUERY output must fit inside the destination grid. Size each result sheet
+    // to at least its partial input row count before writing the array formula.
+    const extraP2Rows=Math.max(0,p2partial.getLastRow()-p2.getMaxRows());
+    const extraP3Rows=Math.max(0,p3partial.getLastRow()-p3.getMaxRows());
+    const currentCells=ss.getSheets().reduce((sum,sh)=>sum+sh.getMaxRows()*sh.getMaxColumns(),0);
+    const projectedCells=currentCells+
+      extraP2Rows*MANTUL_V2_SCHEMA_.P2_DASHBOARD_FACT.length+
+      extraP3Rows*MANTUL_V2_SCHEMA_.P3_OUTLET_MONTHLY.length;
+    const maxSpreadsheetCells=20000000;
+    if(projectedCells>maxSpreadsheetCells)
+      throw new Error('Kapasitas spreadsheet tidak cukup untuk agregasi V2. Proyeksi='+projectedCells+' sel, batas='+maxSpreadsheetCells+'.');
+    ensureSheetGrid_(p2,p2partial.getLastRow(),MANTUL_V2_SCHEMA_.P2_DASHBOARD_FACT.length);
+    ensureSheetGrid_(p3,p3partial.getLastRow(),MANTUL_V2_SCHEMA_.P3_OUTLET_MONTHLY.length);
+
     p2.clearContents(); p3.clearContents();
     const q2="=QUERY('"+MANTUL_V2_BUILD_.PARTIAL_STAGE+"'!A:Q,\"select A,B,C,D,E,F,G,H,I,J,K,L,M,N,sum(O),sum(P),sum(Q) where A is not null group by A,B,C,D,E,F,G,H,I,J,K,L,M,N label sum(O) 'VAL',sum(P) 'CARTON',sum(Q) 'SOURCE_ROWS'\",1)";
     const q3="=QUERY('"+MANTUL_V2_BUILD_.P3_PARTIAL_STAGE+"'!A:R,\"select A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,sum(P),sum(Q),sum(R) where A is not null group by A,B,C,D,E,F,G,H,I,J,K,L,M,N,O label sum(P) 'VAL',sum(Q) 'CARTON',sum(R) 'SOURCE_ROWS'\",1)";
