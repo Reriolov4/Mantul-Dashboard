@@ -62,14 +62,15 @@ function refreshMantulDashboard() {
   const started = Date.now();
   try {
     const validation = mantulV2ValidateLiveDatabase_();
+    const readIndex = buildMantulReadIndex();
     const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm');
     props.setProperty('SALES_LAST_UPDATED', stamp);
     props.setProperty('PAGE2_RAW_UPDATED', stamp);
     props.deleteProperty('MANTUL_V2_DATA_STALE');
     cacheDashboardData_();
     const result = {ok:true,status:'COMPLETE',buildExecuted:false,
-      message:'Refresh selesai. Page 1 divalidasi dari P1_FACT dan Page 2–4 membaca RAW_DATA_SALES langsung. Tidak ada tabel sumber yang dibangun ulang atau ditimpa.',
-      validation:validation,updatedAt:stamp,elapsedMs:Date.now()-started};
+      message:'Refresh selesai. Page 1 tetap memakai P1_FACT; Page 2–4 memakai P2_EVENT_INDEX hasil salinan terverifikasi dari RAW_DATA_SALES A:Y.',
+      validation:validation,readIndex:readIndex,updatedAt:stamp,elapsedMs:Date.now()-started};
     Logger.log('MANTUL SAFE REFRESH\\n' + JSON.stringify(result, null, 2));
     return result;
   } catch (err) {
@@ -82,4 +83,107 @@ function refreshMantulDashboard() {
 
 function validateMantulDashboardSources() {
   return Object.assign({readOnly:true}, mantulV2ValidateLiveDatabase_());
+}
+
+
+// ============================================================
+// MANTUL READ INDEX — snapshot terverifikasi RAW_DATA_SALES A:Y.
+// Page 1/P1_FACT tidak disentuh. Index dibangun secara staging,
+// diverifikasi row count + total VAL, lalu dipublikasikan atomik.
+// ============================================================
+const MANTUL_READ_INDEX_SHEET_ = 'P2_EVENT_INDEX';
+const MANTUL_READ_INDEX_STAGE_ = 'P2_EVENT_INDEX_BUILD';
+
+function buildMantulReadIndex() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  const ss = getDatabase_();
+  let stage = null;
+  try {
+    const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+    if (!raw || raw.getLastRow() < 2) throw new Error('RAW_DATA_SALES kosong atau tidak ditemukan.');
+    validateRawDatabaseHeaders_(raw.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getDisplayValues()[0]);
+    if (raw.getLastColumn() !== RAW_SALES_COLUMN_COUNT) {
+      throw new Error('RAW_DATA_SALES harus tepat 25 kolom A:Y. Terbaca ' + raw.getLastColumn() + ' kolom.');
+    }
+
+    const rowCount = raw.getLastRow() - 1;
+    const headers = raw.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getValues();
+    const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+    const stageName = MANTUL_READ_INDEX_STAGE_;
+    const oldStage = ss.getSheetByName(stageName);
+    if (oldStage) ss.deleteSheet(oldStage);
+    stage = ss.insertSheet(stageName);
+    stage.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).setValues(headers);
+
+    let sourceValue = 0, indexValue = 0, copied = 0;
+    const batchSize = 5000;
+    for (let offset = 0; offset < rowCount; offset += batchSize) {
+      const count = Math.min(batchSize, rowCount - offset);
+      const values = raw.getRange(offset + 2, 1, count, RAW_SALES_COLUMN_COUNT).getValues();
+      for (let i = 0; i < values.length; i++) sourceValue += Number(values[i][RAW_SALES_COL.VALUE]) || 0;
+      stage.getRange(offset + 2, 1, count, RAW_SALES_COLUMN_COUNT).setValues(values);
+      copied += count;
+    }
+    SpreadsheetApp.flush();
+
+    if (copied !== rowCount || stage.getLastRow() !== rowCount + 1 || stage.getLastColumn() !== RAW_SALES_COLUMN_COUNT) {
+      throw new Error('Validasi indeks gagal: jumlah baris/kolom tidak cocok.');
+    }
+    for (let offset = 0; offset < rowCount; offset += batchSize) {
+      const count = Math.min(batchSize, rowCount - offset);
+      const values = stage.getRange(offset + 2, 1, count, RAW_SALES_COLUMN_COUNT).getValues();
+      for (let i = 0; i < values.length; i++) indexValue += Number(values[i][RAW_SALES_COL.VALUE]) || 0;
+    }
+    if (Math.abs(sourceValue - indexValue) > Math.max(0.01, Math.abs(sourceValue) * 1e-10)) {
+      throw new Error('Validasi total VAL gagal. RAW=' + sourceValue + '; INDEX=' + indexValue);
+    }
+
+    const current = ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
+    const backupName = 'P2_EVENT_INDEX_OLD_' + stamp;
+    if (current) current.setName(backupName);
+    try {
+      stage.setName(MANTUL_READ_INDEX_SHEET_);
+      stage.setFrozenRows(1);
+      PropertiesService.getScriptProperties().setProperties({
+        MANTUL_READ_INDEX_STATUS: 'COMPLETE',
+        MANTUL_READ_INDEX_SOURCE_ID: ss.getId(),
+        MANTUL_READ_INDEX_SOURCE_ROWS: String(rowCount),
+        MANTUL_READ_INDEX_SOURCE_LASTROW: String(raw.getLastRow()),
+        MANTUL_READ_INDEX_VAL: String(indexValue),
+        MANTUL_READ_INDEX_BUILT_AT: new Date().toISOString()
+      });
+      if (current) ss.deleteSheet(ss.getSheetByName(backupName));
+    } catch (publishError) {
+      const published = ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
+      if (published && published.getSheetId() === stage.getSheetId()) ss.deleteSheet(published);
+      const backup = ss.getSheetByName(backupName);
+      if (backup && !ss.getSheetByName(MANTUL_READ_INDEX_SHEET_)) backup.setName(MANTUL_READ_INDEX_SHEET_);
+      throw publishError;
+    }
+    const result = {ok:true,status:'COMPLETE',sheet:MANTUL_READ_INDEX_SHEET_,rows:rowCount,columns:RAW_SALES_COLUMN_COUNT,sourceValue:sourceValue,indexValue:indexValue,validated:true};
+    Logger.log('MANTUL READ INDEX BUILD\\n' + JSON.stringify(result, null, 2));
+    return result;
+  } catch (err) {
+    if (stage) {
+      const stillThere = ss.getSheetByName(MANTUL_READ_INDEX_STAGE_);
+      if (stillThere && stillThere.getSheetId() === stage.getSheetId()) ss.deleteSheet(stillThere);
+    }
+    PropertiesService.getScriptProperties().setProperty('MANTUL_READ_INDEX_STATUS', 'FAILED');
+    throw err;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function mantulGetReadyReadIndex_() {
+  const ss = getDatabase_();
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('MANTUL_READ_INDEX_STATUS') !== 'COMPLETE' ||
+      props.getProperty('MANTUL_READ_INDEX_SOURCE_ID') !== ss.getId()) return null;
+  const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  const index = ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
+  if (!raw || !index || raw.getLastRow() !== Number(props.getProperty('MANTUL_READ_INDEX_SOURCE_LASTROW')) ||
+      index.getLastRow() !== raw.getLastRow() || index.getLastColumn() !== RAW_SALES_COLUMN_COUNT) return null;
+  return index;
 }

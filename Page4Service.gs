@@ -14,10 +14,10 @@ function page4ReadSelectedColumns_(sheet,headerMap){
 }
 function page4ReadSource_() {
   const ss = getDatabase_();
-  const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  const raw = mantulGetReadyReadIndex_();
   const sku = ss.getSheetByName(SKU_SHEET_NAME);
   if (!raw || raw.getLastRow() < 2) {
-    throw new Error('RAW_DATA_SALES tidak ditemukan atau belum berisi transaksi.');
+    throw new Error('P2_EVENT_INDEX belum siap atau kedaluwarsa. Jalankan refreshMantulDashboard() terlebih dahulu.');
   }
   if (!sku || sku.getLastRow() < 2) {
     throw new Error('Sheet SKU belum tersedia atau belum berisi master produk.');
@@ -53,7 +53,7 @@ function page4ReadSource_() {
     columns:eventData.columns,
     master:masterData.columns,
     masterRows:masterData.rows,
-    sourceName:'RAW_DATA_SALES'
+    sourceName:'P2_EVENT_INDEX'
   };
 }
 function page4BuildMeta_(src){

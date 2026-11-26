@@ -11,9 +11,9 @@ const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OC
 
 function page2Source_() {
   const ss = getDatabase_();
-  const sh = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  const sh = mantulGetReadyReadIndex_();
   if (!sh || sh.getLastRow() < 2) {
-    throw new Error('RAW_DATA_SALES tidak ditemukan atau belum berisi transaksi.');
+    throw new Error('P2_EVENT_INDEX belum siap atau sudah kedaluwarsa. Jalankan buildMantulReadIndex() / refreshMantulDashboard() terlebih dahulu.');
   }
   const actual = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT)
     .getDisplayValues()[0].map(page2HeaderKey_);
@@ -72,8 +72,8 @@ function page2FindHeader_(headers, aliases, fieldName) {
  */
 function page2Read_(sheet) {
   const sh = sheet || page2Source_();
-  if (sh.getName() !== RAW_DATA_SHEET_NAME) {
-    throw new Error('Page 2 hanya boleh membaca RAW_DATA_SALES secara langsung.');
+  if (sh.getName() !== 'P2_EVENT_INDEX') {
+    throw new Error('Page 2 wajib membaca P2_EVENT_INDEX yang sudah tervalidasi.');
   }
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
@@ -566,7 +566,7 @@ function page2SourceVersion_(sheet) {
   const props = PropertiesService.getScriptProperties();
   const spreadsheetId = String(props.getProperty('SPREADSHEET_ID') || DEFAULT_SPREADSHEET_ID || '').trim();
   return [
-    'page2-raw-direct-v1',
+    'page2-index-v1',
     spreadsheetId, getDatabaseRevision_(), sh.getParent().getId(), sh.getSheetId(), sh.getLastRow(), sh.getLastColumn(),
     props.getProperty('PAGE2_RAW_UPDATED') || 'manual'
   ].join('|');

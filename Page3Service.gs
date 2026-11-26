@@ -5,9 +5,9 @@ const PAGE3_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT'
 const PAGE34_ENTITIES_=['EPM BAC','EPM LSE','GMP BAC','GMP LSE','GMP LGS','DB MBO','DB BAC'];
 function page34ReadEventIndex_() {
   const ss = getDatabase_();
-  const sh = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  const sh = mantulGetReadyReadIndex_();
   if (!sh || sh.getLastRow() < 2) {
-    throw new Error('RAW_DATA_SALES tidak ditemukan atau belum berisi transaksi.');
+    throw new Error('P2_EVENT_INDEX belum siap atau kedaluwarsa. Jalankan refreshMantulDashboard() terlebih dahulu.');
   }
   const actual = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT)
     .getDisplayValues()[0].map(page2HeaderKey_);
@@ -42,7 +42,7 @@ function page34ReadEventIndex_() {
       read(i,18),read(i,17),read(i,12),read(i,7),read(i,24),read(i,15),1
     ];
   }
-  return {sheet:sh, rows:rows, source:'RAW_DATA_SALES'};
+  return {sheet:sh, rows:rows, source:'P2_EVENT_INDEX'};
 }
 function page34Mode_(v){return String(v||'SOO').trim().toUpperCase()==='SO'?'SO':'SOO';}
 function page34Entity_(row,mode){
