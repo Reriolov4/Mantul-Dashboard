@@ -77,6 +77,12 @@ function analyticsAuditDerivedIndexesReadOnly(){
 /** Register existing derived indexes once, on first Page 2/3 visit. Safe: no sheet writes. */
 function analyticsEnsureExistingIndexesRegistered_(){
  try{
+  const p2=getDatabase_().getSheetByName('P2_DASHBOARD_FACT');
+  if(p2&&p2.getLastRow()>1&&p2.getLastColumn()>=17){
+   const h=p2.getRange(1,1,1,17).getDisplayValues()[0].map(page2HeaderKey_);
+   if(MANTUL_V2_SCHEMA_.P2_DASHBOARD_FACT.every((v,i)=>page2HeaderKey_(v)===h[i]))
+    return {ok:true,skipped:true,status:'V2_CANONICAL'};
+  }
   if(typeof analyticsSummaryReady_==='function'&&analyticsSummaryReady_())return {ok:true,skipped:true,status:'ALREADY_READY'};
   if(typeof analyticsRegisterExistingIndexes!=='function')return {ok:false,status:'AUDIT_FUNCTION_UNAVAILABLE'};
   return analyticsRegisterExistingIndexes();
