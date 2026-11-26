@@ -241,7 +241,8 @@ function mantulV2PublishStaging() {
     temp.forEach(({spec,sheet})=>{
       const old=ss.getSheetByName(spec.target);
       if(old){const backup=(spec.target+'_V2_BAK_'+stamp).slice(0,99);old.setName(backup);renamed.push({target:spec.target,backup:backup});}
-      sheet.setName(spec.target);published.push({target:spec.target,hadOld:!!old});
+      published.push({target:spec.target,hadOld:!!old});
+      sheet.setName(spec.target);
     });
     props.deleteProperty('MANTUL_V2_DATA_STALE');
     props.setProperties({
