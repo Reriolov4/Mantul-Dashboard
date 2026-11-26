@@ -201,6 +201,70 @@ function mantulV2BuildFinalize() {
   } finally {lock.releaseLock();}
 }
 
+
+/**
+ * Publish only a fully reconciled V2 build. Existing live sheets are renamed
+ * to timestamped backups; P1_FACT and RAW_DATA_SALES are never replaced.
+ */
+function mantulV2PublishStaging() {
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  const ss=getDatabase_(),props=PropertiesService.getScriptProperties(),prefix=MANTUL_V2_BUILD_.PREFIX;
+  const renamed=[],created=[];
+  try{
+    const status=mantulV2BuildStatus();
+    if(status.status!=='READY_FOR_REVIEW')throw new Error('Publish ditahan. Status build harus READY_FOR_REVIEW, terbaca '+status.status+'.');
+    const specs=[
+      {stage:MANTUL_V2_BUILD_.EVENT_STAGE,target:'P2_EVENT_INDEX',headers:MANTUL_V2_SCHEMA_.P2_EVENT_INDEX,value:15,carton:16},
+      {stage:MANTUL_V2_BUILD_.P2_STAGE,target:'P2_DASHBOARD_FACT',headers:MANTUL_V2_SCHEMA_.P2_DASHBOARD_FACT,value:15,carton:16},
+      {stage:MANTUL_V2_BUILD_.P3_STAGE,target:'P3_OUTLET_MONTHLY',headers:MANTUL_V2_SCHEMA_.P3_OUTLET_MONTHLY,value:16,carton:17}
+    ];
+    const stamp=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyyMMdd_HHmmss');
+    const temp=[];
+    specs.forEach(spec=>{
+      const source=ss.getSheetByName(spec.stage);
+      if(!source||source.getLastRow()<2)throw new Error('Stage '+spec.stage+' kosong.');
+      const actual=source.getRange(1,1,1,spec.headers.length).getDisplayValues()[0].map(v=>String(v||'').trim().toUpperCase());
+      if(!spec.headers.every((v,i)=>actual[i]===String(v).toUpperCase()))throw new Error('Header stage '+spec.stage+' tidak sesuai schema.');
+      const name=(spec.target+'_V2_TMP_'+stamp).slice(0,99),copy=ss.insertSheet(name);
+      created.push(name);
+      ensureSheetGrid_(copy,source.getLastRow(),spec.headers.length);
+      source.getRange(1,1,source.getLastRow(),spec.headers.length).copyTo(copy.getRange(1,1),{contentsOnly:true});
+      copy.setFrozenRows(1);
+      temp.push({spec:spec,sheet:copy});
+    });
+    const raw=ss.getSheetByName('RAW_DATA_SALES'),rawTotals=mantulV2SheetTotals_(raw,27,13,8);
+    const totals=temp.map(x=>mantulV2SheetTotals_(x.sheet,x.spec.headers.length,x.spec.value,x.spec.carton));
+    const close=(a,b)=>Math.abs(a-b)<=Math.max(.01,Math.abs(b)*1e-9);
+    if(totals[0].rows!==status.eventRows||
+       totals.some(t=>!close(t.value,rawTotals.value)||!close(t.carton,rawTotals.carton)))
+      throw new Error('Validasi sebelum publish gagal. RAW='+JSON.stringify(rawTotals)+'; staged='+JSON.stringify(totals));
+    temp.forEach(({spec,sheet})=>{
+      const old=ss.getSheetByName(spec.target);
+      if(old){const backup=(spec.target+'_V2_BAK_'+stamp).slice(0,99);old.setName(backup);renamed.push({target:spec.target,backup:backup});}
+      sheet.setName(spec.target);
+    });
+    props.deleteProperty('MANTUL_V2_DATA_STALE');
+    props.setProperties({
+      [prefix+'STATUS']:'PUBLISHED',
+      [prefix+'PHASE']:'LIVE',
+      [prefix+'PUBLISHED_AT']:new Date().toISOString()
+    });
+    return {ok:true,status:'PUBLISHED',publishedAt:props.getProperty(prefix+'PUBLISHED_AT'),
+      sheets:specs.map(x=>x.target),backups:renamed.map(x=>x.backup),
+      rows:{P2_EVENT_INDEX:totals[0].rows,P2_DASHBOARD_FACT:totals[1].rows,P3_OUTLET_MONTHLY:totals[2].rows},
+      reconciliation:{raw:rawTotals,event:totals[0],p2:totals[1],p3:totals[2]}};
+  }catch(err){
+    // Restore every original live sheet if any rename in the publish sequence failed.
+    renamed.slice().reverse().forEach(x=>{
+      const current=ss.getSheetByName(x.target),backup=ss.getSheetByName(x.backup);
+      if(current&&backup){const failed=(x.target+'_V2_FAILED_'+Date.now()).slice(0,99);current.setName(failed);}
+      if(backup&&!ss.getSheetByName(x.target))backup.setName(x.target);
+    });
+    created.forEach(name=>{const sh=ss.getSheetByName(name);if(sh)ss.deleteSheet(sh);});
+    throw err;
+  }finally{lock.releaseLock();}
+}
+
 function mantulV2SheetTotals_(sheet,width,valueCol,cartonCol) {
   const last=sheet.getLastRow(); let value=0,carton=0;
   for(let row=2;row<=last;row+=5000){
