@@ -82,3 +82,42 @@ function analyticsEnsureExistingIndexesRegistered_(){
   return analyticsRegisterExistingIndexes();
  }catch(err){Logger.log('MANTUL INDEX REGISTRATION SKIPPED: '+(err&&err.stack||err));return {ok:false,status:'AUDIT_FAILED',message:String(err)};}
 }
+
+
+/**
+ * Remove the legacy duplicate only after the canonical fact reconciles to source
+ * and every cell in the legacy sheet matches the canonical fact.
+ * Run manually with the exact confirmation string.
+ */
+function analyticsRemoveLegacySubdistFact(confirmation){
+ if(confirmation!=='REMOVE_DUPLICATE_P2_SUBDIST_FACT')
+  throw new Error('Penghapusan ditahan. Gunakan konfirmasi REMOVE_DUPLICATE_P2_SUBDIST_FACT.');
+ const lock=LockService.getScriptLock();lock.waitLock(30000);
+ try{
+  const audit=analyticsRegisterExistingIndexes();
+  if(!audit||!audit.ok)throw new Error('Audit canonical P2 gagal; sheet duplikat tidak dihapus.');
+  const ss=getDatabase_(),canonical=ss.getSheetByName('P2_DASHBOARD_FACT'),
+    legacy=ss.getSheetByName('P2_SUBDIST_FACT');
+  if(!legacy)return {ok:true,removed:false,message:'P2_SUBDIST_FACT sudah tidak ada.'};
+  const rows=canonical.getLastRow()-1,width=P2_DASHBOARD_HEADERS_.length;
+  if(legacy.getLastRow()-1!==rows||legacy.getLastColumn()<width)
+    throw new Error('Jumlah baris/kolom legacy berbeda; sheet tidak dihapus.');
+  const equalValue=(a,b)=>{
+   if(a instanceof Date&&b instanceof Date)return a.getTime()===b.getTime();
+   return a===b || (a==null&&b==='') || (a===''&&b==null);
+  };
+  const batch=2000;
+  for(let start=2;start<=rows+1;start+=batch){
+   const count=Math.min(batch,rows+2-start);
+   const a=canonical.getRange(start,1,count,width).getValues();
+   const b=legacy.getRange(start,1,count,width).getValues();
+   for(let i=0;i<count;i++)for(let j=0;j<width;j++){
+    if(!equalValue(a[i][j],b[i][j]))
+     throw new Error('Isi P2_SUBDIST_FACT berbeda dari P2_DASHBOARD_FACT pada baris '+(start+i)+', kolom '+(j+1)+'. Sheet tidak dihapus.');
+   }
+  }
+  ss.deleteSheet(legacy);
+  return {ok:true,removed:true,rowsCompared:rows,columnsCompared:width,
+    remainingCanonicalSheet:'P2_DASHBOARD_FACT'};
+ }finally{lock.releaseLock();}
+}
