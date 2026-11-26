@@ -209,7 +209,7 @@ function mantulV2BuildFinalize() {
 function mantulV2PublishStaging() {
   const lock=LockService.getScriptLock();lock.waitLock(30000);
   const ss=getDatabase_(),props=PropertiesService.getScriptProperties(),prefix=MANTUL_V2_BUILD_.PREFIX;
-  const renamed=[],created=[];
+  const renamed=[],created=[],published=[];
   try{
     const status=mantulV2BuildStatus();
     if(status.status!=='READY_FOR_REVIEW')throw new Error('Publish ditahan. Status build harus READY_FOR_REVIEW, terbaca '+status.status+'.');
@@ -241,7 +241,7 @@ function mantulV2PublishStaging() {
     temp.forEach(({spec,sheet})=>{
       const old=ss.getSheetByName(spec.target);
       if(old){const backup=(spec.target+'_V2_BAK_'+stamp).slice(0,99);old.setName(backup);renamed.push({target:spec.target,backup:backup});}
-      sheet.setName(spec.target);
+      sheet.setName(spec.target);published.push({target:spec.target,hadOld:!!old});
     });
     props.deleteProperty('MANTUL_V2_DATA_STALE');
     props.setProperties({
@@ -255,10 +255,13 @@ function mantulV2PublishStaging() {
       reconciliation:{raw:rawTotals,event:totals[0],p2:totals[1],p3:totals[2]}};
   }catch(err){
     // Restore every original live sheet if any rename in the publish sequence failed.
-    renamed.slice().reverse().forEach(x=>{
-      const current=ss.getSheetByName(x.target),backup=ss.getSheetByName(x.backup);
-      if(current&&backup){const failed=(x.target+'_V2_FAILED_'+Date.now()).slice(0,99);current.setName(failed);}
-      if(backup&&!ss.getSheetByName(x.target))backup.setName(x.target);
+    published.slice().reverse().forEach(x=>{
+      const current=ss.getSheetByName(x.target),backup=renamed.find(b=>b.target===x.target);
+      if(current){
+        if(backup){const failed=(x.target+'_V2_FAILED_'+Date.now()).slice(0,99);current.setName(failed);}
+        else ss.deleteSheet(current);
+      }
+      if(backup){const oldSheet=ss.getSheetByName(backup.backup);if(oldSheet&&!ss.getSheetByName(x.target))oldSheet.setName(x.target);}
     });
     created.forEach(name=>{const sh=ss.getSheetByName(name);if(sh)ss.deleteSheet(sh);});
     throw err;
