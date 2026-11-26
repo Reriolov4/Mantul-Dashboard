@@ -230,7 +230,7 @@ function mantulV2BuildFinalize() {
 function mantulV2PublishStaging() {
   const lock=LockService.getScriptLock();lock.waitLock(30000);
   const ss=getDatabase_(),props=PropertiesService.getScriptProperties(),prefix=MANTUL_V2_BUILD_.PREFIX;
-  const renamed=[],created=[],published=[];
+  const renamed=[],promoted=[];
   try{
     const status=mantulV2BuildStatus();
     if(status.status!=='READY_FOR_REVIEW')throw new Error('Publish ditahan. Status build harus READY_FOR_REVIEW, terbaca '+status.status+'.');
@@ -240,37 +240,43 @@ function mantulV2PublishStaging() {
       {stage:MANTUL_V2_BUILD_.P3_STAGE,target:'P3_OUTLET_MONTHLY',headers:MANTUL_V2_SCHEMA_.P3_OUTLET_MONTHLY,value:16,carton:17}
     ];
     const stamp=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyyMMdd_HHmmss');
-    const temp=[];
-    specs.forEach(spec=>{
+    const sources=specs.map(spec=>{
       const source=ss.getSheetByName(spec.stage);
       if(!source||source.getLastRow()<2)throw new Error('Stage '+spec.stage+' kosong.');
       const actual=source.getRange(1,1,1,spec.headers.length).getDisplayValues()[0].map(v=>String(v||'').trim().toUpperCase());
       if(!spec.headers.every((v,i)=>actual[i]===String(v).toUpperCase()))throw new Error('Header stage '+spec.stage+' tidak sesuai schema.');
-      const name=(spec.target+'_V2_TMP_'+stamp).slice(0,99),copy=ss.insertSheet(name);
-      created.push(name);
-      ensureSheetGrid_(copy,source.getLastRow(),spec.headers.length);
-      // Materialize evaluated QUERY results as values; do not retain formulas
-      // that point to partial staging sheets in the published database.
-      const totalRows=source.getLastRow();
-      for(let offset=0;offset<totalRows;offset+=MANTUL_V2_BUILD_.CHUNK_ROWS){
-        const n=Math.min(MANTUL_V2_BUILD_.CHUNK_ROWS,totalRows-offset);
-        const values=source.getRange(offset+1,1,n,spec.headers.length).getValues();
-        copy.getRange(offset+1,1,n,spec.headers.length).setValues(values);
-      }
-      copy.setFrozenRows(1);
-      temp.push({spec:spec,sheet:copy});
+      return {spec:spec,sheet:source,rows:source.getLastRow()};
     });
+
+    // Freeze staged QUERY outputs in place. This avoids creating full-size
+    // temporary copies that would exceed the spreadsheet's 20M-cell limit.
+    sources.forEach(({spec,sheet,rows})=>{
+      for(let offset=1;offset<rows;offset+=MANTUL_V2_BUILD_.CHUNK_ROWS){
+        const n=Math.min(MANTUL_V2_BUILD_.CHUNK_ROWS,rows-offset);
+        const values=sheet.getRange(offset+1,1,n,spec.headers.length).getValues();
+        sheet.getRange(offset+1,1,n,spec.headers.length).setValues(values);
+      }
+      sheet.setFrozenRows(1);
+    });
+
     const raw=ss.getSheetByName('RAW_DATA_SALES'),rawTotals=mantulV2SheetTotals_(raw,MANTUL_V2_SCHEMA_.RAW.length,13,8);
-    const totals=temp.map(x=>mantulV2SheetTotals_(x.sheet,x.spec.headers.length,x.spec.value,x.spec.carton));
+    const totals=sources.map(({spec,sheet})=>mantulV2SheetTotals_(sheet,spec.headers.length,spec.value,spec.carton));
     const close=(a,b)=>Math.abs(a-b)<=Math.max(.01,Math.abs(b)*1e-9);
     if(totals[0].rows!==status.eventRows||
        totals.some(t=>!close(t.value,rawTotals.value)||!close(t.carton,rawTotals.carton)))
       throw new Error('Validasi sebelum publish gagal. RAW='+JSON.stringify(rawTotals)+'; staged='+JSON.stringify(totals));
-    temp.forEach(({spec,sheet})=>{
+
+    // Promote the existing staging sheets directly; preserve old live sheets
+    // as timestamped backups. No additional full-size sheet grids are created.
+    sources.forEach(({spec,sheet})=>{
       const old=ss.getSheetByName(spec.target);
-      if(old){const backup=(spec.target+'_V2_BAK_'+stamp).slice(0,99);old.setName(backup);renamed.push({target:spec.target,backup:backup});}
-      published.push({target:spec.target,hadOld:!!old});
+      if(old){
+        const backup=(spec.target+'_V2_BAK_'+stamp).slice(0,99);
+        old.setName(backup);
+        renamed.push({target:spec.target,backup:backup});
+      }
       sheet.setName(spec.target);
+      promoted.push({target:spec.target,stage:spec.stage});
     });
     props.deleteProperty('MANTUL_V2_DATA_STALE');
     props.setProperties({
@@ -283,20 +289,19 @@ function mantulV2PublishStaging() {
       rows:{P2_EVENT_INDEX:totals[0].rows,P2_DASHBOARD_FACT:totals[1].rows,P3_OUTLET_MONTHLY:totals[2].rows},
       reconciliation:{raw:rawTotals,event:totals[0],p2:totals[1],p3:totals[2]}};
   }catch(err){
-    // Restore every original live sheet if any rename in the publish sequence failed.
-    published.slice().reverse().forEach(x=>{
-      const current=ss.getSheetByName(x.target),backup=renamed.find(b=>b.target===x.target);
-      if(current){
-        if(backup){const failed=(x.target+'_V2_FAILED_'+Date.now()).slice(0,99);current.setName(failed);}
-        else ss.deleteSheet(current);
-      }
-      if(backup){const oldSheet=ss.getSheetByName(backup.backup);if(oldSheet&&!ss.getSheetByName(x.target))oldSheet.setName(x.target);}
+    // Return promoted staging sheets to their original names, then restore
+    // every old live sheet from its backup. Never delete user data here.
+    promoted.slice().reverse().forEach(x=>{
+      const current=ss.getSheetByName(x.target);
+      if(current&&!ss.getSheetByName(x.stage))current.setName(x.stage);
     });
-    created.forEach(name=>{const sh=ss.getSheetByName(name);if(sh)ss.deleteSheet(sh);});
+    renamed.slice().reverse().forEach(x=>{
+      const backup=ss.getSheetByName(x.backup);
+      if(backup&&!ss.getSheetByName(x.target))backup.setName(x.target);
+    });
     throw err;
   }finally{lock.releaseLock();}
 }
-
 function mantulV2LastRawDataRow_(sheet) {
   if(!sheet)return 1;
   const last=sheet.getRange(sheet.getMaxRows(),1).getNextDataCell(SpreadsheetApp.Direction.UP).getRow();
