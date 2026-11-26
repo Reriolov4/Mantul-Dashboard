@@ -37,7 +37,7 @@ function analyticsRegisterExistingIndexes(){
   props.setProperty('MANTUL_P2_SUBDIST_RANGES',JSON.stringify({rowCount:n,ranges:ranges,builtAt:now}));
   return {ok:true,status:'COMPLETE',auditOnly:true,sheetsMutated:false,checks:checks,sourceRows:sourceCount,sooRows:sooRows,
    derived:{p2Rows:p2.getLastRow()-1,subdistRows:n,p3OutletRows:p3.getLastRow()-1},
-   totals:{sooValue:sooValue,sooCarton:sooCarton,salesmanValue:salesmanValue,salesmanCarton:salesmanCarton}};
+   totals:{sooValue:sooValue,sooCarton:sooCarton,outletMonthlyValue:c.value,outletMonthlyCarton:c.carton}};
  }finally{lock.releaseLock();}
 }
 function analyticsAuditDerivedIndexesReadOnly(){
