@@ -22,7 +22,7 @@ function page2NormalizeV2FactRow_(r) {
   return [
     r[0], page2Month_(r[1]), r[2], r[8], r[7], r[4], r[6],
     r[11], r[5], page2Key_(r[13]) || 'SALESMAN', r[4], r[9],
-    r[10], r[3], Number(r[14]) || 0
+    r[10], r[3], Number(r[14]) || 0, Number(r[16]) || 1
   ];
 }
 
@@ -243,13 +243,14 @@ function page2BuildMeta_(sourceRows) {
   const subbrands = new Set(), categories = new Set();
   const dateSet = new Set(), monthsByYear = {};
   const salesTypeCounts = {};
-  let sooRowCount = 0;
+  let sooRowCount = 0, sourceRowCount = 0;
 
   values.forEach(r => {
-    const type = page2Key_(r[7]);
-    if (type) salesTypeCounts[type] = (salesTypeCounts[type] || 0) + 1;
+    const type = page2Key_(r[7]), sourceCount = Number(r[15]) || 1;
+    sourceRowCount += sourceCount;
+    if (type) salesTypeCounts[type] = (salesTypeCounts[type] || 0) + sourceCount;
     if (type !== 'SOO') return;
-    sooRowCount++;
+    sooRowCount += sourceCount;
 
     const year = page2Text_(r[0]);
     const month = page2Month_(r[1]);
@@ -286,7 +287,7 @@ function page2BuildMeta_(sourceRows) {
     categories: sorted(categories),
     salesTypes: ['SOO'],
     distributors: ['ALL'],
-    sourceRowCount: values.length,
+    sourceRowCount: sourceRowCount,
     sooRowCount: sooRowCount,
     salesTypeCounts: salesTypeCounts,
     updatedAt: PropertiesService.getScriptProperties().getProperty('PAGE2_RAW_UPDATED') || 'Live dari Google Sheets'
