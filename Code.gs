@@ -103,8 +103,8 @@ function buildMantulReadIndex() {
     const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
     if (!raw || raw.getLastRow() < 2) throw new Error('RAW_DATA_SALES kosong atau tidak ditemukan.');
     validateRawDatabaseHeaders_(raw.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getDisplayValues()[0]);
-    if (raw.getLastColumn() !== RAW_SALES_COLUMN_COUNT) {
-      throw new Error('RAW_DATA_SALES harus tepat 25 kolom A:Y. Terbaca ' + raw.getLastColumn() + ' kolom.');
+    if (raw.getLastColumn() < RAW_SALES_COLUMN_COUNT) {
+      throw new Error('RAW_DATA_SALES minimal harus memiliki 25 kolom A:Y. Terbaca ' + raw.getLastColumn() + ' kolom. Kolom setelah Y diabaikan oleh read index.');
     }
 
     const rowCount = raw.getLastRow() - 1;
@@ -189,7 +189,7 @@ function refreshMantulReadIndexIncremental_() {
   try {
     const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
     if (!raw || raw.getLastRow() < 2) throw new Error('RAW_DATA_SALES kosong atau tidak ditemukan.');
-    if (raw.getLastColumn() !== RAW_SALES_COLUMN_COUNT) throw new Error('RAW_DATA_SALES harus tepat 25 kolom A:Y. Terbaca ' + raw.getLastColumn() + ' kolom.');
+    if (raw.getLastColumn() < RAW_SALES_COLUMN_COUNT) throw new Error('RAW_DATA_SALES minimal harus memiliki 25 kolom A:Y. Terbaca ' + raw.getLastColumn() + ' kolom. Kolom setelah Y diabaikan oleh read index.');
     validateRawDatabaseHeaders_(raw.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getDisplayValues()[0]);
 
     const index = ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
