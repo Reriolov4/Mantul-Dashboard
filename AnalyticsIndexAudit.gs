@@ -11,7 +11,7 @@ function analyticsRegisterExistingIndexes(){
   if(!src||src.getLastRow()<2)throw new Error('P2_EVENT_INDEX belum berisi data.');
   if(!p2||p2.getLastRow()<2||!sub||sub.getLastRow()<2||!p3||p3.getLastRow()<2)
    throw new Error('Derived sheet belum lengkap. Audit berhenti tanpa mengubah sheet.');
-  analyticsAssertHeaders_(src,P2_EVENT_HEADERS_);analyticsAssertHeaders_(p2,P2_DASHBOARD_HEADERS_);
+  analyticsAssertHeaders_(src,P2_EVENT_HEADERS_);if(typeof P2_EVENT_INDEX_HEADERS_!=='undefined')analyticsAssertHeaders_(src,P2_EVENT_INDEX_HEADERS_);analyticsAssertHeaders_(p2,P2_DASHBOARD_HEADERS_);
   analyticsAssertHeaders_(sub,P2_DASHBOARD_HEADERS_);analyticsAssertHeaders_(p3,P3_OUTLET_HEADERS_);
   const sourceCount=src.getLastRow()-1,meta=src.getRange(2,12,sourceCount,3).getValues(),vals=src.getRange(2,15,sourceCount,2).getValues();
   let sooRows=0,sooValue=0,sooCarton=0;const salesTypeCounts={},teamCounts={};
