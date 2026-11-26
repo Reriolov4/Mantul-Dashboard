@@ -23,7 +23,7 @@ Production deployment: existing Apps Script Web App deployment ID / URL (via Git
 - Customer Name search, year/month selection, Subdist, Subbrand, Value/Karton toggle.
 - Monthly trend table by Customer Name + Subdist, with selected months, total, and pagination.
 - No Target, ACH, TRG BE, or %BE columns.
-- When a single Subdist is selected and the audited range index is available, it reads only that Subdist's block from `P2_SUBDIST_FACT`.
+- Page 3 reads the 18-column `P2_EVENT_INDEX` directly so SOO and SO can be separated with their respective SUBDIST source columns.
 
 ### Page 4 — SKU KCH
 - Dedicated `Page4Service.gs`, `Page4.html`, and `Page4Scripts.html`.
