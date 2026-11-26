@@ -12,37 +12,49 @@ function page4ReadSelectedColumns_(sheet,headerMap){
  groups.forEach(g=>{g.values=sheet.getRange(2,g.start+1,n,g.end-g.start+1).getValues();});
  const result={};keys.forEach(key=>{const col=headerMap[key],g=groups.find(x=>col>=x.start&&col<=x.end);result[key]=g.values.map(row=>row[col-g.start]);});return {rows:n,columns:result};
 }
-function page4ReadSource_(){
- if(PropertiesService.getScriptProperties().getProperty('MANTUL_V2_DATA_STALE')==='TRUE')throw new Error('Database V2 belum diperbarui setelah import. Selesaikan build, finalize, dan publish terlebih dahulu.');
- const ss=getDatabase_(),p3=ss.getSheetByName('P3_OUTLET_MONTHLY'),event=ss.getSheetByName('P2_EVENT_INDEX'),sku=ss.getSheetByName('SKU');
- if(!sku||sku.getLastRow()<2)throw new Error('Sheet SKU belum tersedia.');
- const p3Headers=['YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','SUB_DIST','SALES_TYPE','PIC','BRAND','SUBBRAND','CATEGORY','SBU','ITEM_CODE','SKU','VAL','CARTON','SOURCE_ROWS'];
- let source=null,em=null,sourceName='';
- if(p3&&p3.getLastRow()>1&&p3.getLastColumn()>=18){
-  const actual=p3.getRange(1,1,1,18).getDisplayValues()[0].map(page2HeaderKey_);
-  if(p3Headers.every((v,i)=>page2HeaderKey_(v)===actual[i])){
-   source=p3;sourceName='P3_OUTLET_MONTHLY';
-   em={year:0,month:1,customer:4,subdist:5,brand:9,subbrand:10,category:11,sbu:12,salesType:7,value:15,carton:16,sku:14,sourceRows:17};
+function page4ReadSource_() {
+  const ss = getDatabase_();
+  const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  const sku = ss.getSheetByName(SKU_SHEET_NAME);
+  if (!raw || raw.getLastRow() < 2) {
+    throw new Error('RAW_DATA_SALES tidak ditemukan atau belum berisi transaksi.');
   }
- }
- // Compatibility before the first V2 publish: keep the currently working
- // Page 4 source until the canonical P3 table has been published.
- if(!source){
-  if(!event||event.getLastRow()<2)throw new Error('P3_OUTLET_MONTHLY V2 dan P2_EVENT_INDEX legacy belum tersedia.');
-  const eh=event.getRange(1,1,1,18).getDisplayValues()[0].map(page2HeaderKey_);
-  const oldHeaders=['YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES_TYPE','SALESMAN','TEAM','VAL','CARTON','SKU','SUB_DIST'];
-  if(!oldHeaders.every((v,i)=>page2HeaderKey_(v)===eh[i]))throw new Error('Header P2_EVENT_INDEX legacy tidak sesuai: '+eh.join(' | '));
-  source=event;sourceName='P2_EVENT_INDEX';
-  em={year:0,month:1,customer:4,subdist:5,brand:7,subbrand:8,category:9,sbu:10,salesType:11,value:14,carton:15,sku:16};
- }
- const eventData=page4ReadSelectedColumns_(source,em);
- if(!Object.prototype.hasOwnProperty.call(eventData.columns,'sourceRows'))
-  eventData.columns.sourceRows=Array(eventData.rows).fill(1);
- const mh=sku.getRange(1,1,1,sku.getLastColumn()).getDisplayValues()[0].map(v=>String(v||'').trim());
- const mm={sku:page4HeaderIndex_(mh,['PRODUCT_DESC','PRODUCT DESC'],'SKU master PRODUCT_DESC'),subbrand:page4HeaderIndex_(mh,['SUB_BRAND','SUB BRAND','SUBBRAND'],'SKU master SUB_BRAND'),
-  brand:page4HeaderIndex_(mh,['BRAND'],'SKU master BRAND'),category:page4HeaderIndex_(mh,['CATEGORY'],'SKU master CATEGORY'),entity:page4HeaderIndex_(mh,['ENTITAS','ENTITY'],'SKU master ENTITAS')};
- const masterData=page4ReadSelectedColumns_(sku,mm);
- return {sourceRows:eventData.rows,columns:eventData.columns,master:masterData.columns,masterRows:masterData.rows,sourceName:sourceName};
+  if (!sku || sku.getLastRow() < 2) {
+    throw new Error('Sheet SKU belum tersedia atau belum berisi master produk.');
+  }
+
+  const actual = raw.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT)
+    .getDisplayValues()[0].map(page2HeaderKey_);
+  const expected = RAW_SALES_HEADERS.map(page2HeaderKey_);
+  if (!expected.every((value, index) => actual[index] === value)) {
+    throw new Error('Header RAW_DATA_SALES tidak sesuai. Terbaca: ' + actual.join(' | '));
+  }
+
+  // Semua kolom transaksi diambil langsung dari schema RAW_DATA_SALES A:Y.
+  const rawColumns = {
+    year:0, month:1, customer:10, subdist:8, brand:6, subbrand:5,
+    category:19, sbu:21, salesType:14, value:12, carton:7, sku:24
+  };
+  const eventData = page4ReadSelectedColumns_(raw, rawColumns);
+  eventData.columns.sourceRows = Array(eventData.rows).fill(1);
+
+  const mh = sku.getRange(1, 1, 1, sku.getLastColumn())
+    .getDisplayValues()[0].map(v => String(v || '').trim());
+  const mm = {
+    sku:page4HeaderIndex_(mh,['PRODUCT_DESC','PRODUCT DESC'],'SKU master PRODUCT_DESC'),
+    subbrand:page4HeaderIndex_(mh,['SUB_BRAND','SUB BRAND','SUBBRAND'],'SKU master SUB_BRAND'),
+    brand:page4HeaderIndex_(mh,['BRAND'],'SKU master BRAND'),
+    category:page4HeaderIndex_(mh,['CATEGORY'],'SKU master CATEGORY'),
+    entity:page4HeaderIndex_(mh,['ENTITAS','ENTITY'],'SKU master ENTITAS')
+  };
+  const masterData = page4ReadSelectedColumns_(sku, mm);
+  return {
+    sourceRows:eventData.rows,
+    columns:eventData.columns,
+    master:masterData.columns,
+    masterRows:masterData.rows,
+    sourceName:'RAW_DATA_SALES'
+  };
 }
 function page4BuildMeta_(src){
  const years=new Set(),monthsByYear={},skuAttrs=new Map(),customers=new Set();let sooRows=0,soModeRows=0,sourceRows=0;const c=src.columns;
