@@ -27,16 +27,16 @@ function page4ReadSource_(){
  const masterData=page4ReadSelectedColumns_(sku,mm);return {sourceRows:eventData.rows,columns:eventData.columns,master:masterData.columns,masterRows:masterData.rows};
 }
 function page4BuildMeta_(src){
- const years=new Set(),monthsByYear={},skuAttrs=new Map(),customers=new Set();let sooRows=0,soModeRows=0;const c=src.columns;
+ const years=new Set(),monthsByYear={},skuAttrs=new Map(),customers=new Set();let sooRows=0,soModeRows=0,sourceRows=0;const c=src.columns;
  const add=(map,key,field,value)=>{if(!key||value==null||String(value).trim()==='')return;let obj=map.get(key);if(!obj){obj={subbrand:new Set(),brand:new Set(),category:new Set(),entity:new Set()};map.set(key,obj);}obj[field].add(String(value).trim());};
- for(let i=0;i<src.sourceRows;i++){const type=page2Key_(c.salesType[i]);if(type!=='SOO')continue;sooRows++;
+ for(let i=0;i<src.sourceRows;i++){const type=page2Key_(c.salesType[i]),sourceCount=Number(c.sourceRows[i])||1;sourceRows+=sourceCount;soModeRows+=sourceCount;if(type!=='SOO')continue;sooRows+=sourceCount;
   const y=String(Number(c.year[i])||c.year[i]||'').trim(),m=page2Month_(c.month[i]),name=page2Text_(c.sku[i]);if(page2Text_(c.customer[i]))customers.add(page2Text_(c.customer[i]));if(y)years.add(y);if(y&&m){if(!monthsByYear[y])monthsByYear[y]=new Set();monthsByYear[y].add(m);}
   add(skuAttrs,name,'subbrand',c.subbrand[i]);add(skuAttrs,name,'brand',c.brand[i]);add(skuAttrs,name,'category',c.category[i]);add(skuAttrs,name,'entity',c.sbu[i]);
  }
  const masterMap=new Map();for(let i=0;i<src.masterRows;i++){const name=page2Text_(src.master.sku[i]);if(!name)continue;let x=masterMap.get(name);if(!x){x={subbrand:new Set(),brand:new Set(),category:new Set(),entity:new Set()};masterMap.set(name,x);}['subbrand','brand','category','entity'].forEach(k=>{const v=src.master[k][i];if(v!=null&&String(v).trim())x[k].add(String(v).trim());});}
  const choose=(set,fallback)=>set&&set.size===1?Array.from(set)[0]:set&&set.size>1?'MULTI':fallback||'',names=new Set([...masterMap.keys(),...skuAttrs.keys()]);
  const skuMaster=Array.from(names).map(name=>{const raw=skuAttrs.get(name)||{},master=masterMap.get(name)||{};return {sku:name,subbrand:choose(raw.subbrand,choose(master.subbrand,'')),brand:choose(raw.brand,choose(master.brand,'')),category:choose(raw.category,choose(master.category,'')),entity:choose(raw.entity,choose(master.entity,''))};}).sort((a,b)=>a.sku.localeCompare(b.sku,'id'));
- return {years:Array.from(years).sort((a,b)=>Number(a)-Number(b)),monthsByYear:Object.fromEntries(Object.keys(monthsByYear).map(y=>[y,PAGE4_MONTHS_.filter(m=>monthsByYear[y].has(m))])),subdists:PAGE34_ENTITIES_.slice(),customers:Array.from(customers).sort((a,b)=>a.localeCompare(b,'id')),skuMaster:skuMaster,skuMasterCount:skuMaster.length,sourceRows:src.sourceRows,sooRows:sooRows};
+ return {years:Array.from(years).sort((a,b)=>Number(a)-Number(b)),monthsByYear:Object.fromEntries(Object.keys(monthsByYear).map(y=>[y,PAGE4_MONTHS_.filter(m=>monthsByYear[y].has(m))])),subdists:PAGE34_ENTITIES_.slice(),customers:Array.from(customers).sort((a,b)=>a.localeCompare(b,'id')),skuMaster:skuMaster,skuMasterCount:skuMaster.length,sourceRows:sourceRows,sooRows:sooRows,soModeRows:soModeRows};
 }
 function page4BuildData_(src,meta,filters){
  filters=filters||{};const mode='SOO',year=Number(meta.years.slice(-1)[0])||new Date().getFullYear(),monthsUsed=meta.monthsByYear[String(year)]||[],monthSet=new Set(monthsUsed),selected=new Set(page2FilterList_(filters.subdists).map(page2Key_)),customers=new Set(page2FilterList_(filters.customers).map(page2Key_));
