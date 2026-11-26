@@ -24,7 +24,7 @@ function analyticsRegisterExistingIndexes(){
   const checks={p2SourceRows:a.sourceRows===sooRows,p2ValueMatches:close(a.value,sooValue,.01),p2CartonMatches:close(a.carton,sooCarton,.0001),
    subdistRowCountMatches:sub.getLastRow()===p2.getLastRow(),subdistValueMatches:close(b.value,a.value,.01),
    subdistCartonMatches:close(b.carton,a.carton,.0001),subdistSourceRowsMatches:b.sourceRows===a.sourceRows,
-   outletMonthlyValueMatches:close(c.value,salesmanValue,.01),outletMonthlyCartonMatches:close(c.carton,salesmanCarton,.0001)};
+   outletMonthlyValueMatches:close(c.value,sooValue,.01),outletMonthlyCartonMatches:close(c.carton,sooCarton,.0001)};
   const failed=Object.keys(checks).filter(k=>!checks[k]);if(failed.length)throw new Error('Audit derived index gagal: '+failed.join(', ')+'. Tidak ada sheet yang diubah.');
   const n=sub.getLastRow()-1,values=sub.getRange(2,6,n,1).getDisplayValues(),ranges={};let current='',start=2,count=0,previous='';
   values.forEach((r,i)=>{const key=page2Key_(r[0]),row=i+2;if(previous&&key<previous)throw new Error('P2_SUBDIST_FACT tidak terurut berdasarkan SUBDIST.');previous=key;
