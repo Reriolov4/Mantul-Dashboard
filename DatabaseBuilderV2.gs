@@ -107,6 +107,7 @@ function mantulV2BuildContinue() {
     props.setProperties({
       [p+'NEXT_ROW']:String(next),
       [p+'EVENT_ROWS']:String(eventWritten),
+      [p+'NONEMPTY_ROWS']:String(Number(props.getProperty(p+'NONEMPTY_ROWS')||0)+eventRows.length),
       [p+'P3_ROWS']:String(p3Written),
       [p+'PARTIAL_ROWS']:String(partialWritten),
       [p+'PHASE']:next>total?'PARTIALS_WRITTEN':'EVENTS'
