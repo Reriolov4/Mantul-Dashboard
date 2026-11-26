@@ -413,8 +413,8 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const trendMonthSet = new Set(trendMonths);
   const trendCY = {ao:new Set(),ec:new Set(),value:0};
   const trendLY = {ao:new Set(),ec:new Set(),value:0};
-  // Identitas outlet mengikuti definisi bisnis: DISTRIBUTOR + CUSTOMER NAME.
-  // Nama dipertahankan apa adanya; kode customer tidak menjadi kunci AO/EC.
+  // Identitas outlet mengikuti definisi bisnis terakhir: SUBDIST + CUSTOMER_CODE valid.
+  // EC menambahkan tanggal kalender lengkap; baris tanpa tanggal tidak dihitung sebagai EC.
   const validCustomerCode_ = value => { const code=page2Key_(value); return !!code && code!=='OTHERSB' && code!=='#VALUE!' && code!=='0'; };
   // EC = DISTRIBUTOR + CUSTOMER NAME + tanggal kalender lengkap (YYYY-MM-DD).
   // Tahun dan bulan ikut tercakup dalam dateKey, sehingga tanggal yang sama
@@ -506,12 +506,12 @@ function page2BuildDashboardData_(filters, sourceRows) {
 
     // Simpan hanya bulan YTD sampai bulan aktif agar insight harian bisa
     // menghitung MTD, LM, L3M, dan YTD tanpa memuat seluruh histori.
-    if (trendMonthSet.has(month) && outletKey && (!hasDateFilter || selectedDates.has(dayKey))) {
+    if (trendMonthSet.has(month) && outletKey && dayKey && (!hasDateFilter || selectedDates.has(dayKey))) {
       const dailyKey = month + '|' + dayKey;
       const dailyYear = isCY ? dailyMap.cy : dailyMap.ly;
       if (!dailyYear[dailyKey]) dailyYear[dailyKey] = {ao:new Set(),ec:new Set(),value:0};
       dailyYear[dailyKey].ao.add(outletKey);
-      dailyYear[dailyKey].ec.add(ecKey);
+      if (ecKey) dailyYear[dailyKey].ec.add(ecKey);
       dailyYear[dailyKey].value += value;
     }
     if (!periodMonthSet.has(month)) return;

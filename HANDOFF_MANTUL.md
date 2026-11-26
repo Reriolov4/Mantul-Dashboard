@@ -35,6 +35,10 @@ PR: https://github.com/Reriolov4/Mantul-Dashboard/pull/1
 - Workflow GitHub diubah menjadi hanya `clasp push --force`. Ia tidak lagi menjalankan `clasp deploy`; pengelolaan versi/deployment Web App dilakukan pemilik Apps Script.
 - Workflow tetap memerlukan GitHub Secrets `CLASP_CREDENTIALS` dan `SCRIPT_ID`. Jika keduanya valid, push ke branch aktif mengunggah source ke Apps Script. Keberhasilan harus diverifikasi pada Actions run terbaru dan project Apps Script yang benar.
 
+
+- Koreksi pasca-audit Page 2: daily AO/EC kini hanya membuat bucket saat tanggal valid dan hanya menambahkan EC key yang tidak kosong. Ini mencegah tanggal kosong dihitung sebagai satu EC pada agregasi harian.
+- Verifikasi GitHub Actions commit `8eeed68b6b5eb2f256196d8733876e87bd432bd5`: run `45848042791` selesai `success`, termasuk step `Push source to Apps Script`. Workflow hanya `clasp push --force`, bukan `clasp deploy`. Pastikan secret `SCRIPT_ID` menunjuk project `MANTUL DASHBOARD V2`; workflow membangkitkan `.clasp.json` dari secret itu.
+
 ## Yang belum dikerjakan / langkah berikut
 1. Jalankan `buildPage2OutletFact()` sekali dari Apps Script setelah source push dan `P2_EVENT_INDEX` siap; periksa log hasil `sourceRows`, `factRows`, `compressedRows`, `sourceValue`, `factValue`. Builder Page 2 saat ini satu kali jalan dan belum resumable; jika melewati batas runtime, pecah menjadi chunk/resumable sebelum pemakaian rutin.
 2. Bandingkan AO/EC Page 2 dengan angka kontrol pengguna, terutama Jan–Mar AO (1121/1065/1050), AO total 3566, dan EC total valid customer code yang sebelumnya dibahas. Jangan lanjutkan optimasi KPI sebelum angka cocok. Jangan port builder dari `rebuild/database-v2` secara mentah: implementasi cabang tersebut mengasumsikan 27 kolom dan pemetaan kolom yang berbeda.
