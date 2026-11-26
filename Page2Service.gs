@@ -9,22 +9,6 @@
  */
 const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
-const PAGE2_V2_FACT_HEADERS_ = ['YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES_TYPE','SALESMAN','TEAM','VAL','CARTON','SOURCE_ROWS'];
-
-function page2IsV2Fact_(sheet) {
-  if (!sheet || sheet.getName() !== 'P2_DASHBOARD_FACT' || sheet.getLastColumn() < 17) return false;
-  const h = sheet.getRange(1,1,1,17).getDisplayValues()[0].map(page2HeaderKey_);
-  return PAGE2_V2_FACT_HEADERS_.every((v,i) => h[i] === page2HeaderKey_(v));
-}
-
-function page2NormalizeV2FactRow_(r) {
-  return [
-    r[0], page2Month_(r[1]), r[2], r[8], r[7], r[4], r[6],
-    r[11], r[5], page2Key_(r[13]) || 'SALESMAN', r[4], r[9],
-    r[10], r[3], Number(r[14]) || 0, Number(r[16]) || 1
-  ];
-}
-
 function page2Source_() {
   const ss = getDatabase_();
   const sh = ss.getSheetByName(RAW_DATA_SHEET_NAME);
@@ -88,41 +72,13 @@ function page2FindHeader_(headers, aliases, fieldName) {
  */
 function page2Read_(sheet) {
   const sh = sheet || page2Source_();
+  if (sh.getName() !== RAW_DATA_SHEET_NAME) {
+    throw new Error('Page 2 hanya boleh membaca RAW_DATA_SALES secara langsung.');
+  }
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
 
-  // Canonical V2 aggregate fact: YEAR..SOURCE_ROWS (17 columns).
-  // Convert it into the stable internal Page 2 row contract.
-  if (page2IsV2Fact_(sh)) {
-    const values = sh.getRange(2,1,lastRow-1,17).getValues();
-    return values.map(page2NormalizeV2FactRow_);
-  }
-
-  // Legacy analytics index: retain compatibility during migration.
-  if (!page2IsV2Fact_(sh) && (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT')) {
-    const expectedHeaders = [
-      'YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC',
-      'BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'
-    ];
-    const actualHeaders = sh.getRange(1, 1, 1, 16).getValues()[0].map(page2HeaderKey_);
-    if (actualHeaders.length !== expectedHeaders.length ||
-        !actualHeaders.every((header, index) => header === expectedHeaders[index])) {
-      throw new Error(
-        'Header P2_EVENT_INDEX tidak sesuai. Diperlukan: ' +
-        expectedHeaders.join(', ') + '. Terbaca: ' + actualHeaders.join(', ')
-      );
-    }
-    // Page 2 only consumes A:O. Column P (CARTON) is reserved for Page 3.
-    const values = sh.getRange(2, 1, lastRow - 1, 15).getValues();
-    return values.map(r => [
-      r[0], page2Month_(r[1]), r[2], r[8], r[7], r[4], r[6],
-      r[11], r[5], page2Key_(r[13]) || 'SALESMAN', r[4], r[9],
-      r[10], r[3], Number(r[14]) || 0
-    ]);
-  }
-
-  // Header RAW final hanya A:Z; kolom helper di luar Z tidak dibaca.
-  const headers = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getValues()[0];
+  const headers = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getDisplayValues()[0];
   const fields = {
     year: page2FindHeader_(headers, ['TAHUN','YEAR'], 'TAHUN'),
     month: page2FindHeader_(headers, ['BULAN','MONTH'], 'BULAN'),
@@ -135,13 +91,11 @@ function page2Read_(sheet) {
     category: page2FindHeader_(headers, ['CATEGORY','KATEGORI'], 'CATEGORY'),
     salesType: page2FindHeader_(headers, ['JENIS SALES','SALES TYPE'], 'JENIS SALES'),
     pic: page2FindHeader_(headers, ['PIC'], 'PIC'),
-    tim: page2FindHeader_(headers, ['TIM','TEAM'], 'TIM'),
+    team: page2FindHeader_(headers, ['TIM','TEAM'], 'TEAM'),
     sbu: page2FindHeader_(headers, ['SBU'], 'SBU'),
     value: page2FindHeader_(headers, ['VAL','VALUE'], 'VAL')
   };
 
-  // Empat batch berurutan menggantikan banyak getRange kecil:
-  // A:C, F:G, I:K, M:M, O:V. Rentang mengikuti urutan RAW final 26 kolom.
   const rowCount = lastRow - 1;
   const blocks = [
     {start:0,end:2,values:sh.getRange(2,1,rowCount,3).getValues()},
@@ -150,38 +104,35 @@ function page2Read_(sheet) {
     {start:12,end:12,values:sh.getRange(2,13,rowCount,1).getValues()},
     {start:14,end:21,values:sh.getRange(2,15,rowCount,8).getValues()}
   ];
-  // Bangun lookup kolom satu kali. Hindari Array.find() untuk setiap sel
-  // pada 132 ribu baris (lebih dari 1,8 juta pencarian blok).
-  const columnReaders = {};
+  const readers = {};
   blocks.forEach(block => {
     for (let col = block.start; col <= block.end; col++) {
-      columnReaders[col] = {values:block.values, offset:col - block.start};
+      readers[col] = {values:block.values, offset:col-block.start};
     }
   });
   const read = (rowIndex,colIndex) => {
-    const column = columnReaders[colIndex];
-    return column ? column.values[rowIndex][column.offset] : '';
+    const source = readers[colIndex];
+    return source ? source.values[rowIndex][source.offset] : '';
   };
 
   const rows = new Array(rowCount);
-  for (let i = 0; i < rowCount; i++) {
-    const rawTim = page2Key_(read(i, fields.tim));
+  for (let i=0; i<rowCount; i++) {
     rows[i] = [
-      read(i, fields.year),                         // 0 year
-      page2Month_(read(i, fields.month)),            // 1 month
-      read(i, fields.day),                          // 2 day
-      read(i, fields.subbrand),                     // 3 subbrand
-      read(i, fields.brand),                        // 4 brand
-      read(i, fields.customer),                     // 5 display customer name
-      read(i, fields.pic),                          // 6 PIC
-      read(i, fields.salesType),                    // 7 SO / SOO
-      read(i, fields.subdist),                      // 8 distributor / subdist
-      rawTim || 'SALESMAN',                         // 9 team classification
-      read(i, fields.customer),                     // 10 Nama Akun
-      read(i, fields.category),                     // 11 category
-      read(i, fields.sbu),                          // 12 SBU
-      read(i, fields.customerCode),                 // 13 stable outlet identity
-      Number(read(i, fields.value)) || 0            // 14 VAL
+      read(i,fields.year),
+      page2Month_(read(i,fields.month)),
+      read(i,fields.day),
+      read(i,fields.subbrand),
+      read(i,fields.brand),
+      read(i,fields.customer),
+      read(i,fields.pic),
+      read(i,fields.salesType),
+      read(i,fields.subdist),
+      page2Key_(read(i,fields.team)) || 'SALESMAN',
+      read(i,fields.customer),
+      read(i,fields.category),
+      read(i,fields.sbu),
+      read(i,fields.customerCode),
+      Number(read(i,fields.value)) || 0
     ];
   }
   return rows;
@@ -690,68 +641,9 @@ function page2NormalizeFilteredValues_(values,safe){
 }
 
 function page2ReadFiltered_(sheet, filters) {
-  const sh=sheet||page2Source_(),safe=filters||{};
-  if (page2IsV2Fact_(sh)) {
-    const last=sh.getLastRow();
-    if(last<=1)return [];
-    const values=sh.getRange(2,1,last-1,17).getValues();
-    const year=Number(safe.year)||0, pics=new Set(page2FilterList_(safe.pics)),
-      subdists=new Set(page2FilterList_(safe.subdists)), brands=new Set(page2FilterList_(safe.brands)),
-      subbrands=new Set(page2FilterList_(safe.subbrands)), categories=new Set(page2FilterList_(safe.categories));
-    const rows=[];
-    for(let i=0;i<values.length;i++){
-      const r=values[i], y=Number(r[0]);
-      if(year&&y!==year&&y!==year-1)continue;
-      if(page2Key_(r[11])!=='SOO')continue;
-      if(pics.size&&!pics.has(page2Key_(r[6])))continue;
-      if(subdists.size&&!subdists.has(page2Key_(r[5])))continue;
-      if(brands.size&&!brands.has(page2Key_(r[7])))continue;
-      if(subbrands.size&&!subbrands.has(page2Key_(r[8])))continue;
-      if(categories.size&&!categories.has(page2Key_(r[9])))continue;
-      rows.push(page2NormalizeV2FactRow_(r));
-    }
-    return rows;
-  }
-  // P2_EVENT_INDEX is already normalized and contains SOO only. Apply the
-  // dimension filters before materializing rows for the dashboard aggregation.
-  // selected dimensions while rows are being decoded, so the expensive KPI
-  // aggregation only receives rows that can appear in the current view.
-  if(sh.getName()!=='P2_EVENT_INDEX'&&sh.getName()!=='P2_DASHBOARD_FACT')return page2Read_(sh);
-  const lastRow=sh.getLastRow();if(lastRow<=1)return [];
-  const expected=['YEAR','MONTH','DD','CUSTOMER CODE','CUSTOMER NAME','SUBDIST','PIC','BRAND','SUBBRAND','CATEGORY','SBU','SALES TYPE','SALESMAN','TEAM','VAL','CARTON'];
-  const actual=sh.getRange(1,1,1,16).getValues()[0].map(page2HeaderKey_);
-  if(!actual.every((v,i)=>v===expected[i]))throw new Error('Header P2_EVENT_INDEX tidak sesuai. Terbaca: '+actual.join(', '));
-  const pics=new Set(page2FilterList_(safe.pics)),subdists=new Set(page2FilterList_(safe.subdists)),
-    brands=new Set(page2FilterList_(safe.brands)),subbrands=new Set(page2FilterList_(safe.subbrands)),
-    categories=new Set(page2FilterList_(safe.categories));
-  if(subdists.size && sh.getName()==='P2_DASHBOARD_FACT'){
-    const indexed=page2ReadSubdistBlocks_(sh,subdists);
-    if(indexed && indexed.ready){
-      if(!indexed.ranges.length)return [];
-      const selectedRows=[];
-      indexed.ranges.forEach(block=>{
-        const part=indexed.sheet.getRange(block.startRow,1,block.numRows,15).getValues();
-        for(let i=0;i<part.length;i++)selectedRows.push(part[i]);
-      });
-      return page2NormalizeFilteredValues_(selectedRows,safe);
-    }
-  }
-  const values=sh.getRange(2,1,lastRow-1,15).getValues(),rows=[];
-  const analysisYear=Number(safe.year)||0, comparisonYear=analysisYear?analysisYear-1:0;
-  for(let i=0;i<values.length;i++){
-    const r=values[i];
-    const rowYear=Number(r[0]);
-    if(analysisYear && rowYear!==analysisYear && rowYear!==comparisonYear)continue;
-    if(page2Key_(r[11])!=='SOO')continue;
-    if(pics.size&&!pics.has(page2Key_(r[6])))continue;
-    if(subdists.size&&!subdists.has(page2Key_(r[5])))continue;
-    if(brands.size&&!brands.has(page2Key_(r[7])))continue;
-    if(subbrands.size&&!subbrands.has(page2Key_(r[8])))continue;
-    if(categories.size&&!categories.has(page2Key_(r[9])))continue;
-    rows.push([r[0],page2Month_(r[1]),r[2],r[8],r[7],r[4],r[6],r[11],r[5],
-      page2Key_(r[13])||'SALESMAN',r[4],r[9],r[10],r[3],Number(r[14])||0]);
-  }
-  return rows;
+  // Seluruh pemilahan dimensi/tahun dilakukan konsisten oleh agregator Page 2.
+  // Sumber transaksi tunggalnya selalu RAW_DATA_SALES.
+  return page2Read_(sheet || page2Source_());
 }
 
 function getPage2DashboardData(filters) {
@@ -852,10 +744,6 @@ function getPage2InitialPayload() {
   const metaStarted = Date.now();
   const meta = page2BuildMeta_(sourceRows);
   page2ApplySourceStats_(meta);
-  if (!page2IsV2Fact_(sh) && (sh.getName() === 'P2_EVENT_INDEX' || sh.getName() === 'P2_DASHBOARD_FACT')) {
-    const raw = getDatabase_().getSheetByName(RAW_DATA_SHEET_NAME);
-    meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
-  }
   const metaMs = Date.now() - metaStarted;
   const years = meta.years || [];
   const year = Number(years.indexOf('2026') >= 0 ? '2026' : years[years.length - 1]) || new Date().getFullYear();
