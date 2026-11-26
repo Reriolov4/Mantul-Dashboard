@@ -17,13 +17,31 @@ function page34ReadEventIndex_() {
   }
 
   const rowCount = sh.getLastRow() - 1;
-  const values = sh.getRange(2, 1, rowCount, RAW_SALES_COLUMN_COUNT).getValues();
-  // Kontrak internal Page 3: 19 kolom dengan posisi yang sama seperti
-  // event index lama; kolom terakhir adalah jumlah baris sumber (1 per transaksi).
-  const rows = values.map(r => [
-    r[0], r[1], r[2], r[9], r[10], r[8], r[16], r[6], r[5],
-    r[19], r[21], r[14], r[18], r[17], r[12], r[7], r[24], r[15], 1
-  ]);
+  // Baca hanya 20 kolom yang dipakai Page 3, bukan seluruh 25 kolom mentah.
+  const blocks = [
+    {start:0,end:2,values:sh.getRange(2,1,rowCount,3).getValues()},
+    {start:5,end:10,values:sh.getRange(2,6,rowCount,6).getValues()},
+    {start:12,end:21,values:sh.getRange(2,13,rowCount,10).getValues()},
+    {start:24,end:24,values:sh.getRange(2,25,rowCount,1).getValues()}
+  ];
+  const readers = {};
+  blocks.forEach(block => {
+    for (let col=block.start; col<=block.end; col++) {
+      readers[col] = {values:block.values,offset:col-block.start};
+    }
+  });
+  const read = (i,col) => {
+    const source=readers[col];
+    return source ? source.values[i][source.offset] : '';
+  };
+  const rows = new Array(rowCount);
+  for (let i=0; i<rowCount; i++) {
+    rows[i] = [
+      read(i,0),read(i,1),read(i,2),read(i,9),read(i,10),read(i,8),
+      read(i,16),read(i,6),read(i,5),read(i,19),read(i,21),read(i,14),
+      read(i,18),read(i,17),read(i,12),read(i,7),read(i,24),read(i,15),1
+    ];
+  }
   return {sheet:sh, rows:rows, source:'RAW_DATA_SALES'};
 }
 function page34Mode_(v){return String(v||'SOO').trim().toUpperCase()==='SO'?'SO':'SOO';}
