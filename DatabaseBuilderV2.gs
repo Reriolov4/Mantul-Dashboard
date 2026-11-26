@@ -168,7 +168,7 @@ function mantulV2BuildFinalize() {
     const p3partial=ss.getSheetByName(MANTUL_V2_BUILD_.P3_PARTIAL_STAGE);
     const p2=ss.getSheetByName(MANTUL_V2_BUILD_.P2_STAGE);
     const p3=ss.getSheetByName(MANTUL_V2_BUILD_.P3_STAGE);
-    if(event.getLastRow()-1!==status.sourceRows) throw new Error('Jumlah event staging tidak sama dengan jumlah baris sumber.');
+    if(event.getLastRow()-1!==status.eventRows) throw new Error('Jumlah event staging tidak sama dengan jumlah baris sumber non-kosong yang diproses.');
     p2.clearContents(); p3.clearContents();
     const q2="=QUERY('"+MANTUL_V2_BUILD_.PARTIAL_STAGE+"'!A:Q,\"select A,B,C,D,E,F,G,H,I,J,K,L,M,N,sum(O),sum(P),sum(Q) where A is not null group by A,B,C,D,E,F,G,H,I,J,K,L,M,N\",1)";
     const q3="=QUERY('"+MANTUL_V2_BUILD_.P3_PARTIAL_STAGE+"'!A:R,\"select A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,sum(P),sum(Q),sum(R) where A is not null group by A,B,C,D,E,F,G,H,I,J,K,L,M,N,O\",1)";
@@ -182,7 +182,7 @@ function mantulV2BuildFinalize() {
     const raw=ss.getSheetByName('RAW_DATA_SALES');
     const rawTotals=mantulV2SheetTotals_(raw,27,12,7);
     const close=(a,b)=>Math.abs(a-b)<=Math.max(0.01,Math.abs(b)*1e-9);
-    if(event.getLastRow()-1!==status.sourceRows ||
+    if(event.getLastRow()-1!==status.eventRows ||
        !close(eventTotals.value,rawTotals.value)||!close(eventTotals.carton,rawTotals.carton)||
        !close(p2Totals.value,rawTotals.value)||!close(p2Totals.carton,rawTotals.carton)||
        !close(p3Totals.value,rawTotals.value)||!close(p3Totals.carton,rawTotals.carton)) {
