@@ -9,20 +9,40 @@
  */
 const PAGE2_MONTHS_ = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
+const PAGE2_FACT_SHEET_ = 'P2_OUTLET_FACT';
+const PAGE2_FACT_STAGE_ = 'P2_OUTLET_FACT_BUILD';
+const PAGE2_FACT_HEADERS_ = [
+  'YEAR','MONTH','DD','SUB BRAND','BRAND','CUSTOMER NAME','PIC','SALES TYPE',
+  'SUBDIST','TEAM','ACCOUNT NAME','CATEGORY','SBU','CUSTOMER CODE','VAL','SOURCE ROWS'
+];
+
 function page2Source_() {
   const ss = getDatabase_();
-  const sh = mantulGetReadyReadIndex_();
-  if (!sh || sh.getLastRow() < 2) {
-    throw new Error('P2_EVENT_INDEX belum siap atau sudah kedaluwarsa. Jalankan buildMantulReadIndex() / refreshMantulDashboard() terlebih dahulu.');
+  const props = PropertiesService.getScriptProperties();
+  const fact = ss.getSheetByName(PAGE2_FACT_SHEET_);
+  const raw = mantulGetReadyReadIndex_();
+  const sourceRows = raw ? raw.getLastRow() - 1 : 0;
+  const factReady = fact && fact.getLastRow() > 1 &&
+    props.getProperty('PAGE2_FACT_STATUS') === 'COMPLETE' &&
+    props.getProperty('PAGE2_FACT_SOURCE_ID') === ss.getId() &&
+    Number(props.getProperty('PAGE2_FACT_SOURCE_ROWS')) === sourceRows &&
+    Number(props.getProperty('PAGE2_FACT_WRITTEN')) === fact.getLastRow() - 1;
+  if (factReady) {
+    const actual = fact.getRange(1,1,1,PAGE2_FACT_HEADERS_.length).getDisplayValues()[0].map(page2HeaderKey_);
+    const expected = PAGE2_FACT_HEADERS_.map(page2HeaderKey_);
+    if (expected.every((value,index)=>actual[index]===value)) return fact;
   }
-  const actual = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT)
-    .getDisplayValues()[0].map(page2HeaderKey_);
+  if (!raw || raw.getLastRow() < 2) {
+    throw new Error('P2_EVENT_INDEX belum siap. Jalankan refreshMantulDashboard() terlebih dahulu.');
+  }
+  const actual = raw.getRange(1,1,1,RAW_SALES_COLUMN_COUNT).getDisplayValues()[0].map(page2HeaderKey_);
   const expected = RAW_SALES_HEADERS.map(page2HeaderKey_);
-  if (!expected.every((value, index) => actual[index] === value)) {
+  if (!expected.every((value,index)=>actual[index]===value)) {
     throw new Error('Header RAW_DATA_SALES tidak sesuai. Terbaca: ' + actual.join(' | '));
   }
-  return sh;
+  return raw;
 }
+
 
 function page2Month_(value) {
   const s = String(value == null ? '' : value).trim().toUpperCase();
@@ -72,71 +92,144 @@ function page2FindHeader_(headers, aliases, fieldName) {
  */
 function page2Read_(sheet) {
   const sh = sheet || page2Source_();
-  if (sh.getName() !== 'P2_EVENT_INDEX') {
-    throw new Error('Page 2 wajib membaca P2_EVENT_INDEX yang sudah tervalidasi.');
-  }
   const lastRow = sh.getLastRow();
   if (lastRow <= 1) return [];
-
-  const headers = sh.getRange(1, 1, 1, RAW_SALES_COLUMN_COUNT).getDisplayValues()[0];
-  const fields = {
-    year: page2FindHeader_(headers, ['TAHUN','YEAR'], 'TAHUN'),
-    month: page2FindHeader_(headers, ['BULAN','MONTH'], 'BULAN'),
-    day: page2FindHeader_(headers, ['DD','TANGGAL','DATE','DAY'], 'TANGGAL'),
-    subbrand: page2FindHeader_(headers, ['SUB BRAND','SUBBRAND'], 'SUB BRAND'),
-    brand: page2FindHeader_(headers, ['BRAND'], 'BRAND'),
-    customerCode: page2FindHeader_(headers, ['KODE CUSTOMER','CUSTOMER CODE','KODE AKUN'], 'KODE CUSTOMER'),
-    customer: page2FindHeader_(headers, ['CUSTOMER NAME','NAMA AKUN','CUSTOMER'], 'CUSTOMER NAME'),
-    subdist: page2FindHeader_(headers, ['SUBDIST','DISTRIBUTORS','DISTRIBUTOR'], 'SUBDIST'),
-    category: page2FindHeader_(headers, ['CATEGORY','KATEGORI'], 'CATEGORY'),
-    salesType: page2FindHeader_(headers, ['JENIS SALES','SALES TYPE'], 'JENIS SALES'),
-    pic: page2FindHeader_(headers, ['PIC'], 'PIC'),
-    team: page2FindHeader_(headers, ['TIM','TEAM'], 'TEAM'),
-    sbu: page2FindHeader_(headers, ['SBU'], 'SBU'),
-    value: page2FindHeader_(headers, ['VAL','VALUE'], 'VAL')
-  };
-
   const rowCount = lastRow - 1;
-  const blocks = [
+  if (sh.getName() === PAGE2_FACT_SHEET_) {
+    const values = sh.getRange(2,1,rowCount,PAGE2_FACT_HEADERS_.length).getValues();
+    return values.map(r => [
+      r[0],page2Month_(r[1]),r[2],r[3],r[4],r[5],r[6],r[7],r[8],
+      page2Key_(r[9]) || 'SALESMAN',r[10],r[11],r[12],r[13],
+      Number(r[14])||0,Number(r[15])||1
+    ]);
+  }
+  if (sh.getName() !== 'P2_EVENT_INDEX') {
+    throw new Error('Page 2 wajib membaca P2_EVENT_INDEX atau P2_OUTLET_FACT yang tervalidasi.');
+  }
+  const headers = sh.getRange(1,1,1,RAW_SALES_COLUMN_COUNT).getDisplayValues()[0];
+  const fields = {
+    year:page2FindHeader_(headers,['TAHUN','YEAR'],'TAHUN'),
+    month:page2FindHeader_(headers,['BULAN','MONTH'],'BULAN'),
+    day:page2FindHeader_(headers,['DD','TANGGAL','DATE','DAY'],'TANGGAL'),
+    subbrand:page2FindHeader_(headers,['SUB BRAND','SUBBRAND'],'SUB BRAND'),
+    brand:page2FindHeader_(headers,['BRAND'],'BRAND'),
+    customerCode:page2FindHeader_(headers,['CUSTOMER_CODE','KODE CUSTOMER','CUSTOMER CODE','KODE AKUN'],'CUSTOMER CODE'),
+    customer:page2FindHeader_(headers,['CUSTOMER_NAME','CUSTOMER NAME','NAMA AKUN','CUSTOMER'],'CUSTOMER NAME'),
+    subdist:page2FindHeader_(headers,['SUBDIST','DISTRIBUTORS','DISTRIBUTOR'],'SUBDIST'),
+    category:page2FindHeader_(headers,['CATEGORY','KATEGORI'],'CATEGORY'),
+    salesType:page2FindHeader_(headers,['SALES_TYPE','JENIS SALES','SALES TYPE'],'SALES TYPE'),
+    pic:page2FindHeader_(headers,['PIC'],'PIC'),
+    team:page2FindHeader_(headers,['TEAM','TIM'],'TEAM'),
+    sbu:page2FindHeader_(headers,['SBU'],'SBU'),
+    value:page2FindHeader_(headers,['VAL','VALUE'],'VAL')
+  };
+  const blocks=[
     {start:0,end:2,values:sh.getRange(2,1,rowCount,3).getValues()},
     {start:5,end:6,values:sh.getRange(2,6,rowCount,2).getValues()},
     {start:8,end:10,values:sh.getRange(2,9,rowCount,3).getValues()},
     {start:12,end:12,values:sh.getRange(2,13,rowCount,1).getValues()},
     {start:14,end:21,values:sh.getRange(2,15,rowCount,8).getValues()}
   ];
-  const readers = {};
-  blocks.forEach(block => {
-    for (let col = block.start; col <= block.end; col++) {
-      readers[col] = {values:block.values, offset:col-block.start};
-    }
-  });
-  const read = (rowIndex,colIndex) => {
-    const source = readers[colIndex];
-    return source ? source.values[rowIndex][source.offset] : '';
-  };
-
-  const rows = new Array(rowCount);
-  for (let i=0; i<rowCount; i++) {
-    rows[i] = [
-      read(i,fields.year),
-      page2Month_(read(i,fields.month)),
-      read(i,fields.day),
-      read(i,fields.subbrand),
-      read(i,fields.brand),
-      read(i,fields.customer),
-      read(i,fields.pic),
-      read(i,fields.salesType),
-      read(i,fields.subdist),
-      page2Key_(read(i,fields.team)) || 'SALESMAN',
-      read(i,fields.customer),
-      read(i,fields.category),
-      read(i,fields.sbu),
-      read(i,fields.customerCode),
-      Number(read(i,fields.value)) || 0
+  const readers={};
+  blocks.forEach(block=>{for(let col=block.start;col<=block.end;col++)readers[col]={values:block.values,offset:col-block.start};});
+  const read=(i,col)=>readers[col]?readers[col].values[i][readers[col].offset]:'';
+  const rows=new Array(rowCount);
+  for(let i=0;i<rowCount;i++){
+    rows[i]=[
+      read(i,fields.year),page2Month_(read(i,fields.month)),read(i,fields.day),
+      read(i,fields.subbrand),read(i,fields.brand),read(i,fields.customer),
+      read(i,fields.pic),read(i,fields.salesType),read(i,fields.subdist),
+      page2Key_(read(i,fields.team))||'SALESMAN',read(i,fields.customer),
+      read(i,fields.category),read(i,fields.sbu),read(i,fields.customerCode),
+      Number(read(i,fields.value))||0,1
     ];
   }
   return rows;
 }
+
+/**
+ * Membuat fact Page 2 pada grain tanggal + outlet + seluruh dimensi filter.
+ * Baris dengan kombinasi dimensi identik digabung; VAL dijumlahkan dan jumlah
+ * baris sumber disimpan agar diagnostik jumlah transaksi tetap benar.
+ */
+function buildPage2OutletFact() {
+  const lock=LockService.getScriptLock();
+  lock.waitLock(30000);
+  let stage=null;
+  try {
+    const ss=getDatabase_();
+    const source=mantulGetReadyReadIndex_();
+    if(!source)throw new Error('P2_EVENT_INDEX belum siap. Jalankan refreshMantulDashboard() terlebih dahulu.');
+    const sourceRows=page2Read_(source);
+    const grouped=new Map();
+    let sourceValue=0,sourceCount=0;
+    sourceRows.forEach(r=>{
+      const key=JSON.stringify(r.slice(0,14));
+      let item=grouped.get(key);
+      if(!item){item=r.slice(0,14).concat([0,0]);grouped.set(key,item);}
+      item[14]+=Number(r[14])||0;
+      item[15]+=Number(r[15])||1;
+      sourceValue+=Number(r[14])||0;
+      sourceCount+=Number(r[15])||1;
+    });
+    const rows=Array.from(grouped.values());
+    const stageName=PAGE2_FACT_STAGE_;
+    const oldStage=ss.getSheetByName(stageName);
+    if(oldStage)ss.deleteSheet(oldStage);
+    stage=ss.insertSheet(stageName);
+    stage.getRange(1,1,1,PAGE2_FACT_HEADERS_.length).setValues([PAGE2_FACT_HEADERS_]);
+    const batchSize=3000;
+    for(let offset=0;offset<rows.length;offset+=batchSize){
+      const part=rows.slice(offset,offset+batchSize);
+      stage.getRange(offset+2,1,part.length,PAGE2_FACT_HEADERS_.length).setValues(part);
+    }
+    SpreadsheetApp.flush();
+    if(stage.getLastRow()!==rows.length+1||stage.getLastColumn()!==PAGE2_FACT_HEADERS_.length)
+      throw new Error('Validasi ukuran P2_OUTLET_FACT gagal.');
+    let factValue=0,factSourceCount=0;
+    for(let offset=0;offset<rows.length;offset+=batchSize){
+      const count=Math.min(batchSize,rows.length-offset);
+      const part=stage.getRange(offset+2,1,count,PAGE2_FACT_HEADERS_.length).getValues();
+      part.forEach(r=>{factValue+=Number(r[14])||0;factSourceCount+=Number(r[15])||0;});
+    }
+    if(factSourceCount!==sourceCount||Math.abs(factValue-sourceValue)>Math.max(0.01,Math.abs(sourceValue)*1e-10))
+      throw new Error('Validasi P2_OUTLET_FACT gagal: sourceRows/VAL tidak sama.');
+    const stamp=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyyMMdd_HHmmss');
+    const current=ss.getSheetByName(PAGE2_FACT_SHEET_);
+    const backup='P2_OUTLET_FACT_OLD_'+stamp;
+    if(current)current.setName(backup);
+    try{
+      stage.setName(PAGE2_FACT_SHEET_);
+      stage.setFrozenRows(1);
+      PropertiesService.getScriptProperties().setProperties({
+        PAGE2_FACT_STATUS:'COMPLETE',PAGE2_FACT_SOURCE_ID:ss.getId(),
+        PAGE2_FACT_SOURCE_ROWS:String(source.getLastRow()-1),
+        PAGE2_FACT_WRITTEN:String(rows.length),PAGE2_FACT_SOURCE_COUNT:String(sourceCount),
+        PAGE2_FACT_VAL:String(factValue),PAGE2_FACT_BUILT_AT:new Date().toISOString()
+      });
+      if(current)ss.deleteSheet(ss.getSheetByName(backup));
+    }catch(publishError){
+      const published=ss.getSheetByName(PAGE2_FACT_SHEET_);
+      if(published&&published.getSheetId()===stage.getSheetId())ss.deleteSheet(published);
+      const previous=ss.getSheetByName(backup);
+      if(previous&&!ss.getSheetByName(PAGE2_FACT_SHEET_))previous.setName(PAGE2_FACT_SHEET_);
+      throw publishError;
+    }
+    const result={ok:true,status:'COMPLETE',sheet:PAGE2_FACT_SHEET_,sourceRows:sourceCount,
+      factRows:rows.length,compressedRows:sourceCount-rows.length,sourceValue:sourceValue,
+      factValue:factValue,validated:true};
+    Logger.log('PAGE2 OUTLET FACT BUILD\\n'+JSON.stringify(result,null,2));
+    return result;
+  }catch(err){
+    if(stage){
+      const current=stage.getParent().getSheetByName(PAGE2_FACT_STAGE_);
+      if(current&&current.getSheetId()===stage.getSheetId())stage.getParent().deleteSheet(current);
+    }
+    PropertiesService.getScriptProperties().setProperty('PAGE2_FACT_STATUS','FAILED');
+    throw err;
+  }finally{lock.releaseLock();}
+}
+
 
 function page2Day_(day) {
   let d = null;
@@ -322,9 +415,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
   const trendLY = {ao:new Set(),ec:new Set(),value:0};
   // Identitas outlet mengikuti definisi bisnis: DISTRIBUTOR + CUSTOMER NAME.
   // Nama dipertahankan apa adanya; kode customer tidak menjadi kunci AO/EC.
-  const outletKeyFor = (customerName, subdist) => customerName !== ''
-    ? page2ExactCompositeKey_([subdist, customerName])
-    : '';
+  const validCustomerCode_ = value => { const code=page2Key_(value); return !!code && code!=='OTHERSB' && code!=='#VALUE!' && code!=='0'; };
   // EC = DISTRIBUTOR + CUSTOMER NAME + tanggal kalender lengkap (YYYY-MM-DD).
   // Tahun dan bulan ikut tercakup dalam dateKey, sehingga tanggal yang sama
   // pada bulan/tahun berbeda tetap menjadi event yang berbeda.
@@ -334,8 +425,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
     if (!bucket.groups[dimension][label]) {
       bucket.groups[dimension][label] = {name:label,ao:new Set(),ec:new Set(),value:0};
     }
-    if (outletKey) bucket.groups[dimension][label].ao.add(outletKey);
-    bucket.groups[dimension][label].ec.add(ecKey);
+    if (outletKey) { bucket.groups[dimension][label].ao.add(outletKey); if(ecKey) bucket.groups[dimension][label].ec.add(ecKey); }
     bucket.groups[dimension][label].value += Number(value) || 0;
   };
 
@@ -355,17 +445,18 @@ function page2BuildDashboardData_(filters, sourceRows) {
     // Sebelumnya page2Day_, page2Date_, outlet(), dan customer() dipanggil
     // berulang untuk agregasi bulanan, YTD, KPI, dan dailyMap.
     const customerName = String(r[10] == null || r[10] === '' ? (r[5] || '') : r[10]);
-    const outletKey = customerName !== '' ? page2ExactCompositeKey_([r[8], customerName]) : '';
+    const customerCode = r[13];
+    const outletKey = validCustomerCode_(customerCode) ? page2ExactCompositeKey_([r[8], customerCode]) : '';
     const dayKey = page2Day_(r[2]);
     const dateKey = dayKey && monthIndex >= 0
       ? String(y) + '-' + String(monthIndex + 1).padStart(2,'0') + '-' + dayKey
       : '';
     const ecKey = outletKey && dayKey
-      ? page2ExactCompositeKey_([dateKey || dayKey, r[8], customerName])
+      ? page2ExactCompositeKey_([dateKey || dayKey, r[8], customerCode])
       : '';
 
     // Agregasi bulanan untuk insight YTD/L3M membaca seluruh bulan Jan–Des.
-    if (monthIndex >= 0 && outletKey && customerName && dayKey) {
+    if (monthIndex >= 0 && customerName && dayKey) {
       monthly[monthIndex][isCY ? 'value' : 'valueLy'] += value;
       const ms = monthlySets[monthIndex];
       (isCY ? ms.cyAO : ms.lyAO).add(outletKey);
@@ -373,14 +464,14 @@ function page2BuildDashboardData_(filters, sourceRows) {
     }
 
     // YTD AO/EC memakai identitas unik sepanjang Jan–bulan aktif.
-    if (trendMonthSet.has(month) && outletKey && customerName && dayKey) {
+    if (trendMonthSet.has(month) && customerName && dayKey) {
       const bucket = isCY ? trendCY : trendLY;
       bucket.ao.add(outletKey);
       bucket.ec.add(ecKey);
       bucket.value += value;
     }
 
-    if (!customerName || !dayKey || !outletKey) return;
+    if (!customerName || !dayKey) return;
 
     // KPI utama, SBU, dan byTeam harus mengikuti bulan yang dipilih.
     // Jangan memasukkan Desember LY saat periode CY hanya Jan-Nov,
@@ -412,7 +503,7 @@ function page2BuildDashboardData_(filters, sourceRows) {
 
     // Simpan hanya bulan YTD sampai bulan aktif agar insight harian bisa
     // menghitung MTD, LM, L3M, dan YTD tanpa memuat seluruh histori.
-    if (trendMonthSet.has(month) && (!hasDateFilter || selectedDates.has(dayKey))) {
+    if (trendMonthSet.has(month) && outletKey && (!hasDateFilter || selectedDates.has(dayKey))) {
       const dailyKey = month + '|' + dayKey;
       const dailyYear = isCY ? dailyMap.cy : dailyMap.ly;
       if (!dailyYear[dailyKey]) dailyYear[dailyKey] = {ao:new Set(),ec:new Set(),value:0};

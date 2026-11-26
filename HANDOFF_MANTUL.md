@@ -26,6 +26,8 @@ PR: https://github.com/Reriolov4/Mantul-Dashboard/pull/1
 - Dataset SOO dan master SKU; filter tahun, bulan, customer, dan entitas/SUBDIST harus benar-benar memengaruhi agregasi.
 
 ## Yang sudah dikerjakan
+- Page 2: ditambahkan `buildPage2OutletFact()` untuk membangun `P2_OUTLET_FACT` dari `P2_EVENT_INDEX`. Grain menggabungkan baris yang identik pada tanggal/outlet/dimensi filter, menjumlahkan VAL, dan menyimpan SOURCE ROWS; builder memvalidasi source row count dan total VAL sebelum publish. Page 2 otomatis membaca fact jika status/source row count/header cocok, fallback ke event index bila fact belum tersedia.
+- Page 2: identitas AO/EC pada agregator diarahkan ke `SUBDIST + CUSTOMER_CODE` yang valid (blank, `OTHERSB`, `#VALUE!`, `0` dikecualikan); EC menambahkan tanggal. Baris tanpa kode valid tetap dapat berkontribusi pada nilai penjualan, tetapi tidak pada AO/EC. Perubahan definisi ini wajib diuji dengan angka kontrol sebelum dianggap final.
 - `Code.gs`: `refreshMantulDashboard()` kini memanggil `refreshMantulReadIndexIncremental_()`. Refresh tanpa perubahan melewati penyalinan; penambahan data menyalin batch baru saja dan memvalidasi row count, 25 kolom, serta total VAL; kondisi index tidak valid fallback ke full rebuild.
 - Commit sebelumnya: `65437f0b93049212fdf4ab256d9908b4623a8249` — routing Page 2–4 ke read index A:Y yang tervalidasi.
 - Commit: `5aeec398a3685474a8bb084ea125b11875d25470` — perbaikan backend Page 4 agar filter year/month diterapkan pada perhitungan.
@@ -34,7 +36,8 @@ PR: https://github.com/Reriolov4/Mantul-Dashboard/pull/1
 - Workflow tetap memerlukan GitHub Secrets `CLASP_CREDENTIALS` dan `SCRIPT_ID`. Jika keduanya valid, push ke branch aktif mengunggah source ke Apps Script. Keberhasilan harus diverifikasi pada Actions run terbaru dan project Apps Script yang benar.
 
 ## Yang belum dikerjakan / langkah berikut
-1. Bangun tabel fakta materialized untuk Page 2–4 dengan builder chunk/resumable yang sesuai 25 kolom A:Y; incremental read-index baru mengurangi biaya refresh, tetapi belum mempercepat agregasi filter. Jangan port builder dari `rebuild/database-v2` secara mentah: implementasi cabang tersebut mengasumsikan 27 kolom dan pemetaan kolom yang berbeda.
+1. Jalankan `buildPage2OutletFact()` sekali dari Apps Script setelah source push dan `P2_EVENT_INDEX` siap; periksa log hasil `sourceRows`, `factRows`, `compressedRows`, `sourceValue`, `factValue`. Builder Page 2 saat ini satu kali jalan dan belum resumable; jika melewati batas runtime, pecah menjadi chunk/resumable sebelum pemakaian rutin.
+2. Bandingkan AO/EC Page 2 dengan angka kontrol pengguna, terutama Jan–Mar AO (1121/1065/1050), AO total 3566, dan EC total valid customer code yang sebelumnya dibahas. Jangan lanjutkan optimasi KPI sebelum angka cocok. Jangan port builder dari `rebuild/database-v2` secara mentah: implementasi cabang tersebut mengasumsikan 27 kolom dan pemetaan kolom yang berbeda.
 2. Rancang grain agregasi yang mempertahankan dimensi filter dan definisi AO/EC. Validasi total VAL/CARTON, jumlah source rows, serta hasil AO/EC terhadap angka kontrol.
 3. Ubah Page 2 agar membaca aggregate/read model yang tepat, bukan memindai seluruh snapshot berulang kali.
 4. Ubah Page 3 agar initial load dan Apply memakai fact terbangun; jangan membaca ulang 130 ribu event dan membangun metadata pada setiap klik.
