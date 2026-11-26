@@ -245,6 +245,7 @@ function finishMonthlyDataImport(payload) {
       const now=new Date(),formatted=Utilities.formatDate(now,Session.getScriptTimeZone(),'dd MMM yyyy HH:mm');
       props.setProperty('SALES_LAST_UPDATED',formatted);props.setProperty('PAGE2_RAW_UPDATED',formatted);
       // Page 2–4 membaca RAW_DATA_SALES secara langsung; tidak perlu rebuild V2.
+      props.deleteProperty('MANTUL_V2_DATA_STALE');
       if(typeof cacheDashboardData_==='function')cacheDashboardData_();
       const log=getOrCreateSheet_('MONTHLY_IMPORT_LOG');
       if(log.getLastRow()===0)log.appendRow(['WAKTU','FILE','PERIODE','P1_FACT ROWS','RAW_DATA_SALES ROWS','P1 SOO','RAW SOO','SELISIH SOO','P1 SO','RAW SO','UPLOADER','STATUS']);
