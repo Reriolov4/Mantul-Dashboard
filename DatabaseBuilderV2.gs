@@ -37,6 +37,7 @@ function mantulV2BuildStart() {
     specs.forEach(([name, headers]) => {
       const sh = ss.getSheetByName(name) || ss.insertSheet(name);
       sh.clearContents();
+      if (sh.getMaxColumns() > headers.length) sh.deleteColumns(headers.length + 1, sh.getMaxColumns() - headers.length);
       ensureSheetGrid_(sh, 1, headers.length);
       sh.getRange(1, 1, 1, headers.length).setValues([headers]);
     });
@@ -93,7 +94,7 @@ function mantulV2BuildContinue() {
       if (!g) { g = ev.slice(0,14).concat([0,0,0]); grouped.set(key,g); }
       g[14] += Number(ev[14]) || 0;
       g[15] += Number(ev[15]) || 0;
-      g[16] += Number(r[RAW_SALES_COL.SOURCE_ROWS]) || 1;
+      g[16] += 1;
     });
     mantulV2AppendStage_(ss, MANTUL_V2_BUILD_.EVENT_STAGE, eventRows, MANTUL_V2_SCHEMA_.P2_EVENT_INDEX.length);
     const p3PartialRows = Array.from(p3Grouped.values());
