@@ -139,3 +139,26 @@ function analyticsRemoveLegacySubdistFact(confirmation){
 function runMantulRemoveLegacyP2Duplicate(){
  return analyticsRemoveLegacySubdistFact('REMOVE_DUPLICATE_P2_SUBDIST_FACT');
 }
+
+/**
+ * Sort the existing canonical P2 fact in place, then register it against source.
+ * No rows are created or deleted; only the row order of P2_DASHBOARD_FACT changes.
+ */
+function analyticsSortCanonicalP2AndRegister(){
+ const lock=LockService.getScriptLock();lock.waitLock(30000);
+ let sortedRows=0;
+ try{
+  const ss=getDatabase_(),p2=ss.getSheetByName('P2_DASHBOARD_FACT');
+  if(!p2||p2.getLastRow()<2)throw new Error('P2_DASHBOARD_FACT tidak tersedia atau kosong.');
+  analyticsAssertHeaders_(p2,P2_DASHBOARD_HEADERS_);
+  sortedRows=p2.getLastRow()-1;
+  if(sortedRows>1)p2.getRange(2,1,sortedRows,P2_DASHBOARD_HEADERS_.length)
+   .sort([{column:6,ascending:true},{column:1,ascending:true},{column:2,ascending:true}]);
+ }finally{lock.releaseLock();}
+ // Registration performs the full source/value/carton/SOURCE_ROWS validation.
+ const result=analyticsRegisterExistingIndexes();
+ return {ok:true,sortedRows:sortedRows,registration:result};
+}
+function runMantulSortCanonicalP2AndRegister(){
+ return analyticsSortCanonicalP2AndRegister();
+}
