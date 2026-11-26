@@ -1,7 +1,7 @@
 <style>
 #p3View{padding:14px 0 28px;color:#172033;font-family:Inter,"Segoe UI",Arial,sans-serif}#p3View *{box-sizing:border-box}
 #p3View .p3-head h1{font-size:21px;color:#173b70;margin:0 0 4px;font-weight:850}#p3View .p3-head p{font-size:11px;color:#718096;margin:0 0 12px}
-#p3View .p3-filter-card{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:10px;background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 5px 20px #14213d08}
+#p3View .p3-filter-card{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:14px;margin-bottom:10px;box-shadow:0 5px 20px #14213d08}
 #p3View .p3-filter{min-width:0;position:relative}#p3View .p3-filter>label{display:block;font-size:10px;font-weight:800;color:#64748b;margin:0 0 6px}
 #p3View .p3-filter select,#p3View .p3-trigger{width:100%;height:38px;border:1px solid #dbe3ee;border-radius:9px;background:#fff;color:#172033;padding:0 9px;font:inherit;font-size:11px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #p3View .p3-trigger{cursor:pointer}#p3View .p3-menu{display:none;position:absolute;top:calc(100% + 5px);left:0;width:min(330px,90vw);max-height:330px;overflow:auto;background:#fff;border:1px solid #dbe3ee;border-radius:10px;box-shadow:0 12px 28px #14213d24;z-index:90;padding:9px}
@@ -12,12 +12,6 @@
 #p3View .p3-checkitem{display:flex;align-items:center;gap:7px;margin:0;padding:7px 6px;border:1px solid #e5eaf1;border-radius:7px;color:#334155;font-size:11px;cursor:pointer}
 #p3View .p3-checkitem input{accent-color:#2563eb;margin:0;flex:0 0 auto}#p3View .p3-checkitem span{overflow-wrap:anywhere}
 #p3View .p3-search{display:block;width:100%;height:33px;margin:0 0 8px;padding:0 9px;border:1px solid #dbe3ee;border-radius:8px;font:inherit;font-size:11px}
-#p3View .p3-subdist-pills{grid-column:1/-1;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}
-#p3View .p3-subdist-pills button{height:34px;border:0;border-radius:8px;background:#f0f4f9;color:#53657c;font-size:10px;font-weight:800;cursor:pointer}
-#p3View .p3-subdist-pills button.active{background:#2563eb;color:#fff}
-#p3View .p3-filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:7px}
-#p3View .p3-filter-actions button{height:34px;border:0;border-radius:8px;padding:0 15px;background:#2563eb;color:#fff;font-size:11px;font-weight:800;cursor:pointer}
-#p3View .p3-filter-actions .secondary{background:#edf2f8;color:#365477}
 #p3View .p3-status{font-size:10px;color:#718096;margin:7px 2px 10px;min-height:15px}
 #p3View .p3-summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:11px}#p3View .p3-summary div{background:#fff;border:1px solid #e5eaf1;border-radius:9px;padding:8px 12px;min-width:135px}
 #p3View .p3-summary small{display:block;font-size:9px;color:#718096;font-weight:800}#p3View .p3-summary b{display:block;font-size:15px;color:#173b70;margin-top:3px}
@@ -31,8 +25,8 @@
 #p3View .p3-pagination{display:flex;justify-content:space-between;align-items:center;padding:10px 13px;font-size:10px;color:#64748b}
 #p3View .p3-pagination button{border:0;border-radius:8px;background:#2563eb;color:#fff;padding:8px 13px;font-size:10px;font-weight:800;cursor:pointer}
 #p3View .p3-pagination button:disabled{opacity:.4;cursor:not-allowed}
-@media(max-width:1200px){#p3View .p3-filter-card{grid-template-columns:repeat(5,minmax(0,1fr))}}@media(max-width:760px){#p3View .p3-filter-card{grid-template-columns:repeat(2,minmax(0,1fr))}#p3View .p3-subdist-pills{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(max-width:560px){#p3View .p3-filter-card{grid-template-columns:repeat(2,minmax(0,1fr))}#p3View .p3-subdist-pills{grid-template-columns:repeat(2,minmax(0,1fr))}#p3View .p3-filter-actions button{flex:1}}
+@media(max-width:1200px){#p3View .p3-filter-card{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:760px){#p3View .p3-filter-card{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){#p3View .p3-filter-card{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <section id="p3View" hidden>
  <div class="p3-head"><h1>OUTLETS</h1><p>Monitoring customer dan tren bulanan dengan struktur filter mengikuti Sales Performance Page 2.</p></div>
@@ -46,8 +40,7 @@
   <div class="p3-filter" id="p3SubbrandsFilter"><label>SUBBRAND</label><button class="p3-trigger" id="p3SubbrandsTrigger" type="button">Semua Subbrand</button><div class="p3-menu"><div class="p3-menu-actions"><button data-action="all" data-target="p3Subbrands">Pilih Semua</button><button data-action="reset" data-target="p3Subbrands">Reset</button><button class="p3-menu-apply" data-action="apply">Terapkan Pilihan</button></div><input class="p3-search" data-search="p3Subbrands" placeholder="Cari Subbrand..."><div id="p3Subbrands" class="p3-checklist"></div></div></div>
   <div class="p3-filter" id="p3CategoriesFilter"><label>CATEGORY</label><button class="p3-trigger" id="p3CategoriesTrigger" type="button">Semua Category</button><div class="p3-menu"><div class="p3-menu-actions"><button data-action="all" data-target="p3Categories">Pilih Semua</button><button data-action="reset" data-target="p3Categories">Reset</button><button class="p3-menu-apply" data-action="apply">Terapkan Pilihan</button></div><input class="p3-search" data-search="p3Categories" placeholder="Cari Category..."><div id="p3Categories" class="p3-checklist"></div></div></div>
   <div class="p3-filter" id="p3CustomersFilter"><label>CUSTOMER</label><button class="p3-trigger" id="p3CustomersTrigger" type="button">Semua Customer</button><div class="p3-menu"><div class="p3-menu-actions"><button data-action="all" data-target="p3Customers">Pilih Semua</button><button data-action="reset" data-target="p3Customers">Reset</button><button class="p3-menu-apply" data-action="apply">Terapkan Pilihan</button></div><input class="p3-search" data-search="p3Customers" placeholder="Cari Customer..."><div id="p3Customers" class="p3-checklist"></div></div></div>
-  <div class="p3-filter" style="grid-column:1/-1"><label>SUBDIST</label><div id="p3SubdistPills" class="p3-subdist-pills"></div></div>
-  <div class="p3-filter-actions"><button type="button" class="secondary" id="p3Reset">Reset</button><button type="button" id="p3Apply">Terapkan Filter</button></div>
+  <div class="p3-filter" id="p3SubdistsFilter"><label>SUBDIST</label><button class="p3-trigger" id="p3SubdistsTrigger" type="button">Semua SUBDIST</button><div class="p3-menu"><div class="p3-menu-actions"><button data-action="all" data-target="p3Subdists">Pilih Semua</button><button data-action="reset" data-target="p3Subdists">Reset</button><button class="p3-menu-apply" data-action="apply">Terapkan</button></div><input class="p3-search" data-search="p3Subdists" placeholder="Cari SUBDIST..."><div id="p3Subdists" class="p3-checklist"></div></div></div>
  </div>
  <div id="p3Status" class="p3-status" aria-live="polite">Menyiapkan data outlet...</div>
  <div class="p3-summary"><div><small>JUMLAH CUSTOMER</small><b id="p3OutletCount">—</b></div><div><small>TOTAL VALUE</small><b id="p3TotalValue">—</b></div><div><small>TOTAL KARTON</small><b id="p3TotalCarton">—</b></div></div>
