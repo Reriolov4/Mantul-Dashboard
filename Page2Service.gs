@@ -634,7 +634,7 @@ function page2GetMeta() {
       meta.sourceRowCount = raw ? Math.max(0, raw.getLastRow() - 1) : meta.sourceRowCount;
     }
     return meta;
-  }, 300);
+  }, 1800);
 }
 
 function page2ReadSubdistBlocks_(subdists){
@@ -739,8 +739,8 @@ function getPage2DashboardData(filters) {
     aggregateMs:aggregateMs,serializeBytes:json.length,totalMs:Date.now()-started
   };
   try {
-    if (json.length <= 90000) cache.put(key, json, 300);
-    else page2CachePutChunked_(cache, key, json, 300);
+    if (json.length <= 90000) cache.put(key, json, 900);
+    else page2CachePutChunked_(cache, key, json, 900);
   } catch (err) { /* Cache hanya optimasi, bukan dependensi. */ }
   return result;
 }
@@ -824,9 +824,9 @@ function getPage2InitialPayload() {
   const metaJson = JSON.stringify(meta);
   const dataJson = JSON.stringify(data);
   try {
-    page2CachePutChunked_(cache, metaKey, metaJson, 300);
-    if (dataJson.length <= 90000) cache.put(dataKey, dataJson, 300);
-    else page2CachePutChunked_(cache, dataKey, dataJson, 300);
+    page2CachePutChunked_(cache, metaKey, metaJson, 1800);
+    if (dataJson.length <= 90000) cache.put(dataKey, dataJson, 1800);
+    else page2CachePutChunked_(cache, dataKey, dataJson, 1800);
   } catch (err) { /* Cache hanya optimasi, bukan dependensi. */ }
 
   return {
