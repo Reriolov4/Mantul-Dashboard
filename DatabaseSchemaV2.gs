@@ -1,6 +1,6 @@
 /**
  * MANTUL DATABASE V2 — CANONICAL SCHEMAS
- * RAW_DATA_SALES adalah source of truth 26 kolom A:Z.
+ * RAW_DATA_SALES adalah source of truth 25 kolom A:Y.
  * Schema output V2 dipertahankan agar kontrak layanan Page 2–4 tetap kompatibel.
  */
 const MANTUL_V2_SCHEMA_ = Object.freeze({
@@ -8,7 +8,7 @@ const MANTUL_V2_SCHEMA_ = Object.freeze({
     'YEAR','MONTH','DD','KODE ITEM','NAMA ITEM','SUB BRAND','BRAND',
     'CARTON','SUBDIST','CUSTOMER_CODE','CUSTOMER_NAME','KODE SALUR',
     'VAL','QTY','SALES_TYPE','SUB_DIST','PIC','TEAM','SALESMAN',
-    'CATEGORY','DOT','SBU','PF Bulanan','PF Triwulan','SKU','SOURCE_ROWS'
+    'CATEGORY','DOT','SBU','PF Bulanan','PF Triwulan','SKU'
   ]),
   P2_EVENT_INDEX: Object.freeze([
     'YEAR','MONTH','DD','CUSTOMER_CODE','CUSTOMER_NAME','SUBDIST','PIC',
@@ -27,7 +27,7 @@ const MANTUL_V2_SCHEMA_ = Object.freeze({
   ])
 });
 
-/** Zero-based mapping dari RAW_DATA_SALES A:Z ke event index. */
+/** Zero-based mapping dari RAW_DATA_SALES A:Y ke event index. */
 function mantulV2MapRawToP2Event_(r, sourceRow) {
   const c = RAW_SALES_COL;
   return [
@@ -45,14 +45,14 @@ function mantulV2MapRawToP3Outlet_(r) {
     r[c.YEAR], r[c.MONTH], r[c.DAY], r[c.CUSTOMER_CODE], r[c.CUSTOMER_NAME],
     r[c.SUBDIST], r[c.SUB_DIST], r[c.SALES_TYPE], r[c.PIC], r[c.BRAND],
     r[c.SUBBRAND], r[c.CATEGORY], r[c.SBU], r[c.ITEM_CODE],
-    r[c.SKU], r[c.VALUE], r[c.CARTON], Number(r[c.SOURCE_ROWS]) || 1
+    r[c.SKU], r[c.VALUE], r[c.CARTON], 1
   ];
 }
 
-/** Gagal cepat jika header RAW_DATA_SALES tidak sesuai kontrak final 26 kolom. */
+/** Gagal cepat jika header RAW_DATA_SALES tidak sesuai kontrak final 25 kolom. */
 function mantulV2AssertRawHeaders_(sheet) {
   if (!sheet || sheet.getLastColumn() < MANTUL_V2_SCHEMA_.RAW.length) {
-    throw new Error('RAW_DATA_SALES tidak memiliki 26 kolom sesuai schema V2.');
+    throw new Error('RAW_DATA_SALES tidak memiliki 25 kolom sesuai schema V2.');
   }
   const actual = sheet.getRange(1, 1, 1, MANTUL_V2_SCHEMA_.RAW.length)
     .getDisplayValues()[0].map(v => String(v == null ? '' : v).trim().toUpperCase());
