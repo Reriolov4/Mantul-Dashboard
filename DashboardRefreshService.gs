@@ -4,6 +4,7 @@
  * Never rebuilds or overwrites any database sheet.
  */
 function mantulV2ValidateLiveDatabase_(){
+ if(PropertiesService.getScriptProperties().getProperty('MANTUL_V2_DATA_STALE')==='TRUE')throw new Error('Database V2 masih stale setelah import. Jalankan build, finalize, dan publish sebelum refresh.');
  const ss=getDatabase_(),raw=ss.getSheetByName('RAW_DATA_SALES'),
   event=ss.getSheetByName('P2_EVENT_INDEX'),p2=ss.getSheetByName('P2_DASHBOARD_FACT'),
   p3=ss.getSheetByName('P3_OUTLET_MONTHLY'),p1=ss.getSheetByName('P1_FACT');
