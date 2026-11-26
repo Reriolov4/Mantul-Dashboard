@@ -36,7 +36,7 @@ function mantulV2ValidateLiveDatabase_(){
   '; EVENT='+JSON.stringify(eventTotals)+'; P2='+JSON.stringify(p2Totals)+'; P3='+JSON.stringify(p3Totals));
  return {ok:true,version:'V2',spreadsheetId:ss.getId(),sheets:{
   P1_FACT:{rows:p1.getLastRow()-1,columns:p1.getLastColumn()},
-  RAW_DATA_SALES:{rows:raw.getLastRow()-1,columns:27},
+  RAW_DATA_SALES:{rows:mantulV2LastRawDataRow_(raw)-1,columns:27},
   P2_EVENT_INDEX:{rows:eventTotals.rows,columns:19},P2_DASHBOARD_FACT:{rows:p2Totals.rows,columns:17},
   P3_OUTLET_MONTHLY:{rows:p3Totals.rows,columns:18}},totals:{raw:rawTotals,event:eventTotals,p2:p2Totals,p3:p3Totals},checks:checks};
 }
