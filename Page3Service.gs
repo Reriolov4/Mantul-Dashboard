@@ -16,8 +16,9 @@ function page34Entity_(row,mode){
  const raw=page2Text_(row[mode==='SOO'?5:17]),key=page2Key_(raw);
  if(mode==='SOO')return PAGE34_ENTITIES_.includes(key)?key:'';
  if(!key||key==='0')return '';
- if(key==='AP. GEUBRINA RIZKI')return 'EPM LSE';
- if(key==='PT RESTU INDO MEDICA')return 'EPM BAC';
+ const normalized=key.replace(/[.,]/g,'').replace(/\s+/g,' ').trim();
+ if(normalized==='AP GEUBRINA RIZKI')return 'EPM LSE';
+ if(normalized==='PT RESTU INDO MEDICA')return 'EPM BAC';
  return PAGE34_ENTITIES_.includes(key)?key:'';
 }
 function page3BuildMeta_(rows){
