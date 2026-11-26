@@ -141,7 +141,7 @@ function monthlyImportReadStage_(key, expected, width) {
 }
 
 function monthlyImportFindBlocks_(sheet, year, month) {
-  const lastRow = sheet.getLastRow();
+  const lastRow = monthlyImportLastDataRow_(sheet);
   if (lastRow <= 1) return [];
   const keys = sheet.getRange(2,1,lastRow-1,2).getValues();
   const blocks = [];
@@ -162,13 +162,11 @@ function monthlyImportFindBlocks_(sheet, year, month) {
 }
 
 function monthlyImportLastDataRow_(sheet) {
-  const last = sheet.getLastRow();
-  if (last <= 1) return 1;
-  const values = sheet.getRange(2,1,last-1,1).getValues();
-  for (let i=values.length-1;i>=0;i--) {
-    if (values[i][0] !== '' && values[i][0] !== null) return i+2;
-  }
-  return 1;
+  if(!sheet)return 1;
+  // RAW helper formulas may extend far below the actual transaction rows.
+  // Locate the last non-empty cell in column A (YEAR), not the sheet's global last row.
+  const last=sheet.getRange(sheet.getMaxRows(),1).getNextDataCell(SpreadsheetApp.Direction.UP).getRow();
+  return Math.max(1,last);
 }
 
 function monthlyImportReadPeriodRows_(sheet, year, month, width) {
