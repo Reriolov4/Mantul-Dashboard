@@ -35,7 +35,10 @@ function page4ReadSource_(){
   source=event;sourceName='P2_EVENT_INDEX';
   em={year:0,month:1,customer:4,subdist:5,brand:7,subbrand:8,category:9,sbu:10,salesType:11,value:14,carton:15,sku:16};
  }
- const eventData=page4ReadSelectedColumns_(source,em),mh=sku.getRange(1,1,1,sku.getLastColumn()).getDisplayValues()[0].map(v=>String(v||'').trim());
+ const eventData=page4ReadSelectedColumns_(source,em);
+ if(!Object.prototype.hasOwnProperty.call(eventData.columns,'sourceRows'))
+  eventData.columns.sourceRows=Array(eventData.rows).fill(1);
+ const mh=sku.getRange(1,1,1,sku.getLastColumn()).getDisplayValues()[0].map(v=>String(v||'').trim());
  const mm={sku:page4HeaderIndex_(mh,['PRODUCT_DESC','PRODUCT DESC'],'SKU master PRODUCT_DESC'),subbrand:page4HeaderIndex_(mh,['SUB_BRAND','SUB BRAND','SUBBRAND'],'SKU master SUB_BRAND'),
   brand:page4HeaderIndex_(mh,['BRAND'],'SKU master BRAND'),category:page4HeaderIndex_(mh,['CATEGORY'],'SKU master CATEGORY'),entity:page4HeaderIndex_(mh,['ENTITAS','ENTITY'],'SKU master ENTITAS')};
  const masterData=page4ReadSelectedColumns_(sku,mm);
