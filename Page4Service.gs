@@ -1,5 +1,5 @@
 /**
- * PAGE 4 — SKU KCH. Aggregates SOO only; uses SUBDIST for distributor and SKU master for attributes.
+ * PAGE 4 — SKU KCH. Reads RAW_DATA_SALES directly (SOO only); SKU sheet supplies product attributes.
  */
 const PAGE4_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 function page4HeaderIndex_(headers,aliases,label){
