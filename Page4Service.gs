@@ -17,7 +17,7 @@ function page4ReadSource_(){
  if(!event||event.getLastRow()<2)throw new Error('P2_EVENT_INDEX belum berisi data.');if(!sku||sku.getLastRow()<2)throw new Error('Sheet SKU belum tersedia.');
  const eh=event.getRange(1,1,1,18).getDisplayValues()[0].map(v=>String(v||'').trim()),expected=(typeof P2_EVENT_INDEX_HEADERS_!=='undefined'?P2_EVENT_INDEX_HEADERS_:P2_EVENT_HEADERS_.concat(['SKU','SUB_DIST']));
  if(!expected.every((v,i)=>page2HeaderKey_(v)===page2HeaderKey_(eh[i])))throw new Error('Header P2_EVENT_INDEX tidak sesuai 18 kolom: '+eh.join(' | '));
- const em={year:0,month:1,customer:4,subdist:5,brand:7,subbrand:8,category:9,sbu:10,salesType:11,value:14,carton:15,sku:16,subDist:17};
+ const em={year:0,month:1,customer:4,subdist:5,brand:7,subbrand:8,category:9,sbu:10,salesType:11,value:14,carton:15,sku:16};
  const eventData=page4ReadSelectedColumns_(event,em),mh=sku.getRange(1,1,1,sku.getLastColumn()).getDisplayValues()[0].map(v=>String(v||'').trim());
  const mm={sku:page4HeaderIndex_(mh,['PRODUCT_DESC','PRODUCT DESC'],'SKU master PRODUCT_DESC'),subbrand:page4HeaderIndex_(mh,['SUB_BRAND','SUB BRAND','SUBBRAND'],'SKU master SUB_BRAND'),
   brand:page4HeaderIndex_(mh,['BRAND'],'SKU master BRAND'),category:page4HeaderIndex_(mh,['CATEGORY'],'SKU master CATEGORY'),entity:page4HeaderIndex_(mh,['ENTITAS','ENTITY'],'SKU master ENTITAS')};
@@ -40,7 +40,7 @@ function page4BuildData_(src,meta,filters){
  const map=new Map(meta.skuMaster.map(s=>[s.sku,{...s,total:{value:0,carton:0}}]));let matchedSourceRows=0;const c=src.columns;
  for(let i=0;i<src.sourceRows;i++){const type=page2Key_(c.salesType[i]);if(type!=='SOO')continue;
   if(Number(c.year[i])!==year||!monthSet.has(page2Month_(c.month[i])))continue;
-  const row=[null,null,null,null,null,c.subdist[i],null,null,null,null,null,c.salesType[i],null,null,null,null,c.sku[i],c.subDist[i]],entity=page34Entity_(row,mode),customer=page2Text_(c.customer[i]);
+  const row=[null,null,null,null,null,c.subdist[i],null,null,null,null,null,c.salesType[i],null,null,null,null,c.sku[i]],entity=page34Entity_(row,mode),customer=page2Text_(c.customer[i]);
   if(!entity||(selected.size&&!selected.has(page2Key_(entity)))||(customers.size&&!customers.has(page2Key_(customer))))continue;const name=page2Text_(c.sku[i]);if(!name)continue;matchedSourceRows++;
   let x=map.get(name);if(!x){x={sku:name,brand:page2Text_(c.brand[i]),subbrand:page2Text_(c.subbrand[i]),category:page2Text_(c.category[i]),entity:page2Text_(c.sbu[i]),total:{value:0,carton:0}};map.set(name,x);}
   x.total.value+=Number(c.value[i])||0;x.total.carton+=Number(c.carton[i])||0;
