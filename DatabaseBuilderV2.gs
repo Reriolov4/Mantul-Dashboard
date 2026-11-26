@@ -187,7 +187,7 @@ function mantulV2BuildFinalize() {
     const raw=ss.getSheetByName('RAW_DATA_SALES');
     const rawTotals=mantulV2SheetTotals_(raw,27,13,8);
     const close=(a,b)=>Math.abs(a-b)<=Math.max(0.01,Math.abs(b)*1e-9);
-    if(event.getLastRow()-1!==status.eventRows ||
+    if(event.getLastRow()-1!==status.eventRows || eventTotals.rows!==expectedNonempty ||
        !close(eventTotals.value,rawTotals.value)||!close(eventTotals.carton,rawTotals.carton)||
        !close(p2Totals.value,rawTotals.value)||!close(p2Totals.carton,rawTotals.carton)||
        !close(p3Totals.value,rawTotals.value)||!close(p3Totals.carton,rawTotals.carton)) {
