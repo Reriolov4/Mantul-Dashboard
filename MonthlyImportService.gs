@@ -1,22 +1,19 @@
 /**
  * MANTUL — MONTHLY PARTITION IMPORT
  *
- * Import workbook yang berisi P1_FACT, P2_EVENT_INDEX, dan RAW_DATA_SALES.
- * Browser hanya mengirim baris untuk satu YEAR+MONTH; sheet live diganti
- * per periode (bukan append), sehingga upload ulang bulan yang sama idempotent.
- *
- * SKU dan MAPPING TEAM tidak disentuh oleh proses bulanan.
+ * Import bulanan V2: P1_FACT tetap menjadi sumber Page 1, sedangkan
+ * RAW_DATA_SALES 27 kolom menjadi source of truth untuk Page 2–4.
+ * P2/P3 tidak diimpor; indeks turunan dibangun ulang setelah import selesai.
+ * Kolom helper RAW di luar A:AA dipertahankan.
  */
 const MONTHLY_IMPORT_PREFIX_ = 'MANTUL_MONTHLY_IMPORT_';
 const MONTHLY_RAW_HEADERS_ = MANTUL_V2_SCHEMA_.RAW.slice();
 const MONTHLY_STAGE_NAMES_ = {
   p1:'P1_MONTH_STAGING',
-  p2:'P2_MONTH_STAGING',
   raw:'RAW_MONTH_STAGING'
 };
 const MONTHLY_BACKUP_NAMES_ = {
   p1:'P1_MONTH_BACKUP',
-  p2:'P2_MONTH_BACKUP',
   raw:'RAW_MONTH_BACKUP'
 };
 
@@ -93,8 +90,8 @@ function monthlyImportAssertSession_(props, token) {
 
 function monthlyImportClearSession_(props) {
   const prefix = MONTHLY_IMPORT_PREFIX_;
-  ['TOKEN','YEAR','MONTH','P1_EXPECTED','P2_EXPECTED','RAW_EXPECTED',
-   'P1_WRITTEN','P2_WRITTEN','RAW_WRITTEN','STARTED','FILENAME']
+  ['TOKEN','YEAR','MONTH','P1_EXPECTED','RAW_EXPECTED',
+   'P1_WRITTEN','RAW_WRITTEN','STARTED','FILENAME']
     .forEach(key => props.deleteProperty(prefix+key));
 }
 
@@ -141,33 +138,6 @@ function monthlyImportReadStage_(key, expected, width) {
     throw new Error('Staging ' + key + ' tidak lengkap. Diharapkan ' + expected + ' baris.');
   }
   return expected ? sheet.getRange(2,1,expected,width).getValues() : [];
-}
-
-function monthlyImportSummary_(rows, distributorIndex, salesTypeIndex, valueIndex, cartonIndex) {
-  const summary = Object.create(null);
-  rows.forEach(row => {
-    const distributor = String(row[distributorIndex] == null ? '' : row[distributorIndex]).trim().toUpperCase();
-    const salesType = String(row[salesTypeIndex] == null ? '' : row[salesTypeIndex]).trim().toUpperCase();
-    const key = distributor + '|' + salesType;
-    if (!summary[key]) summary[key] = {count:0,value:0,carton:0};
-    summary[key].count++;
-    summary[key].value += Number(row[valueIndex]) || 0;
-    if(cartonIndex!==undefined&&cartonIndex!==null)summary[key].carton+=Number(row[cartonIndex])||0;
-  });
-  return summary;
-}
-
-function monthlyImportCompareP2Raw_(p2Rows, rawRows) {
-  const p2 = monthlyImportSummary_(p2Rows,5,11,14,15);
-  const raw = monthlyImportSummary_(rawRows,8,14,12,7);
-  const keys = Object.keys(p2).concat(Object.keys(raw).filter(k => !p2[k]));
-  for (let i=0;i<keys.length;i++) {
-    const key = keys[i], a = p2[key] || {count:0,value:0}, b = raw[key] || {count:0,value:0};
-    if (a.count !== b.count || Math.abs(a.value-b.value) > 0.01 || Math.abs((a.carton||0)-(b.carton||0)) > 0.01) {
-      throw new Error('P2_EVENT_INDEX dan RAW_DATA_SALES tidak cocok pada ' + key +
-        '. P2=' + a.count + ' baris/' + a.value + ' value/' + (a.carton||0) + ' karton; RAW=' + b.count + ' baris/' + b.value + ' value/' + (b.carton||0) + ' karton.');
-    }
-  }
 }
 
 function monthlyImportFindBlocks_(sheet, year, month) {
