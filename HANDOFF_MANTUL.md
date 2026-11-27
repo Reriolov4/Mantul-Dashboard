@@ -303,3 +303,9 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - **Belum dilakukan:** validasi sintaks/runtime end-to-end di Apps Script, uji nilai SO/SOO terhadap angka kontrol pengguna, dan verifikasi hasil browser. Karena itu jangan menganggap fitur sudah tervalidasi hanya berdasarkan commit.
 - Langkah berikut: jalankan pemeriksaan kode/Apps Script untuk memastikan tidak ada error; setelah source push berhasil, pemilik melakukan Manage deployments sendiri; lalu uji SO dan SOO untuk tahun/bulan yang sama, cek mapping dua customer khusus SO, cek eksklusi entitas 0, dan cocokkan total omzet terhadap `P34_EVENT_FACT`. Jangan rebuild FACT kecuali statusnya stale.
 - Workflow `.github/workflows/deploy-apps-script.yml` pada branch ini harus tetap hanya menjalankan `clasp push --force`; jangan menjalankan `clasp deploy` dan jangan mengelola deployment Web App. Push source tidak sama dengan deployment live.
+
+
+### Catatan koreksi implementasi akhir sesi
+- Placeholder untuk kolom yang belum tersedia disesuaikan menjadi 8 sel setelah CTR: GRW vs LY, GRW vs LM, GRW vs L3M, Stock, DOI, BDP, DOI Akhir, dan Saran PO.
+- Commit koreksi terakhir UI: `d41bd0da64802accf297d4d7950df81de4c1be7b`.
+- Semua perubahan dibuat pada branch `perf/page2-single-pass`. Push otomatis workflow dipicu oleh commit ke branch ini; status run terakhir belum dapat diverifikasi melalui konektor pada sesi ini. Periksa Actions untuk run yang commit-nya paling baru sebelum menganggap source sudah masuk ke Apps Script.
