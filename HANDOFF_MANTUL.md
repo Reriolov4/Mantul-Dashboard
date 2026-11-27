@@ -338,3 +338,14 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Menambahkan urutan khusus Komix Herbal tepat setelah Komix Adult di masing-masing grup SBU pada kedua tabel; urutan Brand lainnya tetap berdasarkan value terbesar, lalu CTR, kemudian nama Brand. SKU tetap value terbesar lebih dahulu.
 - SO dan SOO memakai fungsi render bersama sehingga perbaikan desain diterapkan konsisten ke kedua tabel. Tidak mengubah aturan bisnis SO/SOO, FACT/INDEX, RAW_DATA_SALES, Page 1/P1_FACT, atau Page 3. Tidak mengubah rumus total/omzet.
 - Belum dilakukan pengujian runtime/browser di Apps Script live; cek hasil setelah workflow push source berhasil. Manage deployments tetap tanggung jawab pemilik.
+
+
+## 28 Nov 2026 — Page 4 SO pivot scope + visual refinement
+- User clarified that the SO table must follow ONLY the top pivot in the supplied screenshot: YEAR 2026, SALES_TYPE ALL, SUB_DIST ALL, grouped to EPM BAC and EPM LSE. This is the dedicated SO analysis for PESTA ke RDC.
+- Backend Page 4 SO aggregation now explicitly keeps only entities EPM BAC and EPM LSE after applying the existing SO entity mapping. It still includes ALL SALES_TYPE values. This restriction is isolated to Page 4 SO table; Page 2, Page 3, SOO table, and their business rules are not changed.
+- Removed the three summary/info cards above the tables (SKU MASTER, OMZET SO, OMZET SOO).
+- SO table title changed to “SO ENSEVAL BY ENI (Non111 + SO ke SUBDIST)”; supporting label identifies the EPM BAC + EPM LSE scope and PESTA ke RDC purpose.
+- Improved both SO and SOO table styling with cleaner header bars, spacing, row backgrounds, hover state, borders, and compact SKU child rows.
+- Initial table now expands naturally without a fixed vertical scroll container. When a Brand accordion is opened and SKU rows appear, that table's scroll area activates (440px max height); when all Brand accordions are closed, vertical scrolling is removed. Horizontal scrolling remains available for the monthly columns.
+- Screenshot pivot control reference (Nov 2026): top pivot grand total 29,068,281,363 YTD and Nov 1,731,905,455; top pivot has EPM BAC/EPM LSE only. Use exact matching filter/date conditions when validating.
+- No RAW_DATA_SALES, INDEX/FACT, Page 1/P1_FACT, Page 2, Page 3, or Manage deployments changes. Browser/live Apps Script validation remains pending.
