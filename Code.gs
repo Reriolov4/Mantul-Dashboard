@@ -62,7 +62,7 @@ function refreshMantulDashboard() {
   const started = Date.now();
   try {
     const validation = mantulV2ValidateLiveDatabase_();
-    if (mantulBootstrapLoad_() || !mantulGetReadyReadIndex_()) {
+    if (mantulBootstrapLoad_() || mantulBootstrapRequired_()) {
       mantulStartOrResumeBootstrap_();
       return Object.assign({validation:validation}, mantulContinueDashboardBuild_());
     }
@@ -268,14 +268,27 @@ function refreshMantulReadIndexMonthly_() {
       Number(props.getProperty('MANTUL_READ_INDEX_TAIL_START'))>=2&&
       props.getProperty('MANTUL_READ_INDEX_TAIL_PERIOD');
     if(!ready){
-      lock.releaseLock();lockHeld=false;
-      const built=buildMantulReadIndex();
-      const current=ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
-      const saved=mantulTailPartition_(current);
-      props.setProperties({MANTUL_READ_INDEX_TAIL_START:String(saved.startRow),
-        MANTUL_READ_INDEX_TAIL_PERIOD:saved.year+'-'+saved.month,
-        MANTUL_READ_INDEX_TAIL_HASH:saved.hash,MANTUL_READ_INDEX_TAIL_VAL:String(saved.value)});
-      return Object.assign({},built,{status:'REBUILT',tailPeriod:saved.year+'-'+saved.month,tailRows:saved.rows});
+      // Never fall back to a full 130k-row rebuild from the foreground refresh.
+      // If the existing index is structurally current, seed missing tail metadata
+      // only after its final-month fingerprint matches RAW_DATA_SALES.
+      const indexUsable=index&&index.getLastRow()===raw.getLastRow()&&
+        index.getLastColumn()===RAW_SALES_COLUMN_COUNT&&
+        props.getProperty('MANTUL_READ_INDEX_STATUS')==='COMPLETE'&&
+        props.getProperty('MANTUL_READ_INDEX_SOURCE_ID')===ss.getId()&&
+        Number(props.getProperty('MANTUL_READ_INDEX_SOURCE_LASTROW'))===raw.getLastRow();
+      if(indexUsable){
+        const indexTail=mantulTailPartition_(index);
+        if(indexTail.hash!==tail.hash||indexTail.rows!==tail.rows)
+          throw new Error('INDEX dan RAW berbeda pada partisi bulan terakhir. Jalankan bootstrap bertahap; full rebuild otomatis dinonaktifkan.');
+        props.setProperties({MANTUL_READ_INDEX_TAIL_START:String(indexTail.startRow),
+          MANTUL_READ_INDEX_TAIL_PERIOD:indexTail.year+'-'+indexTail.month,
+          MANTUL_READ_INDEX_TAIL_HASH:indexTail.hash,MANTUL_READ_INDEX_TAIL_VAL:String(indexTail.value)});
+        return {ok:true,status:'UNCHANGED',sheet:MANTUL_READ_INDEX_SHEET_,
+          rows:raw.getLastRow()-1,tailPeriod:indexTail.year+'-'+indexTail.month,
+          tailRows:indexTail.rows,indexValue:Number(props.getProperty('MANTUL_READ_INDEX_VAL')||0),
+          metadataSeeded:true};
+      }
+      throw new Error('Read index belum siap. Bootstrap bertahap harus dijalankan; full rebuild satu eksekusi tidak diizinkan.');
     }
     const oldStart=Number(props.getProperty('MANTUL_READ_INDEX_TAIL_START'));
     const oldPeriod=props.getProperty('MANTUL_READ_INDEX_TAIL_PERIOD');
