@@ -107,7 +107,6 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Page 1/P1_FACT calculations and business logic were not changed. No fact rebuild is required for these UI/filter changes.
 - Performance work remains: Page 2/3/4 still read substantial fact ranges on cache misses. Next inspect selective-column reads and then design page-specific materialized/partitioned read models. Preserve outlet/date grain and AO/EC rules; validate totals before changing any data model. Test all Page 3/4 filters, search match/no-match, outside-click dismissal, one-scroll dropdown, loading blur and sticky navigation while scrolled.
 
-
 ## 27 Nov 2026 — Repair CSS leak and refresh after RAW_DATA append
 - User reported raw Page 3/4 CSS declarations rendered as visible text above the banner. Root cause: the appended Page 3/4 CSS rules were placed after the closing `</style>` of `Styles.html`. Wrapped that entire block in a dedicated `<style id="mantul-page34-filter-loading">` element.
 - User appended new sales rows through 26 Nov to `RAW_DATA_SALES`; previous verified read index/facts represented data through 25 Nov. The incremental refresh function `refreshMantulDashboard()` calls `refreshMantulReadIndexIncremental_()`: it appends only rows after the last indexed source row, validates row count and VAL, and falls back to full index build if the index metadata is invalid or source shrank.
@@ -218,7 +217,6 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
   3. When status is `COMPLETE`, run `auditMantulRawIndexParity()` (expected `differentRows=0`, `differentCells=0`) and `auditMantulDashboardSync()`.
 - Do not manually delete staging sheets or published sheets. Do not edit RAW during the rebuild. Manage deployments remains the owner's responsibility.
 
-
 ## 27 Nov 2026 — Runtime sync audit after bootstrap resume (16:29 WIB)
 - User ran `mantulContinueDashboardBuild()`, then `getMantulDashboardBuildStatus()`, and `auditMantulDashboardSync()`. The manual continuation showed only “Eksekusi selesai”; Apps Script Executions detail reported “Tidak ada log yang tersedia untuk eksekusi ini”. Do not interpret this as completion: Apps Script does not automatically print a function's returned object in the execution log.
 - Read-only sync audit at 16:29:16 WIB returned `ok:true`, `readOnly:true`, elapsed 143,564 ms, but Script Properties still report all three builds as `BUILDING`:
@@ -258,3 +256,15 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - If the resume throws another Spreadsheet-service timeout, stop and send the full `MANTUL BOOTSTRAP FAILED` log plus a fresh status result. The catch handler removes the trigger on error; do not loop retries or clear staging manually.
 - When bootstrap reaches `COMPLETE`, run `auditMantulRawIndexParity()` (require `differentRows=0` and `differentCells=0`) and then `auditMantulDashboardSync()`. Keep dashboard refresh and business-data certification on hold until both audits pass.
 - No changes to Apps Script source were needed for this checkpoint. This handoff-only update does not change spreadsheet data, RAW_DATA_SALES, Page 1/`P1_FACT`, or business rules. Manage deployments remains the owner's responsibility.
+
+## 27 Nov 2026 — Bootstrap status at 16:39 WIB (INDEX_VERIFY)
+- User reported a temporary browser/server connection loss at 16:37:45 WIB while the bootstrap continuation was being resumed. The disconnect alone did not establish whether the Apps Script server execution had stopped.
+- Latest read-only `getMantulDashboardBuildStatus()` log at 16:39:33 WIB:
+  ```json
+  {"ok":true,"status":"IN_PROGRESS","phase":"INDEX_VERIFY","offset":50000,"sourceRows":130623,"completedSourcePercent":38.3,"chunkCount":0,"packedRows":0,"triggerCount":1,"lastError":"Exception: Waktu layanan Spreadsheet habis saat mengakses dokumen dengan ID 1I8gESqZUkgpn-9yvQpWOmTFGWkW-3E06SG94a7UiZjI.\n    at mantulBootstrapNewSheet_ (Code:808:43)\n    at mantulBootstrapIndexStep_ (Code:879:19)\n    at mantulContinueDashboardBuild_ (Code:1099:9)\n    at rebuildMantulAllIndexesVerified (Code:1153:31)\n    at __GS_INTERNAL_top_function_call__.gs:1:8"}
+  ```
+- The phase has advanced from the earlier `INDEX_COPY` checkpoint (offset 92,500) to `INDEX_VERIFY`. The verification phase has its own offset counter; offset 50,000 is not a regression to 38.3% of the entire bootstrap. The reported percent is phase/progress metadata and must not be used alone to infer overall completion.
+- `triggerCount:1` confirms that the one-minute continuation trigger exists. Leave it running; do not manually call `mantulContinueDashboardBuild()` while the trigger is present, and do not restart `rebuildMantulAllIndexesVerified()`.
+- `lastError` still contains the earlier Spreadsheet-service timeout stack from `INDEX_INIT`. Since the current checkpoint is already `INDEX_VERIFY`, treat this as persisted historical error text unless a new failed execution log or status transition confirms a fresh failure. Do not clear checkpoint/properties or staging tabs manually.
+- Next: allow the trigger to continue, then call `getMantulDashboardBuildStatus()` once after a reasonable interval. When status is `COMPLETE`, run `auditMantulRawIndexParity()` first (must report `differentRows=0` and `differentCells=0`), then `auditMantulDashboardSync()`. If status remains stuck or a new failure appears, send the complete execution log and latest status before taking further action.
+- Until both audits pass, do not run ordinary monthly refresh or certify dashboard figures. Page 1/`P1_FACT`, `RAW_DATA_SALES`, and SO/SOO rules remain protected. User retains Apps Script Manage deployments responsibility.
