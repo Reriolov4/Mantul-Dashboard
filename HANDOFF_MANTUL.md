@@ -328,3 +328,13 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Brand diurutkan berdasarkan omzet/value tertinggi, CTR tertinggi sebagai tie-break, lalu nama Brand alfabetis. SKU diurutkan berdasarkan value tertinggi lalu nama SKU.
 - Filter SO SUBDIST dan SOO SUBDIST tetap bekerja independen; total SBU dan Grand Total mengikuti filter masing-masing tabel.
 - Belum dilakukan uji runtime/browser pada spreadsheet live. Tidak menyentuh Page 1/P1_FACT dan tidak melakukan Manage deployments.
+
+
+## 28 Nov 2026 — Page 4 table layout refinement (SO + SOO)
+- Menghilangkan baris header SBU B7/SAKA dari kedua tabel agar tidak mengambil ruang; subtotal TOTAL SBU B7 dan TOTAL SBU SAKA tetap ditampilkan.
+- GRAND TOTAL tidak lagi sticky di bagian bawah scroll container. Seluruh sel Grand Total memakai satu warna abu-abu terang yang konsisten, dengan garis batas atas; ini mencegah baris total menumpuk/bertabrakan saat scroll.
+- Merapikan lebar kolom: kolom Brand/SKU ditetapkan 230px, kolom angka/bulan konsisten 104px dan rata kanan dengan tabular numerals. Menghapus perlakuan rata kiri yang keliru pada kolom bulan ke-1 dan ke-2.
+- Mengubah empat filter utama (Tahun Analisis, Tanggal, PIC, Category) menjadi empat kolom sama lebar (25% masing-masing) di desktop; turun menjadi dua kolom pada layar sedang dan satu kolom pada ponsel.
+- Menambahkan urutan khusus Komix Herbal tepat setelah Komix Adult di masing-masing grup SBU pada kedua tabel; urutan Brand lainnya tetap berdasarkan value terbesar, lalu CTR, kemudian nama Brand. SKU tetap value terbesar lebih dahulu.
+- SO dan SOO memakai fungsi render bersama sehingga perbaikan desain diterapkan konsisten ke kedua tabel. Tidak mengubah aturan bisnis SO/SOO, FACT/INDEX, RAW_DATA_SALES, Page 1/P1_FACT, atau Page 3. Tidak mengubah rumus total/omzet.
+- Belum dilakukan pengujian runtime/browser di Apps Script live; cek hasil setelah workflow push source berhasil. Manage deployments tetap tanggung jawab pemilik.
