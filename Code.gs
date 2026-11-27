@@ -522,12 +522,21 @@ function mantulBootstrapRequired_() {
   const index = mantulGetReadyReadIndex_();
   const p2 = ss.getSheetByName(PAGE2_FACT_SHEET_);
   const p34 = ss.getSheetByName(PAGE34_FACT_SHEET_);
-  const p2Ready = index && p2 && p2.getLastRow() > 1 &&
+  let p2HeaderReady=false,p34HeaderReady=false;
+  if(p2&&p2.getLastRow()>1&&p2.getLastColumn()>=PAGE2_FACT_HEADERS_.length){
+    const h=p2.getRange(1,1,1,PAGE2_FACT_HEADERS_.length).getDisplayValues()[0].map(page2HeaderKey_);
+    p2HeaderReady=PAGE2_FACT_HEADERS_.every((v,i)=>h[i]===page2HeaderKey_(v));
+  }
+  if(p34&&p34.getLastRow()>1&&p34.getLastColumn()>=PAGE34_FACT_HEADERS_.length){
+    const h=p34.getRange(1,1,1,PAGE34_FACT_HEADERS_.length).getDisplayValues()[0].map(page2HeaderKey_);
+    p34HeaderReady=PAGE34_FACT_HEADERS_.every((v,i)=>h[i]===page2HeaderKey_(v));
+  }
+  const p2Ready = index && p2HeaderReady &&
     props.getProperty('PAGE2_FACT_STATUS') === 'COMPLETE' &&
     props.getProperty('PAGE2_FACT_SOURCE_ID') === ss.getId() &&
     Number(props.getProperty('PAGE2_FACT_SOURCE_ROWS')) === index.getLastRow() - 1 &&
     Number(props.getProperty('PAGE2_FACT_WRITTEN')) === p2.getLastRow() - 1;
-  const p34Ready = index && p34 && p34.getLastRow() > 1 &&
+  const p34Ready = index && p34HeaderReady &&
     props.getProperty('PAGE34_FACT_STATUS') === 'COMPLETE' &&
     props.getProperty('PAGE34_FACT_SOURCE_ID') === ss.getId() &&
     Number(props.getProperty('PAGE34_FACT_SOURCE_ROWS')) === index.getLastRow() - 1 &&
