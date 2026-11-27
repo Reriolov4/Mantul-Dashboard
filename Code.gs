@@ -62,17 +62,34 @@ function refreshMantulDashboard() {
   const started = Date.now();
   try {
     const validation = mantulV2ValidateLiveDatabase_();
-    const readIndex = refreshMantulReadIndexIncremental_();
+    const readIndex = refreshMantulReadIndexMonthly_();
     let materializedFacts = {ok:true,status:'SKIPPED'};
-    try { materializedFacts = {page2:refreshPage2OutletFactIncremental_(),page34:refreshPage34EventFactIncremental_()}; }
-    catch (factErr) { materializedFacts = {ok:false,status:'FACT_REFRESH_FAILED',message:String(factErr && factErr.message || factErr)}; Logger.log('MANTUL MATERIALIZED FACT REFRESH FAILED: ' + (factErr && factErr.stack || factErr)); }
+    if (readIndex.status === 'UPDATED' || readIndex.status === 'REBUILT') {
+      // Existing FACT writers are full-build-safe but their append-only path is not
+      // overwrite-safe. Invalidate readiness and rebuild both facts from the verified
+      // A:Y index so stale rows can never be reported COMPLETE.
+      props.setProperties({PAGE2_FACT_STATUS:'STALE',PAGE34_FACT_STATUS:'STALE'});
+    }
+    try {
+      let p2 = refreshPage2OutletFactIncremental_();
+      if (p2.status === 'NEEDS_FULL_BUILD') p2 = buildPage2OutletFact();
+      let p34 = refreshPage34EventFactIncremental_();
+      if (p34.status === 'NEEDS_FULL_BUILD') p34 = buildPage34EventFact();
+      if (!p2.ok || !p34.ok || !p2.validated || !p34.validated) {
+        throw new Error('Satu atau lebih materialized FACT belum tervalidasi COMPLETE.');
+      }
+      materializedFacts = {ok:true,page2:p2,page34:p34};
+    } catch (factErr) {
+      props.setProperties({PAGE2_FACT_STATUS:'FAILED',PAGE34_FACT_STATUS:'FAILED'});
+      throw factErr;
+    }
     const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm');
     props.setProperty('SALES_LAST_UPDATED', stamp);
     props.setProperty('PAGE2_RAW_UPDATED', stamp);
     props.deleteProperty('MANTUL_V2_DATA_STALE');
     cacheDashboardData_();
     const result = {ok:true,status:'COMPLETE',buildExecuted:false,
-      message:'Refresh selesai. Page 1 tetap memakai P1_FACT; Page 2–4 memakai P2_EVENT_INDEX hasil salinan terverifikasi dari RAW_DATA_SALES A:Y.',
+      message:'Refresh selesai. Page 1 tetap memakai P1_FACT; Page 2–4 memakai materialized facts tervalidasi dari RAW_DATA_SALES A:Y.',
       validation:validation,readIndex:readIndex,materializedFacts:materializedFacts,updatedAt:stamp,elapsedMs:Date.now()-started};
     Logger.log('MANTUL SAFE REFRESH\\n' + JSON.stringify(result, null, 2));
     return result;
@@ -183,6 +200,106 @@ function buildMantulReadIndex() {
  * Refresh read index append-only. Asumsi: histori lama tidak diedit,
  * transaksi baru selalu ditambahkan di bawah. Jika tidak valid, full rebuild.
  */
+/**
+ * Monthly-tail synchronizer for RAW_DATA_SALES A:Y.
+ * Only reads the contiguous tail month to fingerprint changes. First run or
+ * unprovable boundaries fall back to the validated full index builder.
+ */
+function mantulTailPartition_(sheet) {
+  const last=sheet.getLastRow();
+  if(last<2)throw new Error(sheet.getName()+' tidak memiliki data.');
+  const tail=sheet.getRange(last,1,1,2).getValues()[0];
+  const year=String(tail[0] instanceof Date?tail[0].getFullYear():tail[0]).trim();
+  const month=page2Month_(tail[1]);
+  if(!year||!month)throw new Error('YEAR/MONTH baris terakhir tidak valid pada '+sheet.getName()+'.');
+  let start=last;
+  const block=4000;
+  while(start>2){
+    const from=Math.max(2,start-block),n=start-from;
+    const pairs=sheet.getRange(from,1,n,2).getValues();
+    let found=-1;
+    for(let i=pairs.length-1;i>=0;i--){
+      const y=String(pairs[i][0] instanceof Date?pairs[i][0].getFullYear():pairs[i][0]).trim();
+      const m=page2Month_(pairs[i][1]);
+      if(y===year&&m===month)found=i;
+      else if(found>=0)break;
+      else break;
+    }
+    if(found<0)break;
+    start=from+found;
+    if(found>0)break;
+  }
+  const n=last-start+1,values=sheet.getRange(start,1,n,RAW_SALES_COLUMN_COUNT).getValues();
+  for(let i=0;i<values.length;i++){
+    const y=String(values[i][0] instanceof Date?values[i][0].getFullYear():values[i][0]).trim();
+    if(y!==year||page2Month_(values[i][1])!==month)throw new Error('Blok bulan terakhir tidak kontigu pada '+sheet.getName()+'.');
+  }
+  const digest=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,JSON.stringify(values));
+  return {year:year,month:month,startRow:start,lastRow:last,rows:n,values:values,
+    hash:Utilities.base64Encode(digest),value:values.reduce((s,r)=>s+(Number(r[RAW_SALES_COL.VALUE])||0),0)};
+}
+
+function refreshMantulReadIndexMonthly_() {
+  const lock=LockService.getScriptLock();lock.waitLock(30000);
+  try{
+    const ss=getDatabase_(),raw=ss.getSheetByName(RAW_DATA_SHEET_NAME),index=ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
+    if(!raw||raw.getLastRow()<2)throw new Error('RAW_DATA_SALES kosong atau tidak ditemukan.');
+    validateRawDatabaseHeaders_(raw.getRange(1,1,1,RAW_SALES_COLUMN_COUNT).getDisplayValues()[0]);
+    if(raw.getLastColumn()<RAW_SALES_COLUMN_COUNT)throw new Error('RAW_DATA_SALES harus memiliki kolom A:Y.');
+    const tail=mantulTailPartition_(raw),props=PropertiesService.getScriptProperties();
+    const ready=index&&props.getProperty('MANTUL_READ_INDEX_STATUS')==='COMPLETE'&&
+      props.getProperty('MANTUL_READ_INDEX_SOURCE_ID')===ss.getId()&&
+      Number(props.getProperty('MANTUL_READ_INDEX_SOURCE_LASTROW'))===index.getLastRow()&&
+      Number(props.getProperty('MANTUL_READ_INDEX_TAIL_START'))>=2&&
+      props.getProperty('MANTUL_READ_INDEX_TAIL_PERIOD');
+    if(!ready){
+      const built=buildMantulReadIndex();
+      const current=ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
+      const saved=mantulTailPartition_(current);
+      props.setProperties({MANTUL_READ_INDEX_TAIL_START:String(saved.startRow),
+        MANTUL_READ_INDEX_TAIL_PERIOD:saved.year+'-'+saved.month,
+        MANTUL_READ_INDEX_TAIL_HASH:saved.hash,MANTUL_READ_INDEX_TAIL_VAL:String(saved.value)});
+      return Object.assign({},built,{status:'REBUILT',tailPeriod:saved.year+'-'+saved.month,tailRows:saved.rows});
+    }
+    const oldStart=Number(props.getProperty('MANTUL_READ_INDEX_TAIL_START'));
+    const oldPeriod=props.getProperty('MANTUL_READ_INDEX_TAIL_PERIOD');
+    const oldTailValue=Number(props.getProperty('MANTUL_READ_INDEX_TAIL_VAL')||0);
+    const oldHash=props.getProperty('MANTUL_READ_INDEX_TAIL_HASH')||'';
+    const indexTail=mantulTailPartition_(index);
+    if(indexTail.startRow!==oldStart||indexTail.year+'-'+indexTail.month!==oldPeriod)
+      throw new Error('Batas partisi INDEX tidak sesuai metadata; jalankan rebuild index terkontrol.');
+    if(tail.year+'-'+tail.month===oldPeriod&&tail.hash===oldHash&&raw.getLastRow()===index.getLastRow()){
+      return {ok:true,status:'UNCHANGED',sheet:MANTUL_READ_INDEX_SHEET_,rows:raw.getLastRow()-1,
+        tailPeriod:oldPeriod,tailRows:tail.rows,indexValue:Number(props.getProperty('MANTUL_READ_INDEX_VAL')||0)};
+    }
+    const samePeriod=tail.year+'-'+tail.month===oldPeriod;
+    if(!samePeriod&&tail.startRow!==index.getLastRow()+1)
+      throw new Error('Bulan baru tidak dimulai tepat setelah partisi INDEX terakhir; rebuild diperlukan.');
+    const writeStart=samePeriod?oldStart:tail.startRow;
+    if(samePeriod&&tail.startRow!==oldStart)
+      throw new Error('Awal partisi bulan berjalan berubah; rebuild diperlukan demi keamanan.');
+    const oldLast=index.getLastRow();
+    if(samePeriod&&oldLast>=writeStart)index.getRange(writeStart,1,oldLast-writeStart+1,RAW_SALES_COLUMN_COUNT).clearContent();
+    if(tail.rows>0)index.getRange(writeStart,1,tail.rows,RAW_SALES_COLUMN_COUNT).setValues(tail.values);
+    SpreadsheetApp.flush();
+    if(index.getLastRow()!==raw.getLastRow())throw new Error('Validasi jumlah baris INDEX setelah refresh gagal.');
+    const check=mantulTailPartition_(index);
+    if(check.rows!==tail.rows||check.hash!==tail.hash||Math.abs(check.value-tail.value)>Math.max(.01,Math.abs(tail.value)*1e-10))
+      throw new Error('Validasi fingerprint/VAL partisi INDEX gagal.');
+    let totalValue=Number(props.getProperty('MANTUL_READ_INDEX_VAL')||0);
+    totalValue=samePeriod?totalValue-oldTailValue+tail.value:totalValue+tail.value;
+    props.setProperties({
+      MANTUL_READ_INDEX_STATUS:'COMPLETE',MANTUL_READ_INDEX_SOURCE_ID:ss.getId(),
+      MANTUL_READ_INDEX_SOURCE_ROWS:String(raw.getLastRow()-1),MANTUL_READ_INDEX_SOURCE_LASTROW:String(raw.getLastRow()),
+      MANTUL_READ_INDEX_VAL:String(totalValue),MANTUL_READ_INDEX_BUILT_AT:new Date().toISOString(),
+      MANTUL_READ_INDEX_TAIL_START:String(tail.startRow),MANTUL_READ_INDEX_TAIL_PERIOD:tail.year+'-'+tail.month,
+      MANTUL_READ_INDEX_TAIL_HASH:tail.hash,MANTUL_READ_INDEX_TAIL_VAL:String(tail.value)
+    });
+    return {ok:true,status:'UPDATED',sheet:MANTUL_READ_INDEX_SHEET_,tailPeriod:tail.year+'-'+tail.month,
+      tailRows:tail.rows,previousTailRows:oldLast-oldStart+1,sourceRows:raw.getLastRow()-1,indexValue:totalValue,validated:true};
+  }finally{lock.releaseLock();}
+}
+
 function refreshMantulReadIndexIncremental_() {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
