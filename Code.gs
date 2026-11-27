@@ -75,7 +75,9 @@ function refreshMantulDashboard() {
       if (p2.status === 'NEEDS_FULL_BUILD') p2 = buildPage2OutletFact();
       let p34 = refreshPage34EventFactIncremental_();
       if (p34.status === 'NEEDS_FULL_BUILD') p34 = buildPage34EventFact();
-      if (!p2.ok || !p34.ok || !p2.validated || !p34.validated) {
+      const p2Valid = p2.ok && (p2.validated === true || p2.status === 'UNCHANGED');
+      const p34Valid = p34.ok && (p34.validated === true || p34.status === 'UNCHANGED');
+      if (!p2Valid || !p34Valid) {
         throw new Error('Satu atau lebih materialized FACT belum tervalidasi COMPLETE.');
       }
       materializedFacts = {ok:true,page2:p2,page34:p34};
