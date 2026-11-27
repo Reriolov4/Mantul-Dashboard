@@ -75,6 +75,11 @@ function refreshMantulDashboard() {
       readIndex=refreshMantulReadIndexMonthly_();
     }catch(indexErr){
       const message=String(indexErr&&indexErr.message||indexErr);
+      if(/Read index belum siap/.test(message)){
+        props.setProperties({PAGE2_FACT_STATUS:'STALE',PAGE34_FACT_STATUS:'STALE'});
+        mantulStartOrResumeBootstrap_();
+        return Object.assign({validation:validation,repairReason:message},mantulContinueDashboardBuild_());
+      }
       if(/INDEX dan RAW berbeda pada partisi bulan terakhir|Batas partisi INDEX tidak sesuai metadata|Awal partisi bulan berjalan berubah/.test(message)){
         props.setProperties({MANTUL_READ_INDEX_STATUS:'STALE',PAGE2_FACT_STATUS:'STALE',PAGE34_FACT_STATUS:'STALE'});
         mantulStartOrResumeBootstrap_(true);
@@ -1103,6 +1108,10 @@ function mantulContinueDashboardBuild_() {
         const p2Tail=mantulDiscoverFactTail_(context.ss.getSheetByName(PAGE2_FACT_SHEET_),activePeriod,15,14,null);
         const p34Tail=mantulDiscoverFactTail_(context.ss.getSheetByName(PAGE34_FACT_SHEET_),activePeriod,18,14,15);
         props.setProperties({
+          MANTUL_READ_INDEX_TAIL_START:String(activeTail.startRow),
+          MANTUL_READ_INDEX_TAIL_PERIOD:activePeriod,
+          MANTUL_READ_INDEX_TAIL_HASH:activeTail.hash,
+          MANTUL_READ_INDEX_TAIL_VAL:String(activeTail.value),
           PAGE2_FACT_TAIL_START:String(p2Tail.startRow),PAGE2_FACT_TAIL_PERIOD:p2Tail.period,
           PAGE2_FACT_TAIL_SOURCE_COUNT:String(p2Tail.sourceCount),PAGE2_FACT_TAIL_VAL:String(p2Tail.value),
           PAGE34_FACT_TAIL_START:String(p34Tail.startRow),PAGE34_FACT_TAIL_PERIOD:p34Tail.period,
