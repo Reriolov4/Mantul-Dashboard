@@ -510,6 +510,114 @@ function auditMantulDashboardSync() {
 }
 
 
+
+/**
+ * Read-only, row-by-row reconciliation of RAW_DATA_SALES A:Y against
+ * P2_EVENT_INDEX A:Y. Does not write sheets, properties, caches or triggers.
+ * Run only after clearing any sheet filters for human visual inspection;
+ * Apps Script getValues() itself reads filtered/hidden rows too.
+ */
+function auditMantulRawIndexParity() {
+  const started = Date.now();
+  const ss = getDatabase_();
+  const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  const index = ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
+  if (!raw || !index) throw new Error('RAW_DATA_SALES atau P2_EVENT_INDEX tidak ditemukan.');
+  const columns = RAW_SALES_COLUMN_COUNT;
+  const rawLast = raw.getLastRow(), indexLast = index.getLastRow();
+  const rawHeaders = raw.getRange(1, 1, 1, columns).getValues()[0];
+  const indexHeaders = index.getRange(1, 1, 1, columns).getValues()[0];
+  const headerDiffs = [];
+  for (let c = 0; c < columns; c++) {
+    if (JSON.stringify(rawHeaders[c]) !== JSON.stringify(indexHeaders[c])) {
+      headerDiffs.push({column:c + 1, raw:String(rawHeaders[c]), index:String(indexHeaders[c])});
+    }
+  }
+
+  function monthKey(row) {
+    const y = String(row[0] instanceof Date ? row[0].getFullYear() : row[0]).trim();
+    const m = page2Month_(row[1]);
+    return y && m ? y + '-' + String(PAGE2_MONTHS_.indexOf(m) + 1).padStart(2, '0') : 'INVALID_YEAR_MONTH';
+  }
+  function norm(value) {
+    if (value instanceof Date) return 'DATE:' + value.toISOString();
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'number' && !isFinite(value)) return String(value);
+    return value;
+  }
+  function summarizeMonth(map, row) {
+    const key = monthKey(row);
+    if (!map[key]) map[key] = {rows:0, value:0};
+    map[key].rows++;
+    map[key].value += Number(row[RAW_SALES_COL.VALUE]) || 0;
+  }
+
+  const rawMonths = {}, indexMonths = {};
+  const firstDifferences = [];
+  const columnDifferenceCounts = {};
+  let comparedRows = 0, differentRows = 0, comparedCells = 0, differentCells = 0;
+  const commonLast = Math.min(rawLast, indexLast);
+  const batchSize = 2500;
+  for (let start = 2; start <= commonLast; start += batchSize) {
+    const count = Math.min(batchSize, commonLast - start + 1);
+    const rawRows = raw.getRange(start, 1, count, columns).getValues();
+    const indexRows = index.getRange(start, 1, count, columns).getValues();
+    for (let i = 0; i < count; i++) {
+      const rr = rawRows[i], ir = indexRows[i];
+      summarizeMonth(rawMonths, rr);
+      summarizeMonth(indexMonths, ir);
+      comparedRows++;
+      let rowDifferent = false;
+      for (let c = 0; c < columns; c++) {
+        comparedCells++;
+        if (JSON.stringify(norm(rr[c])) !== JSON.stringify(norm(ir[c]))) {
+          differentCells++;
+          rowDifferent = true;
+          const colName = String(rawHeaders[c] || ('COL_' + (c + 1)));
+          columnDifferenceCounts[colName] = (columnDifferenceCounts[colName] || 0) + 1;
+          if (firstDifferences.length < 30) {
+            firstDifferences.push({
+              row:start + i, column:c + 1, header:colName,
+              raw:rr[c] instanceof Date ? rr[c].toISOString() : rr[c],
+              index:ir[c] instanceof Date ? ir[c].toISOString() : ir[c]
+            });
+          }
+        }
+      }
+      if (rowDifferent) differentRows++;
+    }
+  }
+
+  const monthKeys = Array.from(new Set(Object.keys(rawMonths).concat(Object.keys(indexMonths)))).sort();
+  const monthComparison = {};
+  monthKeys.forEach(key => {
+    const r = rawMonths[key] || {rows:0,value:0};
+    const x = indexMonths[key] || {rows:0,value:0};
+    monthComparison[key] = {
+      rawRows:r.rows, indexRows:x.rows, rowDelta:r.rows - x.rows,
+      rawValue:r.value, indexValue:x.value, valueDelta:r.value - x.value
+    };
+  });
+  const report = {
+    ok:true, readOnly:true, comparison:'RAW_DATA_SALES A:Y vs P2_EVENT_INDEX A:Y',
+    spreadsheetId:ss.getId(), elapsedMs:0,
+    rawLastRow:rawLast, indexLastRow:indexLast,
+    rawDataRows:Math.max(0, rawLast - 1), indexDataRows:Math.max(0, indexLast - 1),
+    rowCountEqual:rawLast === indexLast,
+    headerDifferences:headerDiffs,
+    comparedRows:comparedRows, comparedCells:comparedCells,
+    differentRows:differentRows, differentCells:differentCells,
+    firstDifferences:firstDifferences,
+    columnDifferenceCounts:columnDifferenceCounts,
+    byMonth:monthComparison,
+    unpairedRows:Math.abs(rawLast - indexLast),
+    note:'Read-only. Filters and hidden rows do not exclude getValues() results.'
+  };
+  report.elapsedMs = Date.now() - started;
+  Logger.log('MANTUL RAW-INDEX PARITY AUDIT READ-ONLY\\n' + JSON.stringify(report, null, 2));
+  return report;
+}
+
 // ============================================================
 // RESUMABLE FIRST-TIME BOOTSTRAP — INDEX -> PAGE 2 FACT -> PAGE 3/4 FACT
 // Builds into staging sheets in deterministic chunks. Existing published sheets
