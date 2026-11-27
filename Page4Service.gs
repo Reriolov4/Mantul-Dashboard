@@ -65,9 +65,12 @@ function page4BuildData_(src,meta,filters){
   if(mode==='SOO'&&type!=='SOO')continue;
   if(Number(c.year[i])!==year||!monthSet.has(page2Month_(c.month[i]))||(dates.size&&!dates.has(String(Number(c.dd[i])||c.dd[i]||'').padStart(2,'0'))))continue;
   const adapter=[null,null,null,null,c.customer[i],c.subdist[i],null,null,null,null,null,c.salesType[i],null,null,null,null,null,c.subDist[i]];
-  const entity=page34Entity_(adapter,mode),customer=page2Text_(c.customer[i]),name=page2Text_(c.sku[i]);
-  // Page 4 SO table follows the top pivot only: ALL sales types, EPM BAC + EPM LSE. This is isolated to this table and does not alter Page 2/3 or SOO.
-  if(mode==='SO'&&!['EPM BAC','EPM LSE'].includes(page2Key_(entity)))continue;
+  // SO Page 4 matches the TOP pivot: row field = SUBDIST (P34 column F / RAW column I),
+  // report filter SUB_DIST = ALL, SALES_TYPE = ALL. Do NOT group SO by SUB_DIST.
+  // This is isolated to the SO table on Page 4; Page 2, Page 3 and SOO keep their own rules.
+  const entity=mode==='SO'?page2Key_(page2Text_(c.subdist[i])):page34Entity_(adapter,mode);
+  const customer=page2Text_(c.customer[i]),name=page2Text_(c.sku[i]);
+  if(mode==='SO'&&!['EPM BAC','EPM LSE'].includes(entity))continue;
   if(!entity||!name||(selected.size&&!selected.has(page2Key_(entity)))||(customers.size&&!customers.has(page2Key_(customer)))||(pics.size&&!pics.has(page2Key_(c.pic[i])))||(brands.size&&!brands.has(page2Key_(c.brand[i])))||(subbrands.size&&!subbrands.has(page2Key_(c.subbrand[i])))||(categories.size&&!categories.has(page2Key_(c.category[i]))))continue;
   matchedSourceRows+=Number(c.sourceRows[i])||1;
   const key=page2Key_(name),sbu=page2Text_(c.sbu[i])||'LAINNYA',mapKey=sbu+'|'+key,m=page2Month_(c.month[i]),value=Number(c.value[i])||0;
