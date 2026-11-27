@@ -267,3 +267,98 @@ function mantulGetReadyReadIndex_() {
       index.getLastRow() !== raw.getLastRow() || index.getLastColumn() !== RAW_SALES_COLUMN_COUNT) return null;
   return index;
 }
+
+
+/**
+ * AUDIT READ-ONLY: membandingkan RAW, read index, dan materialized facts
+ * per bulan. Tidak menulis sheet, Script Properties, cache, atau trigger.
+ * Jalankan saat angka sumber dan dashboard tidak cocok.
+ */
+function auditMantulDashboardSync() {
+  const started = Date.now();
+  const ss = getDatabase_();
+  const props = PropertiesService.getScriptProperties();
+  const raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
+  const index = ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
+  const p2 = ss.getSheetByName('P2_OUTLET_FACT');
+  const p34 = ss.getSheetByName('P34_EVENT_FACT');
+  if (!raw) throw new Error('RAW_DATA_SALES tidak ditemukan.');
+
+  function summarize(sheet, valueCol, sourceCountCol) {
+    if (!sheet || sheet.getLastRow() < 2) return {exists:!!sheet, physicalRows:0, sourceRows:0, totalValue:0, latestDate:'', byMonth:{}};
+    const last = sheet.getLastRow(), batch = 5000;
+    const out = {exists:true, physicalRows:last-1, sourceRows:0, totalValue:0, latestDate:'', byMonth:{}};
+    for (let start=2; start<=last; start+=batch) {
+      const n=Math.min(batch,last-start+1);
+      const dims=sheet.getRange(start,1,n,3).getValues();
+      const vals=sheet.getRange(start,valueCol,n,1).getValues();
+      const counts=sourceCountCol?sheet.getRange(start,sourceCountCol,n,1).getValues():null;
+      for(let i=0;i<n;i++){
+        const y=String(Number(dims[i][0])||dims[i][0]||'').trim();
+        const m=page2Month_(dims[i][1]);
+        const d=page2Day_(dims[i][2]);
+        const v=Number(vals[i][0])||0;
+        const c=counts?(Number(counts[i][0])||0):1;
+        out.totalValue+=v;
+        out.sourceRows+=c;
+        if(y&&m){
+          const key=y+'-'+String(PAGE2_MONTHS_.indexOf(m)+1).padStart(2,'0');
+          if(!out.byMonth[key])out.byMonth[key]={rows:0,value:0};
+          out.byMonth[key].rows+=c;
+          out.byMonth[key].value+=v;
+          const date=page2Date_(y,m,d);
+          if(date&&date>out.latestDate)out.latestDate=date;
+        }
+      }
+    }
+    return out;
+  }
+
+  let revision='unavailable';
+  try { revision=getDatabaseRevision_(); } catch(e) { revision='ERROR: '+String(e.message||e); }
+  let triggers=[];
+  try {
+    triggers=ScriptApp.getProjectTriggers().map(t=>({
+      handler:t.getHandlerFunction(),
+      eventType:String(t.getEventType()),
+      source:String(t.getTriggerSource())
+    }));
+  } catch(e) { triggers=[{error:String(e.message||e)}]; }
+
+  const report={
+    ok:true,readOnly:true,spreadsheetId:ss.getId(),elapsedMs:0,
+    sourceRevision:revision,
+    scriptProperties:{
+      indexStatus:props.getProperty('MANTUL_READ_INDEX_STATUS')||'',
+      indexSourceLastRow:Number(props.getProperty('MANTUL_READ_INDEX_SOURCE_LASTROW')||0),
+      indexSourceRows:Number(props.getProperty('MANTUL_READ_INDEX_SOURCE_ROWS')||0),
+      indexBuiltAt:props.getProperty('MANTUL_READ_INDEX_BUILT_AT')||'',
+      page2FactStatus:props.getProperty('PAGE2_FACT_STATUS')||'',
+      page2FactSourceRows:Number(props.getProperty('PAGE2_FACT_SOURCE_ROWS')||0),
+      page2FactWritten:Number(props.getProperty('PAGE2_FACT_WRITTEN')||0),
+      page2FactBuiltAt:props.getProperty('PAGE2_FACT_BUILT_AT')||'',
+      page34FactStatus:props.getProperty('PAGE34_FACT_STATUS')||'',
+      page34FactSourceRows:Number(props.getProperty('PAGE34_FACT_SOURCE_ROWS')||0),
+      page34FactWritten:Number(props.getProperty('PAGE34_FACT_WRITTEN')||0),
+      page34FactBuiltAt:props.getProperty('PAGE34_FACT_BUILT_AT')||''
+    },
+    sheets:{
+      RAW_DATA_SALES:summarize(raw,13,null),
+      P2_EVENT_INDEX:summarize(index,13,null),
+      P2_OUTLET_FACT:summarize(p2,15,16),
+      P34_EVENT_FACT:summarize(p34,15,19)
+    },
+    triggers:triggers
+  };
+  const rawNov=report.sheets.RAW_DATA_SALES.byMonth['2026-11']||{rows:0,value:0};
+  report.november2026={
+    raw:rawNov,
+    index:report.sheets.P2_EVENT_INDEX.byMonth['2026-11']||{rows:0,value:0},
+    page2:report.sheets.P2_OUTLET_FACT.byMonth['2026-11']||{rows:0,value:0},
+    page34:report.sheets.P34_EVENT_FACT.byMonth['2026-11']||{rows:0,value:0},
+    expectedRawValue:1988904755
+  };
+  report.elapsedMs=Date.now()-started;
+  Logger.log('MANTUL READ-ONLY SYNC AUDIT\\n'+JSON.stringify(report,null,2));
+  return report;
+}
