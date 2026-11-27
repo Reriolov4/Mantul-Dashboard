@@ -68,8 +68,8 @@ function page4BuildData_(src,meta,filters){
   const entity=page34Entity_(adapter,mode),customer=page2Text_(c.customer[i]),name=page2Text_(c.sku[i]);
   if(!entity||!name||(selected.size&&!selected.has(page2Key_(entity)))||(customers.size&&!customers.has(page2Key_(customer)))||(pics.size&&!pics.has(page2Key_(c.pic[i])))||(brands.size&&!brands.has(page2Key_(c.brand[i])))||(subbrands.size&&!subbrands.has(page2Key_(c.subbrand[i])))||(categories.size&&!categories.has(page2Key_(c.category[i]))))continue;
   matchedSourceRows+=Number(c.sourceRows[i])||1;
-  const key=page2Key_(name),m=page2Month_(c.month[i]),value=Number(c.value[i])||0;
-  let x=map.get(key);if(!x){const masterSku=master.get(key)||{};x={sku:name,brand:masterSku.brand||page2Text_(c.brand[i]),subbrand:masterSku.subbrand||page2Text_(c.subbrand[i]),category:masterSku.category||page2Text_(c.category[i]),entity:entity,monthly:{},totalValue:0};PAGE4_MONTHS_.forEach(mm=>x.monthly[mm]=0);map.set(key,x);}
+  const key=page2Key_(name),sbu=page2Text_(c.sbu[i])||'LAINNYA',mapKey=sbu+'|'+key,m=page2Month_(c.month[i]),value=Number(c.value[i])||0;
+  let x=map.get(mapKey);if(!x){const masterSku=master.get(key)||{};x={sbu:sbu,sku:name,brand:masterSku.brand||page2Text_(c.brand[i]),subbrand:masterSku.subbrand||page2Text_(c.subbrand[i]),category:masterSku.category||page2Text_(c.category[i]),entity:entity,monthly:{},totalValue:0};PAGE4_MONTHS_.forEach(mm=>x.monthly[mm]=0);map.set(mapKey,x);}
   x.monthly[m]+=value;x.totalValue+=value;totalValue+=value;
  }
  const rows=Array.from(map.values()).map(x=>{const vals=monthsUsed.map(m=>x.monthly[m]||0),last=monthsUsed.length?PAGE4_MONTHS_.indexOf(monthsUsed[monthsUsed.length-1]):-1,tail3=last<0?[]:PAGE4_MONTHS_.slice(Math.max(0,last-2),last+1),tail6=last<0?[]:PAGE4_MONTHS_.slice(Math.max(0,last-5),last+1);x.avg3=tail3.length?tail3.reduce((a,m)=>a+x.monthly[m],0)/3:0;x.avg6=tail6.length?tail6.reduce((a,m)=>a+x.monthly[m],0)/6:0;x.months=PAGE4_MONTHS_.map(m=>x.monthly[m]||0);return x;}).sort((a,b)=>b.totalValue-a.totalValue||a.sku.localeCompare(b.sku,'id'));
