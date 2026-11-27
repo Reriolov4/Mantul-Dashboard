@@ -615,10 +615,12 @@ function mantulStartOrResumeBootstrap_() {
   const readyIndex = mantulGetReadyReadIndex_();
   state = {
     version:1, sourceId:ss.getId(), sourceLastRow:raw.getLastRow(),
-    sourceRows:raw.getLastRow()-1, phase:readyIndex?'P2_INIT':'INDEX_INIT',
+    sourceRows:raw.getLastRow()-1, sourceTailHash:mantulTailPartition_(raw).hash,
+    phase:readyIndex?'P2_INIT':'INDEX_INIT',
     offset:0, sourceValue:0, verifiedValue:0, chunkRows:[],
     sourceCount:0, sourceCarton:0, packedRows:0, packIndex:0
   };
+  props.deleteProperty('MANTUL_BOOTSTRAP_ERROR');
   props.setProperties({
     PAGE2_FACT_STATUS:'BUILDING',
     PAGE34_FACT_STATUS:'BUILDING'
@@ -633,6 +635,9 @@ function mantulBootstrapCheckSource_(state) {
   const ss = getDatabase_(), raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
   if (!raw || ss.getId() !== state.sourceId || raw.getLastRow() !== state.sourceLastRow) {
     throw new Error('RAW_DATA_SALES berubah selama bootstrap. Proses dihentikan; audit sumber sebelum melanjutkan.');
+  }
+  if(state.sourceTailHash && mantulTailPartition_(raw).hash!==state.sourceTailHash){
+    throw new Error('Isi partisi bulan terakhir RAW_DATA_SALES berubah selama bootstrap. Proses dihentikan agar INDEX/FACT tidak mencampur dua versi sumber.');
   }
   return {ss:ss,raw:raw};
 }
