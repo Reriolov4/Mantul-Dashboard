@@ -34,6 +34,7 @@ function page4ReadSource_() {
   };
   delete mm.entity;
   const masterData=page4ReadSelectedColumns_(sku,mm);
+  masterData.columns.entity=Array(masterData.rows).fill(''); // kolom ENTITAS/O sengaja tidak dipakai Page 4
   return {sourceRows:n,columns:columns,master:masterData.columns,masterRows:masterData.rows,sourceName:event.source};
 }
 function page4BuildMeta_(src){
