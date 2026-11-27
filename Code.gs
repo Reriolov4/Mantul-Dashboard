@@ -802,10 +802,19 @@ function mantulBootstrapEnsureRows_(sheet, requiredLastRow, requiredColumns) {
 }
 
 function mantulBootstrapNewSheet_(ss, name, headers) {
-  const old = ss.getSheetByName(name);
-  if (old) ss.deleteSheet(old);
-  const sheet = ss.insertSheet(name);
+  // Idempotent staging initialization: a Spreadsheet service timeout may happen
+  // after insertSheet succeeds but before the header write is acknowledged.
+  // Reuse the staging tab on resume instead of deleting/recreating it (which
+  // adds more Spreadsheet service calls and can strand the bootstrap again).
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+
+  // These names are reserved for bootstrap staging only. Clear stale partial
+  // output before reinitializing; published INDEX/FACT sheets are never passed here.
+  sheet.clearContents();
+  SpreadsheetApp.flush();
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  SpreadsheetApp.flush();
   return sheet;
 }
 
