@@ -364,3 +364,10 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - On each table render, record the natural initial table viewport height. Expanding Brand accordions preserves that same height and enables internal vertical scrolling rather than increasing the whole page/table height. Collapsing all expanded Brand rows restores natural height.
 - GRAND TOTAL footer is sticky at the bottom of the table scroll viewport, with a consistent light-grey background. Its first column remains sticky on the left with higher stacking order so the label and numbers remain legible while scrolling both directions.
 - No aggregation/business rules, RAW_DATA_SALES, INDEX/FACT, Page 1/P1_FACT, Page 2/3, or deployment settings changed. Live Apps Script/browser verification remains pending.
+
+
+## 28 Nov 2026 — Correct Page 4 SO grouping field to match top pivot
+- User reported the SO table still did not match the top pivot. Source inspection found the prior implementation incorrectly grouped the SO table using `SUB_DIST` (P34_EVENT_FACT column R / RAW column P), because it reused `page34Entity_(..., 'SO')`.
+- Correct pivot interpretation: the top pivot filters `SALES_TYPE = ALL` and `SUB_DIST = ALL`, but its row/group field is `SUBDIST` (P34_EVENT_FACT column F / RAW column I). Therefore Page 4 SO must group by `c.subdist`, and retain only `EPM BAC` and `EPM LSE` rows. The separate `SUB_DIST` field remains unfiltered (ALL), exactly as in the screenshot.
+- Page 4 SO aggregation now reads the grouping entity directly from `c.subdist`; it no longer uses the SO branch of `page34Entity_` for this table. This does not alter Page 2, Page 3, SOO, or other SO rules.
+- This correction is specifically intended to make the SO table totals reconcile to the screenshot's top pivot: YTD Rp29,068,281,363 and November Rp1,731,905,455 under the same year/date/filter context. Live numeric validation is still pending.
