@@ -55,14 +55,15 @@ function page4BuildData_(src,meta,filters){
  const years=(meta.years||[]).map(Number).filter(Number.isFinite);
  const year=Number(filters.year)||(years.includes(2026)?2026:(years[years.length-1]||new Date().getFullYear()));
  const available=(meta.monthsByYear||{})[String(year)]||[];
- const requested=(Array.isArray(filters.months)?filters.months:[]).map(page2Month_).filter(m=>PAGE4_MONTHS_.includes(m));
- const monthsUsed=requested.length?PAGE4_MONTHS_.filter(m=>requested.includes(m)&&available.includes(m)):available.slice();
+ const now=new Date(),currentYear=now.getFullYear(),currentMonth=now.getMonth()+1;
+ const visibleMonthCount=year<currentYear?12:(year===currentYear?currentMonth:0);
+ const monthsUsed=PAGE4_MONTHS_.slice(0,visibleMonthCount);
  const monthSet=new Set(monthsUsed),selected=new Set(page2FilterList_(filters.subdists).map(page2Key_)),dates=new Set(page2FilterList_(filters.dates).map(v=>String(v).padStart(2,'0'))),customers=new Set(page2FilterList_(filters.customers).map(page2Key_)),pics=new Set(page2FilterList_(filters.pics).map(page2Key_)),brands=new Set(page2FilterList_(filters.brands).map(page2Key_)),subbrands=new Set(page2FilterList_(filters.subbrands).map(page2Key_)),categories=new Set(page2FilterList_(filters.categories).map(page2Key_));
  const master=new Map((meta.skuMaster||[]).map(x=>[page2Key_(x.sku),x]));
  const map=new Map();let matchedSourceRows=0,totalValue=0;const c=src.columns;
  for(let i=0;i<src.sourceRows;i++){
   const type=page2Key_(c.salesType[i]);
-  if((mode==='SOO'&&type!=='SOO')||(mode==='SO'&&type==='SOO'))continue;
+  if(mode==='SOO'&&type!=='SOO')continue;
   if(Number(c.year[i])!==year||!monthSet.has(page2Month_(c.month[i]))||(dates.size&&!dates.has(String(Number(c.dd[i])||c.dd[i]||'').padStart(2,'0'))))continue;
   const adapter=[null,null,null,null,c.customer[i],c.subdist[i],null,null,null,null,null,c.salesType[i],null,null,null,null,null,c.subDist[i]];
   const entity=page34Entity_(adapter,mode),customer=page2Text_(c.customer[i]),name=page2Text_(c.sku[i]);
@@ -73,7 +74,7 @@ function page4BuildData_(src,meta,filters){
   x.monthly[m]+=value;x.totalValue+=value;totalValue+=value;
  }
  const rows=Array.from(map.values()).map(x=>{const vals=monthsUsed.map(m=>x.monthly[m]||0),last=monthsUsed.length?PAGE4_MONTHS_.indexOf(monthsUsed[monthsUsed.length-1]):-1,tail3=last<0?[]:PAGE4_MONTHS_.slice(Math.max(0,last-2),last+1),tail6=last<0?[]:PAGE4_MONTHS_.slice(Math.max(0,last-5),last+1);x.avg3=tail3.length?tail3.reduce((a,m)=>a+x.monthly[m],0)/3:0;x.avg6=tail6.length?tail6.reduce((a,m)=>a+x.monthly[m],0)/6:0;x.months=PAGE4_MONTHS_.map(m=>x.monthly[m]||0);return x;}).sort((a,b)=>b.totalValue-a.totalValue||a.sku.localeCompare(b.sku,'id'));
- return {mode:mode,modeSalesType:mode==='SOO'?'SOO':'ALL',label:mode==='SOO'?'SUBDIST':'SUB_DIST',year:year,monthsUsed:monthsUsed,subdist:selected.size?Array.from(selected).join(', '):'Semua Entitas',rows:rows,skuCount:rows.length,totals:{value:totalValue},matchedSourceRows:matchedSourceRows,sourceRows:meta.sourceRows};
+ return {mode:mode,modeSalesType:mode==='SOO'?'SOO':'ALL',label:mode==='SOO'?'SUBDIST':'SUB_DIST',year:year,monthsUsed:monthsUsed,monthsVisible:monthsUsed,subdist:selected.size?Array.from(selected).join(', '):'Semua Entitas',rows:rows,skuCount:rows.length,totals:{value:totalValue},matchedSourceRows:matchedSourceRows,sourceRows:meta.sourceRows};
 }
 function getPage4InitialPayload(mode){
  const started=Date.now(),readStarted=Date.now(),src=page4ReadSource_(),readMs=Date.now()-readStarted;
