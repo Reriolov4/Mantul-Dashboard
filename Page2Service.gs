@@ -90,13 +90,14 @@ function page2FindHeader_(headers, aliases, fieldName) {
  * Membaca hanya kolom transaksi yang dibutuhkan. Kolom dikelompokkan menjadi
  * rentang berurutan A:C, F:G, I:K, M:M, O:V; AH:AI helper formula tidak dibaca.
  */
-function page2Read_(sheet) {
+function page2Read_(sheet, startRow, requestedRows) {
   const sh = sheet || page2Source_();
   const lastRow = sh.getLastRow();
-  if (lastRow <= 1) return [];
-  const rowCount = lastRow - 1;
+  const firstRow = Math.max(2, Number(startRow) || 2);
+  if (lastRow < firstRow) return [];
+  const rowCount = Math.min(lastRow - firstRow + 1, Number(requestedRows) > 0 ? Number(requestedRows) : lastRow - firstRow + 1);
   if (sh.getName() === PAGE2_FACT_SHEET_) {
-    const values = sh.getRange(2,1,rowCount,PAGE2_FACT_HEADERS_.length).getValues();
+    const values = sh.getRange(firstRow,1,rowCount,PAGE2_FACT_HEADERS_.length).getValues();
     return values.map(r => [
       r[0],page2Month_(r[1]),r[2],r[3],r[4],r[5],r[6],r[7],r[8],
       page2Key_(r[9]) || 'SALESMAN',r[10],r[11],r[12],r[13],
@@ -125,11 +126,11 @@ function page2Read_(sheet) {
     value:page2FindHeader_(headers,['VAL','VALUE'],'VAL')
   };
   const blocks=[
-    {start:0,end:2,values:sh.getRange(2,1,rowCount,3).getValues()},
-    {start:5,end:6,values:sh.getRange(2,6,rowCount,2).getValues()},
-    {start:8,end:10,values:sh.getRange(2,9,rowCount,3).getValues()},
-    {start:12,end:12,values:sh.getRange(2,13,rowCount,1).getValues()},
-    {start:14,end:21,values:sh.getRange(2,15,rowCount,8).getValues()}
+    {start:0,end:2,values:sh.getRange(firstRow,1,rowCount,3).getValues()},
+    {start:5,end:6,values:sh.getRange(firstRow,6,rowCount,2).getValues()},
+    {start:8,end:10,values:sh.getRange(firstRow,9,rowCount,3).getValues()},
+    {start:12,end:12,values:sh.getRange(firstRow,13,rowCount,1).getValues()},
+    {start:14,end:21,values:sh.getRange(firstRow,15,rowCount,8).getValues()}
   ];
   const readers={};
   blocks.forEach(block=>{for(let col=block.start;col<=block.end;col++)readers[col]={values:block.values,offset:col-block.start};});
@@ -231,6 +232,37 @@ function buildPage2OutletFact() {
   }finally{lock.releaseLock();}
 }
 
+
+function refreshPage2OutletFactIncremental_(){
+ const lock=LockService.getScriptLock();lock.waitLock(30000);
+ let fact=null,appendStart=0,appendCount=0;const props=PropertiesService.getScriptProperties(),oldStatus=props.getProperty('PAGE2_FACT_STATUS')||'';
+ try{
+  const ss=getDatabase_(),index=mantulGetReadyReadIndex_();if(!index)throw new Error('P2_EVENT_INDEX belum siap.');
+  const sourceRows=index.getLastRow()-1;fact=ss.getSheetByName(PAGE2_FACT_SHEET_);
+  const previousRows=Number(props.getProperty('PAGE2_FACT_SOURCE_ROWS')||0),previousWritten=Number(props.getProperty('PAGE2_FACT_WRITTEN')||0);
+  const ready=fact&&fact.getLastRow()>1&&oldStatus==='COMPLETE'&&props.getProperty('PAGE2_FACT_SOURCE_ID')===ss.getId()&&previousRows>0&&previousRows<=sourceRows&&fact.getLastRow()-1===previousWritten;
+  if(!ready)return {ok:true,status:'NEEDS_FULL_BUILD',sheet:PAGE2_FACT_SHEET_,sourceRows:sourceRows};
+  const actual=fact.getRange(1,1,1,PAGE2_FACT_HEADERS_.length).getDisplayValues()[0].map(page2HeaderKey_);
+  if(!PAGE2_FACT_HEADERS_.every((v,i)=>actual[i]===page2HeaderKey_(v)))return {ok:true,status:'NEEDS_FULL_BUILD',reason:'HEADER_MISMATCH'};
+  if(sourceRows===previousRows)return {ok:true,status:'UNCHANGED',sheet:PAGE2_FACT_SHEET_,sourceRows:sourceRows};
+  const incoming=page2Read_(index,previousRows+2,sourceRows-previousRows),grouped=new Map();let sourceValue=0,sourceCount=0;
+  incoming.forEach(r=>{const key=JSON.stringify(r.slice(0,14));let item=grouped.get(key);if(!item){item=r.slice(0,14).concat([0,0]);grouped.set(key,item);}item[14]+=Number(r[14])||0;item[15]+=Number(r[15])||1;sourceValue+=Number(r[14])||0;sourceCount+=Number(r[15])||1;});
+  const rows=Array.from(grouped.values());if(sourceCount!==sourceRows-previousRows)throw new Error('Jumlah baris baru P2 tidak cocok dengan index.');
+  const oldCount=Number(props.getProperty('PAGE2_FACT_SOURCE_COUNT')||previousRows),oldValue=Number(props.getProperty('PAGE2_FACT_VAL')||0);
+  appendStart=fact.getLastRow()+1;appendCount=rows.length;props.setProperty('PAGE2_FACT_STATUS','BUILDING');
+  const batch=3000;for(let i=0;i<rows.length;i+=batch){const part=rows.slice(i,i+batch);fact.getRange(appendStart+i,1,part.length,PAGE2_FACT_HEADERS_.length).setValues(part);}
+  SpreadsheetApp.flush();let checkCount=0,checkValue=0;
+  for(let i=0;i<rows.length;i+=batch){const part=fact.getRange(appendStart+i,1,Math.min(batch,rows.length-i),PAGE2_FACT_HEADERS_.length).getValues();part.forEach(x=>{checkCount+=Number(x[15])||0;checkValue+=Number(x[14])||0;});}
+  const close=(a,b)=>Math.abs(a-b)<=Math.max(0.01,Math.abs(a)*1e-10);
+  if(checkCount!==sourceCount||!close(checkValue,sourceValue)||fact.getLastRow()!==appendStart+appendCount-1)throw new Error('Validasi append P2_OUTLET_FACT gagal.');
+  const totalCount=oldCount+checkCount,totalValue=oldValue+checkValue;
+  props.setProperties({PAGE2_FACT_STATUS:'COMPLETE',PAGE2_FACT_SOURCE_ID:ss.getId(),PAGE2_FACT_SOURCE_ROWS:String(sourceRows),PAGE2_FACT_WRITTEN:String(fact.getLastRow()-1),PAGE2_FACT_SOURCE_COUNT:String(totalCount),PAGE2_FACT_VAL:String(totalValue),PAGE2_FACT_BUILT_AT:new Date().toISOString()});
+  return {ok:true,status:'APPENDED',sheet:PAGE2_FACT_SHEET_,appendedSourceRows:sourceCount,appendedFactRows:appendCount,sourceRows:sourceRows,factRows:fact.getLastRow()-1,sourceValue:totalValue,validated:true};
+ }catch(err){
+  if(fact&&appendStart>0&&appendCount>0&&fact.getLastRow()>=appendStart)fact.getRange(appendStart,1,Math.min(appendCount,fact.getLastRow()-appendStart+1),PAGE2_FACT_HEADERS_.length).clearContent();
+  if(oldStatus)props.setProperty('PAGE2_FACT_STATUS',oldStatus);else props.deleteProperty('PAGE2_FACT_STATUS');throw err;
+ }finally{lock.releaseLock();}
+}
 
 function page2Day_(day) {
   let d = null;
