@@ -1,5 +1,5 @@
 /**
- * PAGE 4 — SKU KCH. Reads validated P34_EVENT_FACT (fallback P2_EVENT_INDEX), SOO only; SKU sheet supplies product attributes.
+ * PAGE 4 — Sales by Brand/SKU. Reads P34_EVENT_FACT (fallback P2_EVENT_INDEX); SO and SOO are separated. Historical quantity/stock metrics stay blank until valid monthly unit data exists.
  */
 const PAGE4_MONTHS_=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 function page4HeaderIndex_(headers,aliases,label){
@@ -19,19 +19,20 @@ function page4ReadSource_() {
   const rows=event.rows,n=rows.length;
   const columns={
     year:rows.map(r=>r[0]),month:rows.map(r=>r[1]),dd:rows.map(r=>r[2]),customer:rows.map(r=>r[4]),pic:rows.map(r=>r[6]),
-    subdist:rows.map(r=>r[5]),brand:rows.map(r=>r[7]),subbrand:rows.map(r=>r[8]),
+    subdist:rows.map(r=>r[5]),subDist:rows.map(r=>r[17]),brand:rows.map(r=>r[7]),subbrand:rows.map(r=>r[8]),
     category:rows.map(r=>r[9]),sbu:rows.map(r=>r[10]),salesType:rows.map(r=>r[11]),
-    value:rows.map(r=>r[14]),carton:rows.map(r=>r[15]),sku:rows.map(r=>r[16]),
+    value:rows.map(r=>r[14]),sku:rows.map(r=>r[16]),
     sourceRows:rows.map(r=>Number(r[18])||1)
   };
   const mh=sku.getRange(1,1,1,sku.getLastColumn()).getDisplayValues()[0].map(v=>String(v||'').trim());
   const mm={
-    sku:page4HeaderIndex_(mh,['PRODUCT_DESC','PRODUCT DESC'],'SKU master PRODUCT_DESC'),
+    sku:page4HeaderIndex_(mh,['SKU'],'SKU master SKU'),
     subbrand:page4HeaderIndex_(mh,['SUB_BRAND','SUB BRAND','SUBBRAND'],'SKU master SUB_BRAND'),
     brand:page4HeaderIndex_(mh,['BRAND'],'SKU master BRAND'),
     category:page4HeaderIndex_(mh,['CATEGORY'],'SKU master CATEGORY'),
-    entity:page4HeaderIndex_(mh,['ENTITAS','ENTITY'],'SKU master ENTITAS')
+    entity:null
   };
+  delete mm.entity;
   const masterData=page4ReadSelectedColumns_(sku,mm);
   return {sourceRows:n,columns:columns,master:masterData.columns,masterRows:masterData.rows,sourceName:event.source};
 }
