@@ -24,13 +24,17 @@ function p4RenderOne(data,tableId,mode){
  allRows.forEach(r=>{const sbu=String(r.sbu||'LAINNYA').trim().toUpperCase();if(!sbuMap.has(sbu))sbuMap.set(sbu,[]);sbuMap.get(sbu).push(r)});
  const orderedSbu=[...sbuMap.keys()].sort((a,b)=>{const ai=sbuOrder.indexOf(a),bi=sbuOrder.indexOf(b);return (ai<0?99:ai)-(bi<0?99:bi)||a.localeCompare(b,'id')});
  const rank=(a,b)=>b.totalValue-a.totalValue||((total?b.totalValue/total:0)-(total?a.totalValue/total:0))||a.brand.localeCompare(b.brand,'id');
+ const brandOrder=items=>{
+  const sorted=items.sort(rank),adult=sorted.findIndex(x=>String(x.brand).trim().toUpperCase()==='KOMIX ADULT'),herbal=sorted.findIndex(x=>String(x.brand).trim().toUpperCase()==='KOMIX HERBAL');
+  if(adult>=0&&herbal>=0&&herbal!==adult+1){const [item]=sorted.splice(herbal,1);sorted.splice(adult+1,0,item)}
+  return sorted;
+ };
  for(const sbu of orderedSbu){
   const sbuItems=sbuMap.get(sbu),sbuTotal=sbuItems.reduce((a,r)=>a+p4Num(r.totalValue),0);
   const sbuMonth=monthIndexes.map(i=>sbuItems.reduce((a,r)=>a+p4Num(r.months?.[i]),0));
   const sbuAvg3=sbuItems.reduce((a,r)=>a+p4Num(r.avg3),0),sbuAvg6=sbuItems.reduce((a,r)=>a+p4Num(r.avg6),0);
-  rows.push('<tr class="p4-sbu-row"><td><b>SBU '+p4Esc(sbu)+'</b></td>'+monthIndexes.map(i=>'<td></td>').join('')+'<td></td><td></td><td></td>'+blank.repeat(8)+'</tr>');
   const brandMap=new Map();sbuItems.forEach(r=>{const b=r.brand||'(BRAND KOSONG)';if(!brandMap.has(b))brandMap.set(b,[]);brandMap.get(b).push(r)});
-  const brands=[...brandMap.entries()].map(([brand,items])=>({brand,items,totalValue:items.reduce((a,r)=>a+p4Num(r.totalValue),0)})).sort(rank);
+  const brands=brandOrder([...brandMap.entries()].map(([brand,items])=>({brand,items,totalValue:items.reduce((a,r)=>a+p4Num(r.totalValue),0)})));
   for(const group of brands){
    const items=group.items,sumMonth=monthIndexes.map(i=>items.reduce((a,r)=>a+p4Num(r.months?.[i]),0)),avg3=items.reduce((a,r)=>a+p4Num(r.avg3),0),avg6=items.reduce((a,r)=>a+p4Num(r.avg6),0),id='p4-'+mode+'-'+rows.length;
    rows.push('<tr class="p4-brand-row" data-brand="'+id+'" onclick="p4ToggleBrand(\''+id+'\')"><td><b>＋ '+p4Esc(group.brand)+'</b> <small>('+items.length+' SKU)</small></td>'+sumMonth.map(money).join('')+money(avg3)+money(avg6)+'<td>'+(total?((group.totalValue/total)*100).toFixed(2)+'%':'—')+'</td>'+blank.repeat(8)+'</tr>');
