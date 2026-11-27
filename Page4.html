@@ -36,6 +36,14 @@
 #p4View .p4-brand-row td{background:#f1f6fc!important;color:#203b5e;border-bottom:1px solid #dce6f1;font-weight:750}#p4View .p4-brand-row:hover td{background:#e7f0fa!important}#p4View .p4-sku-row td{background:#fbfcfe;color:#475569;font-size:9.5px}#p4View .p4-sku-row td:first-child{padding-left:28px}#p4View .p4-sbu-total td{background:#edf2f7!important;color:#334155!important;border-top:1px solid #cbd5e1}#p4View .p4-table{box-shadow:0 4px 16px #0f172a0a;margin-bottom:14px}#p4View .p4-table-head{padding:14px 16px 10px;border-bottom:1px solid #edf1f6}#p4View .p4-table-head h2{font-size:14px;font-weight:850;letter-spacing:.01em}#p4View .p4-subdist-tabs{padding:10px 14px;border-bottom:1px solid #edf1f6}#p4View .p4-subdist-tabs button{background:#f1f5f9;border:1px solid #e2e8f0}#p4View .p4-subdist-tabs button.active{background:#1d4f91;border-color:#1d4f91}#p4View .p4-scroll.p4-expanded{max-height:440px;overflow:auto;border-top:1px solid #e2e8f0}#p4View .p4-table table{font-size:10px}#p4View .p4-table thead th{background:#244b78;color:#fff;font-size:9px;letter-spacing:.035em;padding-top:10px;padding-bottom:10px}#p4View .p4-total td{background:#e9edf2!important;color:#263445!important}
 @media(max-width:900px){#p4View .p4-filter-card{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){#p4View .p4-filter-card{grid-template-columns:1fr}}
+
+/* 28 Nov: dark SBU subtotal bands + fixed-height expanded accordion + floating footer (shared SO/SOO) */
+#p4View .p4-sbu-total td{background:#263b53!important;color:#fff!important;font-weight:850;border-top:2px solid #172b40;border-bottom:1px solid #172b40}
+#p4View .p4-sbu-total td:first-child{background:#263b53!important;color:#fff!important}
+#p4View .p4-scroll.p4-expanded{overflow:auto;max-height:var(--p4-initial-height,440px);height:var(--p4-initial-height,440px);border-top:1px solid #dbe3ec}
+#p4View .p4-total td{background:#e9edf2!important;color:#263445!important;font-weight:850;position:sticky!important;bottom:0!important;z-index:7!important;border-top:2px solid #cbd5e1;border-bottom:0}
+#p4View .p4-total td:first-child{position:sticky!important;left:0!important;bottom:0!important;z-index:9!important;background:#e9edf2!important;color:#263445!important}
+#p4View .p4-total td:not(:first-child){z-index:7!important}
 </style>
 <section id="p4View" hidden>
  <div class="p4-loading-overlay" aria-hidden="true"><div class="p4-loading-card"><span class="p4-loading-spinner" aria-hidden="true"></span><span id="p4LoadingText">Memuat data SKU...</span></div></div>
