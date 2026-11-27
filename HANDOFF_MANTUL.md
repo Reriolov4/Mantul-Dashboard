@@ -357,3 +357,10 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - The initial table has natural height with horizontal overflow only. Vertical scrolling is enabled only after one or more Brand accordion groups are expanded; it is removed again when all SKU groups are collapsed.
 - Latest follow-up commits: `eb88d48936d3df9b39fd629a84ea941854058c1b` (remove summary cards) and `a847a97910ead63653e41271ecf32b84d04bf7b5` (remove deleted-card JS references). The earlier scope/style commits are listed in GitHub history.
 - Source-only workflow uses `clasp push --force`; no `clasp deploy`. No live browser test or Apps Script runtime test has yet been run.
+
+
+## 28 Nov 2026 — Page 4 SBU band and fixed-height accordion/footer refinement
+- Applied shared SO/SOO styling: TOTAL SBU B7 and TOTAL SBU SAKA subtotal rows use a dark navy band with white bold text.
+- On each table render, record the natural initial table viewport height. Expanding Brand accordions preserves that same height and enables internal vertical scrolling rather than increasing the whole page/table height. Collapsing all expanded Brand rows restores natural height.
+- GRAND TOTAL footer is sticky at the bottom of the table scroll viewport, with a consistent light-grey background. Its first column remains sticky on the left with higher stacking order so the label and numbers remain legible while scrolling both directions.
+- No aggregation/business rules, RAW_DATA_SALES, INDEX/FACT, Page 1/P1_FACT, Page 2/3, or deployment settings changed. Live Apps Script/browser verification remains pending.
