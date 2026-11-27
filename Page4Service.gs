@@ -57,13 +57,13 @@ function page4BuildData_(src,meta,filters){
  const available=(meta.monthsByYear||{})[String(year)]||[];
  const requested=(Array.isArray(filters.months)?filters.months:[]).map(page2Month_).filter(m=>PAGE4_MONTHS_.includes(m));
  const monthsUsed=requested.length?PAGE4_MONTHS_.filter(m=>requested.includes(m)&&available.includes(m)):available.slice();
- const monthSet=new Set(monthsUsed),selected=new Set(page2FilterList_(filters.subdists).map(page2Key_)),customers=new Set(page2FilterList_(filters.customers).map(page2Key_)),pics=new Set(page2FilterList_(filters.pics).map(page2Key_)),brands=new Set(page2FilterList_(filters.brands).map(page2Key_)),subbrands=new Set(page2FilterList_(filters.subbrands).map(page2Key_)),categories=new Set(page2FilterList_(filters.categories).map(page2Key_));
+ const monthSet=new Set(monthsUsed),selected=new Set(page2FilterList_(filters.subdists).map(page2Key_)),dates=new Set(page2FilterList_(filters.dates).map(v=>String(v).padStart(2,'0'))),customers=new Set(page2FilterList_(filters.customers).map(page2Key_)),pics=new Set(page2FilterList_(filters.pics).map(page2Key_)),brands=new Set(page2FilterList_(filters.brands).map(page2Key_)),subbrands=new Set(page2FilterList_(filters.subbrands).map(page2Key_)),categories=new Set(page2FilterList_(filters.categories).map(page2Key_));
  const master=new Map((meta.skuMaster||[]).map(x=>[page2Key_(x.sku),x]));
  const map=new Map();let matchedSourceRows=0,totalValue=0;const c=src.columns;
  for(let i=0;i<src.sourceRows;i++){
   const type=page2Key_(c.salesType[i]);
   if((mode==='SOO'&&type!=='SOO')||(mode==='SO'&&type==='SOO'))continue;
-  if(Number(c.year[i])!==year||!monthSet.has(page2Month_(c.month[i])))continue;
+  if(Number(c.year[i])!==year||!monthSet.has(page2Month_(c.month[i]))||(dates.size&&!dates.has(String(Number(c.dd[i])||c.dd[i]||'').padStart(2,'0'))))continue;
   const adapter=[null,null,null,null,c.customer[i],c.subdist[i],null,null,null,null,null,c.salesType[i],null,null,null,null,null,c.subDist[i]];
   const entity=page34Entity_(adapter,mode),customer=page2Text_(c.customer[i]),name=page2Text_(c.sku[i]);
   if(!entity||!name||(selected.size&&!selected.has(page2Key_(entity)))||(customers.size&&!customers.has(page2Key_(customer)))||(pics.size&&!pics.has(page2Key_(c.pic[i])))||(brands.size&&!brands.has(page2Key_(c.brand[i])))||(subbrands.size&&!subbrands.has(page2Key_(c.subbrand[i])))||(categories.size&&!categories.has(page2Key_(c.category[i]))))continue;
