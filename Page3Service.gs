@@ -158,13 +158,20 @@ function refreshPage34EventFactIncremental_(){
 }
 function page34Mode_(v){return String(v||'SOO').trim().toUpperCase()==='SO'?'SO':'SOO';}
 function page34Entity_(row,mode){
- const raw=page2Text_(row[mode==='SOO'?5:17]),key=page2Key_(raw);
- if(mode==='SOO')return PAGE34_ENTITIES_.includes(key)?key:'';
- if(!key||key==='0')return '';
- const normalized=key.replace(/[.,]/g,'').replace(/\s+/g,' ').trim();
- if(normalized==='AP GEUBRINA RIZKI')return 'EPM LSE';
- if(normalized==='PT RESTU INDO MEDICA')return 'EPM BAC';
- return PAGE34_ENTITIES_.includes(key)?key:'';
+ // Adapter row: [YEAR,MONTH,DD,CUSTOMER_CODE,CUSTOMER_NAME,SUBDIST,...,SUB_DIST,...].
+ // SOO selalu memakai SUBDIST; SO memakai SUB_DIST, dengan override nama akun
+ // sebelum validasi SUB_DIST agar akun khusus tetap masuk ke entitas yang benar.
+ if(mode==='SOO'){
+  const sooKey=page2Key_(page2Text_(row[5]));
+  return PAGE34_ENTITIES_.includes(sooKey)?sooKey:'';
+ }
+ const customer=page2Text_(row[4]);
+ const normalizedCustomer=page2Key_(customer).replace(/[.,]/g,'').replace(/\s+/g,' ').trim();
+ if(normalizedCustomer==='AP GEUBRINA RIZKI')return 'EPM LSE';
+ if(normalizedCustomer==='PT RESTU INDO MEDICA')return 'EPM BAC';
+ const soKey=page2Key_(page2Text_(row[17]));
+ if(!soKey||soKey==='0')return '';
+ return PAGE34_ENTITIES_.includes(soKey)?soKey:'';
 }
 function page3BuildMeta_(rows){
  const years=new Set(),subbrands=new Set(),monthsByYear={},pics=new Set(),brands=new Set(),categories=new Set(),customers=new Set(),dateKeys=new Set();let soo=0,soModeRows=0,sourceRows=0;
