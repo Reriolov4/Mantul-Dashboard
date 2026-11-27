@@ -183,3 +183,13 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Fix in `Code.gs` commit `486910bf27d526be71bf554c359408e68c835e8c`: route using `mantulBootstrapRequired_()` (which checks both fact tables and their headers) before monthly synchronization. Remove the monthly synchronizer's one-shot full rebuild fallback. If only tail metadata is missing, seed it only after the existing INDEX and RAW final-month fingerprints match. Otherwise fail safely and require the resumable bootstrap.
 - This prevents the reported execution path from calling a full INDEX rebuild in one foreground execution. The user should not retry refresh until this commit is pushed and the new Apps Script version is active.
 - Runtime execution against the live spreadsheet is still pending. Never manually rebuild INDEX or FACT while this is being initialized.
+
+
+## 27 Nov 2026 — Read-only RAW vs INDEX parity audit
+- Added public Apps Script function `auditMantulRawIndexParity()` in `Code.gs`.
+- The function compares `RAW_DATA_SALES` and `P2_EVENT_INDEX` row-by-row across all 25 columns A:Y, in bounded batches of 2,500 rows. It reports differing row/cell counts, first 30 cell-level differences, counts of differing cells by column, header differences, unpaired rows, and per-month row/value totals.
+- The audit is strictly READ-ONLY: it does not write to sheets, Script Properties, cache, triggers, or source data. It reads filtered/hidden rows too because Apps Script `getValues()` is not restricted by the visible filter state.
+- This closes the diagnostic gap where equal `getLastRow()` values were treated as evidence of equal contents. Equal physical row counts are not sufficient to certify INDEX parity.
+- Commit: f78cc1261f3c724f5120244ba15c4bcaa6920fc9 — Add read-only RAW and index row parity audit.
+- Next: verify the GitHub Actions source-push workflow completes successfully. After the owner activates the source version in Apps Script, run only `auditMantulRawIndexParity()` and send the full `MANTUL RAW-INDEX PARITY AUDIT READ-ONLY` log. Do not run refresh/bootstrap/rebuild until the discrepancy report has been reviewed.
+- Page 1 and `P1_FACT` were not changed. No spreadsheet data was modified. Manage deployments remains the owner's responsibility.
