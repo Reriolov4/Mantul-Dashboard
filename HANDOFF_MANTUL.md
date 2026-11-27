@@ -241,3 +241,20 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Code commit: `4d630899e4385c882cbe16925a9fe7412a5056da` — Restore bootstrap trigger on manual resume and log status. This code change must reach the user's Apps Script project through the repository workflow; user remains responsible for Manage deployments.
 - After confirming the source push is successful and the updated source is active in the Apps Script editor, run `getMantulDashboardBuildStatus()` once and send the `MANTUL BOOTSTRAP STATUS` log. If it shows IN_PROGRESS and triggerCount=0, run `mantulContinueDashboardBuild()` once; the patched wrapper recreates the one-minute trigger. If triggerCount=1, let it run and monitor status. Do not restart `rebuildMantulAllIndexesVerified()` while the checkpoint exists.
 - If `lastError` is non-empty, stop and inspect it before further resumes. The 16:29 sync audit still showed INDEX/P2/P34 BUILDING and the RAW–INDEX VAL gap of 94,504,622.76; no component is certified until build status is COMPLETE and parity audit reports differentRows=0/differentCells=0.
+
+
+
+## 27 Nov 2026 — Bootstrap status at 16:35 WIB (INDEX_COPY 70.8%)
+- User ran `getMantulDashboardBuildStatus()` at 16:35:11 WIB. Exact status:
+  ```json
+  {"ok":true,"status":"IN_PROGRESS","phase":"INDEX_COPY","offset":92500,"sourceRows":130623,"completedSourcePercent":70.8,"chunkCount":0,"packedRows":0,"triggerCount":0,"lastError":"Exception: Waktu layanan Spreadsheet habis saat mengakses dokumen dengan ID 1I8gESqZUkgpn-9yvQpWOmTFGWkW-3E06SG94a7UiZjI.\n    at mantulBootstrapNewSheet_ (Code:808:43)\n    at mantulBootstrapIndexStep_ (Code:879:19)\n    at mantulContinueDashboardBuild_ (Code:1099:9)\n    at rebuildMantulAllIndexesVerified (Code:1153:31)\n    at __GS_INTERNAL_top_function_call__.gs:1:8"}
+  ```
+- Interpretation: the persisted checkpoint is alive and has advanced to `INDEX_COPY`, offset 92,500 / 130,623 (70.8%). This is not a new rebuild and must not be reset.
+- `triggerCount:0` means no automatic continuation trigger currently exists. The status-check function is read-only and does not create one.
+- `lastError` is the persisted error property from the earlier `INDEX_INIT` Spreadsheet-service timeout. The current status function reads that property without clearing it; because the checkpoint now says `INDEX_COPY` at offset 92,500, the error text alone is stale and does not prove the latest copy batch failed.
+- Current deployed source was checked in the active branch: `mantulContinueDashboardBuild()` first recreates the one-minute trigger whenever a saved checkpoint exists, then calls the internal continuation function and logs `MANTUL BOOTSTRAP RESUME RESULT`. `getMantulDashboardBuildStatus()` logs the full status JSON.
+- Next owner action: run `mantulContinueDashboardBuild()` exactly once in the Apps Script editor using the latest source already pushed by Actions #394. Then inspect the execution log for `MANTUL BOOTSTRAP RESUME RESULT`. Do not run `rebuildMantulAllIndexesVerified()` again.
+- If the resume result is `IN_PROGRESS` and status shows `triggerCount:1`, let the one-minute trigger continue; monitor later with `getMantulDashboardBuildStatus()`. Do not repeatedly click resume while a trigger exists.
+- If the resume throws another Spreadsheet-service timeout, stop and send the full `MANTUL BOOTSTRAP FAILED` log plus a fresh status result. The catch handler removes the trigger on error; do not loop retries or clear staging manually.
+- When bootstrap reaches `COMPLETE`, run `auditMantulRawIndexParity()` (require `differentRows=0` and `differentCells=0`) and then `auditMantulDashboardSync()`. Keep dashboard refresh and business-data certification on hold until both audits pass.
+- No changes to Apps Script source were needed for this checkpoint. This handoff-only update does not change spreadsheet data, RAW_DATA_SALES, Page 1/`P1_FACT`, or business rules. Manage deployments remains the owner's responsibility.
