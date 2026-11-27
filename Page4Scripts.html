@@ -5,7 +5,7 @@ const p4Fmt=v=>p4Num(v).toLocaleString('id-ID',{maximumFractionDigits:1}),p4FmtV
 function p4Selected(id){return [...(p4$(id)?.querySelectorAll('input:checked')||[])].map(x=>x.value)}
 function p4SelectedFilter(id){const s=p4Selected(id),n=p4$(id)?.querySelectorAll('input[type="checkbox"]').length||0;return !s.length||s.length===n?[]:s}
 function p4Fill(id,values){p4$(id).innerHTML=(values||[]).map(v=>'<label class="p4-checkitem"><input type="checkbox" value="'+p4Esc(v)+'" checked><span>'+p4Esc(v)+'</span></label>').join('');p4UpdateTrigger(id)}
-function p4UpdateTrigger(id){const s=p4Selected(id),n=p4$(id)?.querySelectorAll('input').length||0,label=id==='p4Customers'?'Customer':'SUBDIST';p4$(id+'Trigger').textContent=!s.length||s.length===n?'Semua '+label:s.length===1?s[0]:s.length+' dipilih'}
+function p4UpdateTrigger(id){const s=p4Selected(id),n=p4$(id)?.querySelectorAll('input').length||0,labels={p4Customers:'Customer',p4Subdists:'SUBDIST',p4Months:'Bulan',p4Dates:'Tanggal',p4Pics:'PIC',p4Brands:'Brand',p4Subbrands:'Subbrand',p4Categories:'Category'},label=labels[id]||'Pilihan';p4$(id+'Trigger').textContent=!s.length||s.length===n?'Semua '+label:s.length===1?s[0]:s.length+' dipilih'}
 function p4RenderSubdist(){p4Fill('p4Subdists',p4Meta?.subdists||[]);p4UpdateTrigger('p4Subdists')}
 function p4RenderFilters(){
  p4Fill('p4Customers',p4Meta.customers||[]);p4RenderSubdist();p4Fill('p4Pics',p4Meta.pics||[]);p4Fill('p4Brands',p4Meta.brands||[]);p4Fill('p4Subbrands',p4Meta.subbrands||[]);p4Fill('p4Categories',p4Meta.categories||[]);
