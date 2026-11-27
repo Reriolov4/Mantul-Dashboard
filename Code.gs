@@ -63,6 +63,9 @@ function refreshMantulDashboard() {
   try {
     const validation = mantulV2ValidateLiveDatabase_();
     const readIndex = refreshMantulReadIndexIncremental_();
+    let materializedFacts = {ok:true,status:'SKIPPED'};
+    try { materializedFacts = {page2:refreshPage2OutletFactIncremental_(),page34:refreshPage34EventFactIncremental_()}; }
+    catch (factErr) { materializedFacts = {ok:false,status:'FACT_REFRESH_FAILED',message:String(factErr && factErr.message || factErr)}; Logger.log('MANTUL MATERIALIZED FACT REFRESH FAILED: ' + (factErr && factErr.stack || factErr)); }
     const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm');
     props.setProperty('SALES_LAST_UPDATED', stamp);
     props.setProperty('PAGE2_RAW_UPDATED', stamp);
@@ -70,7 +73,7 @@ function refreshMantulDashboard() {
     cacheDashboardData_();
     const result = {ok:true,status:'COMPLETE',buildExecuted:false,
       message:'Refresh selesai. Page 1 tetap memakai P1_FACT; Page 2–4 memakai P2_EVENT_INDEX hasil salinan terverifikasi dari RAW_DATA_SALES A:Y.',
-      validation:validation,readIndex:readIndex,updatedAt:stamp,elapsedMs:Date.now()-started};
+      validation:validation,readIndex:readIndex,materializedFacts:materializedFacts,updatedAt:stamp,elapsedMs:Date.now()-started};
     Logger.log('MANTUL SAFE REFRESH\\n' + JSON.stringify(result, null, 2));
     return result;
   } catch (err) {
