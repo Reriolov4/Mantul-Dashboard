@@ -320,3 +320,11 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Tidak mengubah RAW_DATA_SALES, FACT/INDEX, Page 1, atau P1_FACT. Belum diuji runtime/browser terhadap spreadsheet live. Workflow branch tetap push source saja; tidak melakukan Manage deployments.
 
 - Source commits untuk perubahan ini: `1056ddfa42fd4e30efbdaff39fd8fdf461fa5111` (markup filter), `46e535fdc5408fa610fe5a9d2f167acc31f55e59` (script filter independen), `d1c32959d34685a71b5956a3173f15b71f81ab69` (aturan SO dan bulan berjalan), `7c62f2561461c0a98806a5e8ed62c3fb634ceeac` (deskripsi), `205d7c48985a60eabe3254754086ef4714a5ca84` (cleanup service).
+
+
+## 27 Nov 2026 — Page 4 grouping SBU → Brand → SKU
+- Baris transaksi Page 4 kini diagregasi terpisah berdasarkan kombinasi SBU + SKU agar SKU yang sama tidak tercampur lintas SBU.
+- Tampilan tiap tabel: baris header SBU (B7/SAKA, non-clickable), Brand accordion, SKU child rows; setelah seluruh Brand dalam SBU tampil TOTAL SBU; bagian akhir tetap GRAND TOTAL.
+- Brand diurutkan berdasarkan omzet/value tertinggi, CTR tertinggi sebagai tie-break, lalu nama Brand alfabetis. SKU diurutkan berdasarkan value tertinggi lalu nama SKU.
+- Filter SO SUBDIST dan SOO SUBDIST tetap bekerja independen; total SBU dan Grand Total mengikuti filter masing-masing tabel.
+- Belum dilakukan uji runtime/browser pada spreadsheet live. Tidak menyentuh Page 1/P1_FACT dan tidak melakukan Manage deployments.
