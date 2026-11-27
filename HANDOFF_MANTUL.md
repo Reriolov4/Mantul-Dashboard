@@ -206,3 +206,14 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Historical edits outside the final contiguous month are not detected by routine monthly refresh. For those, run `rebuildMantulAllIndexesVerified()`; do not expect the active-month fingerprint to detect them.
 - Runtime execution against the live spreadsheet has not been performed by this commit. After source push and owner-managed Apps Script activation, run `rebuildMantulAllIndexesVerified()` once to repair the known RAW/INDEX mismatch. Let the time trigger finish; inspect `getMantulDashboardBuildStatus()`, then `auditMantulRawIndexParity()` (expected differentRows=0 and differentCells=0) and `auditMantulDashboardSync()`. Only after that baseline rebuild should routine `refreshMantulDashboard()` be used for month-only updates.
 - Code push only; Manage deployments remains the owner's responsibility. Do not manually delete INDEX/FACT or staging sheets.
+
+
+## 27 Nov 2026 — Bootstrap staging timeout recovery
+- User activated commit `57ae20188b29ebd5581cf6530d322e8331d13607` and started `rebuildMantulAllIndexesVerified()`. At 16:00 the run failed in `mantulBootstrapNewSheet_()` at the staging header write (`Code.gs:808`) with a Spreadsheet service timeout. The stack shows the failure occurred during `INDEX_INIT`, before INDEX copy/verification or fact rebuild.
+- The forced rebuild had already persisted bootstrap state before continuing. Therefore, do **not** call `rebuildMantulAllIndexesVerified()` again while that state exists. Resume the saved job using `mantulContinueDashboardBuild()`; check `getMantulDashboardBuildStatus()` first.
+- Updated `mantulBootstrapNewSheet_()` to be idempotent for reserved staging tabs: reuse an existing staging sheet instead of deleting/recreating it, clear only that staging sheet's contents, write headers, and flush. This addresses the case where `insertSheet()` succeeded but the header write timed out, and avoids repeated delete/insert operations. Published `P2_EVENT_INDEX`, `P2_OUTLET_FACT`, `P34_EVENT_FACT`, `RAW_DATA_SALES`, Page 1 and `P1_FACT` are not passed to this helper and remain untouched.
+- Next after this source push and owner-managed Apps Script activation:
+  1. Run `getMantulDashboardBuildStatus()`. Expect the saved phase to be `INDEX_INIT` and source rows around the captured rebuild count. If it reports `IDLE`, stop and report the result before starting a new rebuild.
+  2. If it reports `IN_PROGRESS`, run `mantulContinueDashboardBuild()` once. The one-minute trigger should be recreated when the continuation succeeds; if it returns `IN_PROGRESS`, let the trigger continue and monitor status.
+  3. When status is `COMPLETE`, run `auditMantulRawIndexParity()` (expected `differentRows=0`, `differentCells=0`) and `auditMantulDashboardSync()`.
+- Do not manually delete staging sheets or published sheets. Do not edit RAW during the rebuild. Manage deployments remains the owner's responsibility.
