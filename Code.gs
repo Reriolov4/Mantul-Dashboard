@@ -165,7 +165,7 @@ function mantulPublishMonthlyFact_(kind,tail,rows,newMetrics,indexRows){
   stage.getRange(1,1,1,headers.length).setValues([headers]);
   if(prefixLast>=1){
    const needed=prefixLast+rows.length;if(stage.getMaxRows()<needed)stage.insertRowsAfter(stage.getMaxRows(),needed-stage.getMaxRows());
-   fact.getRange(1,1,prefixLast,headers.length).copyTo(stage.getRange(1,1),{contentsOnly:true});
+   fact.getRange(1,1,prefixLast,headers.length).copyTo(stage.getRange(1,1,prefixLast,headers.length),{contentsOnly:true});
   }
   if(rows.length)mantulWriteRows_(stage,prefixLast+1,rows,headers.length);
   SpreadsheetApp.flush();
