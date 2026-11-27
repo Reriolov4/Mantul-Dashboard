@@ -32,7 +32,7 @@ function page2Init(){
  p2InitStarted=true;
  const view=p2$('page2View'),status=p2$('p2Status');
  p2SetBusy_(true,'Mengambil data dan menyusun KPI Page 2...');
- if(status){status.setAttribute('aria-live','polite');status.textContent='Memuat metadata, KPI, dan grafik dari RAW_DATA_SALES...';}
+ if(status){status.setAttribute('aria-live','polite');status.textContent='Memuat metadata, KPI, dan grafik dari P2_OUTLET_FACT...';}
  if(!p2Data)p2SetLoadingState_('Memuat…');
  if(!window.google||!google.script||!google.script.run){
   if(status)status.textContent='Buka dashboard melalui Google Apps Script Web App.';
@@ -227,7 +227,7 @@ function mantulShowPage_(pageId){
   if(pageId==='p3View')document.body.classList.add('page3-active');
   if(pageId==='p4View')document.body.classList.add('page4-active');
   [['p1-nav','page1'],['p2-nav','page2View'],['p3-nav','p3View'],['p4-nav','p4View']].forEach(([cls,id])=>document.querySelector('.'+cls)?.classList.toggle('active',id===pageId));
-  window.scrollTo(0,0);
+  // Pertahankan posisi scroll. Navigasi sticky tetap di atas bila pengguna sudah menggulir ke sana.
   return true;
 }
 function page2Show(){mantulShowPage_('page2View');if(!p2Meta)page2Init();else if(p2Data&&p2NeedsRender){page2Render();p2NeedsRender=false;}}
