@@ -1488,3 +1488,18 @@ header .head{min-height:128px!important}
 </style>
 
 <style id="mantul-stable-page-width">html{scrollbar-gutter:stable}main.wrap{width:100%;max-width:1600px;min-width:0}main.wrap>*{min-width:0}</style>
+
+/* Page 3/4 filter parity, single-scroll menus, search visibility and busy overlays. */
+#p3View .p3-menu,#p4View .p4-menu{max-height:390px!important;overflow:hidden!important;overscroll-behavior:contain}
+#p3View .p3-checklist,#p4View .p4-checklist{max-height:230px!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain}
+#p3View .p3-checkitem[hidden],#p4View .p4-checkitem[hidden]{display:none!important}
+#p3View .p3-filter-card,#p4View .p4-filter-card{grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:14px}
+#p3View .p3-filter-card>*,#p4View .p4-filter-card>*{min-width:0}
+#p3View .p3-loading-overlay,#p4View .p4-loading-overlay{position:absolute;inset:0;z-index:999;display:none;align-items:flex-start;justify-content:center;padding:150px 16px 24px;background:rgba(241,245,249,.42);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+#p3View[aria-busy="true"] .p3-loading-overlay,#p4View[aria-busy="true"] .p4-loading-overlay{display:flex}
+#p3View .p3-loading-card,#p4View .p4-loading-card{display:flex;align-items:center;gap:13px;padding:17px 20px;background:#fff;border:1px solid #dbe3ee;border-radius:14px;box-shadow:0 14px 40px rgba(15,23,42,.18);color:#173b70;font-size:12px;font-weight:750}
+#p3View .p3-loading-spinner,#p4View .p4-loading-spinner{width:27px;height:27px;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;animation:p2-loading-spin .75s linear infinite;flex:0 0 auto}
+#p3View,#p4View{position:relative;min-height:calc(100vh - 100px)}
+@media(max-width:1200px){#p3View .p3-filter-card,#p4View .p4-filter-card{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){#p3View .p3-filter-card,#p4View .p4-filter-card{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){#p3View .p3-loading-spinner,#p4View .p4-loading-spinner{animation:none}}

@@ -215,12 +215,19 @@ function mantulShowPage_(pageId){
     return false;
   }
   if(main){
+    const scrollY=window.scrollY||window.pageYOffset||0;
     Array.from(main.children).forEach(el=>{
       const show=pageId==='page1'?!pageRoots.has(el.id):el===target;
       el.hidden=!show;
       if(show)el.style.removeProperty('display');
       else el.style.setProperty('display','none','important');
     });
+    if(pageId==='page1')main.style.removeProperty('min-height');
+    else{
+      const mainTop=main.getBoundingClientRect().top+scrollY;
+      main.style.minHeight=Math.max(main.scrollHeight,scrollY+window.innerHeight-mainTop+32)+'px';
+      window.scrollTo(0,scrollY);
+    }
   }
   document.body.classList.remove('page2-active','page3-active','page4-active');
   if(pageId==='page2View')document.body.classList.add('page2-active');

@@ -96,3 +96,13 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Updated Page 2 initial loading status text to identify `P2_OUTLET_FACT` rather than imply a direct `RAW_DATA_SALES` read.
 - No Page 1/P1_FACT business logic or Page 2 KPI formulas changed.
 - Next: confirm source push succeeds, then user publishes via Apps Script Manage deployments. Test clicking Page 3 and Page 4 from the sticky nav; verify navigation remains pinned when switching from a scrolled position. Re-run Page 2 timing tests. After confirmation, implement filter-aware read model/partition strategy to reduce the 10–19s read stage. Do not rebuild existing facts for this UI/script syntax fix.
+
+
+## 27 Nov 2026 — Page 2–4 follow-up: loading, filters, navigation
+- User timing sample: Page 2 initial 2.885s; Komix Herbal filter server 9.418s (read 7.139s, aggregate 231ms); adding GMP LSE server 13.170s (read 11.071s, aggregate 239ms). Page 3 initial server 12.706s (read 12.418s); Komix Herbal server 17.996s (read 17.408s); month filter server 41.058s (read 39.953s). Page 4 initial server 41.609s (read 41.105s); month filter server 25.164s (read 24.814s). The read stage dominates; aggregate times remain very small.
+- Added Page 3 and Page 4 blur/loading overlays matching Page 2's loading treatment. Busy callbacks now update their own loading message.
+- Standardized Page 3 and Page 4 multi-select behavior: Select All/Reset/Apply, outside-click dismissal, a single scrollable checklist inside a non-scrolling dropdown, and explicit `display:none!important` for search-hidden items.
+- Page 4 now exposes Month, Date, PIC, Brand, Subbrand, Category, Customer and SUBDIST filters in addition to Year. Its metadata and aggregation apply each selected dimension; SKU/value/carton aggregation definitions remain unchanged.
+- Navigation reserves enough main-content height when switching to a shorter Page 3/4 so the browser does not clamp scroll position and reveal the banner above the sticky navigation. Page 1 removes this temporary minimum height.
+- Page 1/P1_FACT calculations and business logic were not changed. No fact rebuild is required for these UI/filter changes.
+- Performance work remains: Page 2/3/4 still read substantial fact ranges on cache misses. Next inspect selective-column reads and then design page-specific materialized/partitioned read models. Preserve outlet/date grain and AO/EC rules; validate totals before changing any data model. Test all Page 3/4 filters, search match/no-match, outside-click dismissal, one-scroll dropdown, loading blur and sticky navigation while scrolled.
