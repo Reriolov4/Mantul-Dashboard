@@ -318,3 +318,5 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Tahun berjalan menampilkan Januari sampai bulan kalender saat ini; tahun lampau menampilkan Januari–Desember. Kolom bulan mendatang disembunyikan. Agregasi tetap mencakup seluruh bulan kalender dalam rentang tersebut, termasuk bulan tanpa transaksi sebagai nol untuk perhitungan Avg 3M/6M.
 - Aturan SO dikoreksi agar mengambil ALL jenis sales; SOO tetap hanya SALES_TYPE=SOO.
 - Tidak mengubah RAW_DATA_SALES, FACT/INDEX, Page 1, atau P1_FACT. Belum diuji runtime/browser terhadap spreadsheet live. Workflow branch tetap push source saja; tidak melakukan Manage deployments.
+
+- Source commits untuk perubahan ini: `1056ddfa42fd4e30efbdaff39fd8fdf461fa5111` (markup filter), `46e535fdc5408fa610fe5a9d2f167acc31f55e59` (script filter independen), `d1c32959d34685a71b5956a3173f15b71f81ab69` (aturan SO dan bulan berjalan), `7c62f2561461c0a98806a5e8ed62c3fb634ceeac` (deskripsi), `205d7c48985a60eabe3254754086ef4714a5ca84` (cleanup service).
