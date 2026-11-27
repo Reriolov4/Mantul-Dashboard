@@ -62,12 +62,20 @@ function refreshMantulDashboard() {
   const started = Date.now();
   try {
     const validation = mantulV2ValidateLiveDatabase_();
-    if (mantulBootstrapRequired_()) {
-      const bootstrap = mantulStartOrResumeBootstrap_();
-      const progress = mantulContinueDashboardBuild_();
-      return Object.assign({validation:validation}, progress);
+    if (mantulBootstrapLoad_() || !mantulGetReadyReadIndex_()) {
+      mantulStartOrResumeBootstrap_();
+      return Object.assign({validation:validation}, mantulContinueDashboardBuild_());
     }
     const readIndex = refreshMantulReadIndexMonthly_();
+    if (readIndex.status === 'UPDATED' || readIndex.status === 'REBUILT') {
+      props.setProperties({PAGE2_FACT_STATUS:'STALE',PAGE34_FACT_STATUS:'STALE'});
+      mantulStartOrResumeBootstrap_();
+      return Object.assign({validation:validation,readIndex:readIndex}, mantulContinueDashboardBuild_());
+    }
+    if (mantulBootstrapRequired_()) {
+      mantulStartOrResumeBootstrap_();
+      return Object.assign({validation:validation,readIndex:readIndex}, mantulContinueDashboardBuild_());
+    }
     let materializedFacts = {ok:true,status:'SKIPPED'};
     if (readIndex.status === 'UPDATED' || readIndex.status === 'REBUILT') {
       // Existing FACT writers are full-build-safe but their append-only path is not
@@ -548,6 +556,12 @@ function mantulBootstrapRemoveTrigger_() {
   });
 }
 
+function mantulBootstrapEnsureRows_(sheet, requiredLastRow, requiredColumns) {
+  const maxRows=sheet.getMaxRows(),maxCols=sheet.getMaxColumns();
+  if(maxRows<requiredLastRow)sheet.insertRowsAfter(maxRows,requiredLastRow-maxRows);
+  if(requiredColumns&&maxCols<requiredColumns)sheet.insertColumnsAfter(maxCols,requiredColumns-maxCols);
+}
+
 function mantulBootstrapNewSheet_(ss, name, headers) {
   const old = ss.getSheetByName(name);
   if (old) ss.deleteSheet(old);
@@ -630,6 +644,7 @@ function mantulBootstrapIndexStep_(state, ss, raw) {
       const values = raw.getRange(state.offset + 2,1,n,RAW_SALES_COLUMN_COUNT).getValues();
       let partValue = 0;
       values.forEach(r => partValue += Number(r[RAW_SALES_COL.VALUE]) || 0);
+      mantulBootstrapEnsureRows_(stage,state.offset+1+n,RAW_SALES_COLUMN_COUNT);
       stage.getRange(state.offset + 2,1,n,RAW_SALES_COLUMN_COUNT).setValues(values);
       SpreadsheetApp.flush();
       state.sourceValue += partValue;
@@ -702,7 +717,7 @@ function mantulBootstrapP2Step_(state, ss) {
         partValue+=Number(r[14])||0;partCount+=Number(r[15])||1;
       });
       const rows=Array.from(grouped.values());
-      if(rows.length)stage.getRange(state.offset+2,1,rows.length,PAGE2_FACT_HEADERS_.length).setValues(rows);
+      if(rows.length){mantulBootstrapEnsureRows_(stage,state.offset+1+rows.length,PAGE2_FACT_HEADERS_.length);stage.getRange(state.offset+2,1,rows.length,PAGE2_FACT_HEADERS_.length).setValues(rows);}
       state.chunkRows.push(rows.length);
       state.sourceValue+=partValue;state.sourceCount+=partCount;state.offset+=n;
       SpreadsheetApp.flush();mantulBootstrapSave_(state);return;
@@ -720,7 +735,7 @@ function mantulBootstrapP2Step_(state, ss) {
       const count=state.chunkRows[state.packIndex],sourceStart=2+state.packIndex*MANTUL_BOOTSTRAP_BATCH_;
       if(count){
         const rows=stage.getRange(sourceStart,1,count,PAGE2_FACT_HEADERS_.length).getValues();
-        ss.getSheetByName(MANTUL_BOOTSTRAP_P2_PACK_).getRange(state.packedRows+2,1,count,PAGE2_FACT_HEADERS_.length).setValues(rows);
+        const pack=ss.getSheetByName(MANTUL_BOOTSTRAP_P2_PACK_);mantulBootstrapEnsureRows_(pack,state.packedRows+1+count,PAGE2_FACT_HEADERS_.length);pack.getRange(state.packedRows+2,1,count,PAGE2_FACT_HEADERS_.length).setValues(rows);
       }
       state.packedRows+=count;state.packIndex++;SpreadsheetApp.flush();mantulBootstrapSave_(state);return;
     }
@@ -768,7 +783,7 @@ function mantulBootstrapP34Step_(state, ss) {
         partCount+=Number(r[18])||1;partValue+=Number(r[14])||0;partCarton+=Number(r[15])||0;
       });
       const rows=Array.from(grouped.values());
-      if(rows.length)stage.getRange(state.offset+2,1,rows.length,PAGE34_FACT_HEADERS_.length).setValues(rows);
+      if(rows.length){mantulBootstrapEnsureRows_(stage,state.offset+1+rows.length,PAGE34_FACT_HEADERS_.length);stage.getRange(state.offset+2,1,rows.length,PAGE34_FACT_HEADERS_.length).setValues(rows);}
       state.chunkRows.push(rows.length);state.sourceCount+=partCount;
       state.sourceValue+=partValue;state.sourceCarton+=partCarton;state.offset+=n;
       SpreadsheetApp.flush();mantulBootstrapSave_(state);return;
@@ -786,7 +801,7 @@ function mantulBootstrapP34Step_(state, ss) {
       const count=state.chunkRows[state.packIndex],sourceStart=2+state.packIndex*MANTUL_BOOTSTRAP_BATCH_;
       if(count){
         const rows=stage.getRange(sourceStart,1,count,PAGE34_FACT_HEADERS_.length).getValues();
-        ss.getSheetByName(MANTUL_BOOTSTRAP_P34_PACK_).getRange(state.packedRows+2,1,count,PAGE34_FACT_HEADERS_.length).setValues(rows);
+        const pack=ss.getSheetByName(MANTUL_BOOTSTRAP_P34_PACK_);mantulBootstrapEnsureRows_(pack,state.packedRows+1+count,PAGE34_FACT_HEADERS_.length);pack.getRange(state.packedRows+2,1,count,PAGE34_FACT_HEADERS_.length).setValues(rows);
       }
       state.packedRows+=count;state.packIndex++;SpreadsheetApp.flush();mantulBootstrapSave_(state);return;
     }
@@ -865,4 +880,14 @@ function mantulContinueDashboardBuild_() {
 // Trigger continuation and manual resume entry point.
 function mantulContinueDashboardBuild() {
   return mantulContinueDashboardBuild_();
+}
+
+function getMantulDashboardBuildStatus() {
+  const state=mantulBootstrapLoad_();
+  const triggers=ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()===MANTUL_BOOTSTRAP_TRIGGER_).length;
+  if(!state)return {ok:true,status:'IDLE',triggerCount:triggers};
+  return {ok:true,status:'IN_PROGRESS',phase:state.phase,offset:state.offset||0,
+    sourceRows:state.sourceRows,completedSourcePercent:state.sourceRows?Math.round((state.offset||0)/state.sourceRows*1000)/10:0,
+    chunkCount:(state.chunkRows||[]).length,packedRows:state.packedRows||0,triggerCount:triggers,
+    lastError:PropertiesService.getScriptProperties().getProperty('MANTUL_BOOTSTRAP_ERROR')||''};
 }
