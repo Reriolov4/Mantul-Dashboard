@@ -349,3 +349,11 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Initial table now expands naturally without a fixed vertical scroll container. When a Brand accordion is opened and SKU rows appear, that table's scroll area activates (440px max height); when all Brand accordions are closed, vertical scrolling is removed. Horizontal scrolling remains available for the monthly columns.
 - Screenshot pivot control reference (Nov 2026): top pivot grand total 29,068,281,363 YTD and Nov 1,731,905,455; top pivot has EPM BAC/EPM LSE only. Use exact matching filter/date conditions when validating.
 - No RAW_DATA_SALES, INDEX/FACT, Page 1/P1_FACT, Page 2, Page 3, or Manage deployments changes. Browser/live Apps Script validation remains pending.
+
+
+## 28 Nov 2026 — Page 4 follow-up correction
+- Final markup removes the complete three-card summary row (SKU MASTER, OMZET SO, OMZET SOO) above the tables. Client script references to those removed DOM elements were also removed to prevent null-element runtime errors.
+- SO table uses the screenshot's top pivot scope only: all sales types, SUB_DIST resolving to EPM BAC or EPM LSE. This is a Page 4 SO-only restriction.
+- The initial table has natural height with horizontal overflow only. Vertical scrolling is enabled only after one or more Brand accordion groups are expanded; it is removed again when all SKU groups are collapsed.
+- Latest follow-up commits: `eb88d48936d3df9b39fd629a84ea941854058c1b` (remove summary cards) and `a847a97910ead63653e41271ecf32b84d04bf7b5` (remove deleted-card JS references). The earlier scope/style commits are listed in GitHub history.
+- Source-only workflow uses `clasp push --force`; no `clasp deploy`. No live browser test or Apps Script runtime test has yet been run.
