@@ -1163,15 +1163,23 @@ function rebuildMantulAllIndexesVerified(){
 }
 
 function mantulContinueDashboardBuild() {
-  return mantulContinueDashboardBuild_();
+  // A previous failed batch removes the time trigger to avoid a failing retry loop.
+  // Recreate it whenever the owner manually resumes a persisted checkpoint.
+  if (mantulBootstrapLoad_()) mantulBootstrapEnsureTrigger_();
+  const result = mantulContinueDashboardBuild_();
+  Logger.log('MANTUL BOOTSTRAP RESUME RESULT: ' + JSON.stringify(result));
+  return result;
 }
 
 function getMantulDashboardBuildStatus() {
   const state=mantulBootstrapLoad_();
   const triggers=ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()===MANTUL_BOOTSTRAP_TRIGGER_).length;
-  if(!state)return {ok:true,status:'IDLE',triggerCount:triggers};
-  return {ok:true,status:'IN_PROGRESS',phase:state.phase,offset:state.offset||0,
-    sourceRows:state.sourceRows,completedSourcePercent:state.sourceRows?Math.round((state.offset||0)/state.sourceRows*1000)/10:0,
-    chunkCount:(state.chunkRows||[]).length,packedRows:state.packedRows||0,triggerCount:triggers,
-    lastError:PropertiesService.getScriptProperties().getProperty('MANTUL_BOOTSTRAP_ERROR')||''};
+  const result=!state
+    ? {ok:true,status:'IDLE',triggerCount:triggers}
+    : {ok:true,status:'IN_PROGRESS',phase:state.phase,offset:state.offset||0,
+       sourceRows:state.sourceRows,completedSourcePercent:state.sourceRows?Math.round((state.offset||0)/state.sourceRows*1000)/10:0,
+       chunkCount:(state.chunkRows||[]).length,packedRows:state.packedRows||0,triggerCount:triggers,
+       lastError:PropertiesService.getScriptProperties().getProperty('MANTUL_BOOTSTRAP_ERROR')||''};
+  Logger.log('MANTUL BOOTSTRAP STATUS: ' + JSON.stringify(result));
+  return result;
 }
