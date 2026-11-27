@@ -54,7 +54,6 @@ function page4BuildData_(src,meta,filters){
  const mode=String(filters.mode||'SOO').toUpperCase()==='SO'?'SO':'SOO';
  const years=(meta.years||[]).map(Number).filter(Number.isFinite);
  const year=Number(filters.year)||(years.includes(2026)?2026:(years[years.length-1]||new Date().getFullYear()));
- const available=(meta.monthsByYear||{})[String(year)]||[];
  const now=new Date(),currentYear=now.getFullYear(),currentMonth=now.getMonth()+1;
  const visibleMonthCount=year<currentYear?12:(year===currentYear?currentMonth:0);
  const monthsUsed=PAGE4_MONTHS_.slice(0,visibleMonthCount);
