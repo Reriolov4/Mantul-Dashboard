@@ -56,64 +56,167 @@ function mantulV2ValidateLiveDatabase_() {
 }
 
 function refreshMantulDashboard() {
-  const props = PropertiesService.getScriptProperties();
-  const oldSales = props.getProperty('SALES_LAST_UPDATED') || '';
-  const oldP2 = props.getProperty('PAGE2_RAW_UPDATED') || '';
-  const started = Date.now();
+  const props=PropertiesService.getScriptProperties();
+  const oldSales=props.getProperty('SALES_LAST_UPDATED')||'';
+  const oldP2=props.getProperty('PAGE2_RAW_UPDATED')||'';
+  const started=Date.now();
   try {
-    const validation = mantulV2ValidateLiveDatabase_();
-    if (mantulBootstrapLoad_() || mantulBootstrapRequired_()) {
+    const validation=mantulV2ValidateLiveDatabase_();
+    if(mantulBootstrapLoad_()){
       mantulStartOrResumeBootstrap_();
-      return Object.assign({validation:validation}, mantulContinueDashboardBuild_());
+      return Object.assign({validation:validation},mantulContinueDashboardBuild_());
     }
-    const readIndex = refreshMantulReadIndexMonthly_();
-    if (readIndex.status === 'UPDATED' || readIndex.status === 'REBUILT') {
-      props.setProperties({PAGE2_FACT_STATUS:'STALE',PAGE34_FACT_STATUS:'STALE'});
+    if(!mantulHasMonthlyRefreshBase_()){
       mantulStartOrResumeBootstrap_();
-      return Object.assign({validation:validation,readIndex:readIndex}, mantulContinueDashboardBuild_());
+      return Object.assign({validation:validation},mantulContinueDashboardBuild_());
     }
-    if (mantulBootstrapRequired_()) {
-      mantulStartOrResumeBootstrap_();
-      return Object.assign({validation:validation,readIndex:readIndex}, mantulContinueDashboardBuild_());
-    }
-    let materializedFacts = {ok:true,status:'SKIPPED'};
-    if (readIndex.status === 'UPDATED' || readIndex.status === 'REBUILT') {
-      // Existing FACT writers are full-build-safe but their append-only path is not
-      // overwrite-safe. Invalidate readiness and rebuild both facts from the verified
-      // A:Y index so stale rows can never be reported COMPLETE.
-      props.setProperties({PAGE2_FACT_STATUS:'STALE',PAGE34_FACT_STATUS:'STALE'});
-    }
-    try {
-      let p2 = refreshPage2OutletFactIncremental_();
-      if (p2.status === 'NEEDS_FULL_BUILD') p2 = buildPage2OutletFact();
-      let p34 = refreshPage34EventFactIncremental_();
-      if (p34.status === 'NEEDS_FULL_BUILD') p34 = buildPage34EventFact();
-      const p2Valid = p2.ok && (p2.validated === true || p2.status === 'UNCHANGED');
-      const p34Valid = p34.ok && (p34.validated === true || p34.status === 'UNCHANGED');
-      if (!p2Valid || !p34Valid) {
-        throw new Error('Satu atau lebih materialized FACT belum tervalidasi COMPLETE.');
+    let readIndex;
+    try{
+      readIndex=refreshMantulReadIndexMonthly_();
+    }catch(indexErr){
+      const message=String(indexErr&&indexErr.message||indexErr);
+      if(/INDEX dan RAW berbeda pada partisi bulan terakhir|Batas partisi INDEX tidak sesuai metadata|Awal partisi bulan berjalan berubah/.test(message)){
+        props.setProperties({MANTUL_READ_INDEX_STATUS:'STALE',PAGE2_FACT_STATUS:'STALE',PAGE34_FACT_STATUS:'STALE'});
+        mantulStartOrResumeBootstrap_(true);
+        return Object.assign({validation:validation,repairReason:message},mantulContinueDashboardBuild_());
       }
-      materializedFacts = {ok:true,page2:p2,page34:p34};
-    } catch (factErr) {
-      props.setProperties({PAGE2_FACT_STATUS:'FAILED',PAGE34_FACT_STATUS:'FAILED'});
-      throw factErr;
+      throw indexErr;
     }
-    const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd MMM yyyy HH:mm');
-    props.setProperty('SALES_LAST_UPDATED', stamp);
-    props.setProperty('PAGE2_RAW_UPDATED', stamp);
+    let materializedFacts={ok:true,status:'UNCHANGED'};
+    if(readIndex.status==='UPDATED'||readIndex.status==='REBUILT'){
+      const p2=refreshPage2OutletFactMonthly_(readIndex);
+      const p34=refreshPage34EventFactMonthly_(readIndex);
+      if(p2.status==='NEEDS_FULL_BUILD'||p34.status==='NEEDS_FULL_BUILD'){
+        props.setProperties({PAGE2_FACT_STATUS:'STALE',PAGE34_FACT_STATUS:'STALE'});
+        mantulStartOrResumeBootstrap_();
+        return Object.assign({validation:validation,readIndex:readIndex,monthlyFacts:{page2:p2,page34:p34}},mantulContinueDashboardBuild_());
+      }
+      materializedFacts={ok:true,page2:p2,page34:p34};
+    }
+    const stamp=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'dd MMM yyyy HH:mm');
+    props.setProperty('SALES_LAST_UPDATED',stamp);
+    props.setProperty('PAGE2_RAW_UPDATED',stamp);
     props.deleteProperty('MANTUL_V2_DATA_STALE');
     cacheDashboardData_();
-    const result = {ok:true,status:'COMPLETE',buildExecuted:false,
-      message:'Refresh selesai. Page 1 tetap memakai P1_FACT; Page 2–4 memakai materialized facts tervalidasi dari RAW_DATA_SALES A:Y.',
+    const result={ok:true,status:'COMPLETE',buildExecuted:false,
+      message:'Refresh selesai. Hanya partisi bulan aktif yang disinkronkan ke INDEX dan FACT; Page 1 tetap memakai P1_FACT.',
       validation:validation,readIndex:readIndex,materializedFacts:materializedFacts,updatedAt:stamp,elapsedMs:Date.now()-started};
-    Logger.log('MANTUL SAFE REFRESH\\n' + JSON.stringify(result, null, 2));
+    Logger.log('MANTUL MONTHLY REFRESH\\n'+JSON.stringify(result,null,2));
     return result;
-  } catch (err) {
-    if (oldSales) props.setProperty('SALES_LAST_UPDATED', oldSales); else props.deleteProperty('SALES_LAST_UPDATED');
-    if (oldP2) props.setProperty('PAGE2_RAW_UPDATED', oldP2); else props.deleteProperty('PAGE2_RAW_UPDATED');
-    Logger.log('MANTUL SAFE REFRESH FAILED: ' + (err && err.stack || err));
+  }catch(err){
+    if(oldSales)props.setProperty('SALES_LAST_UPDATED',oldSales);else props.deleteProperty('SALES_LAST_UPDATED');
+    if(oldP2)props.setProperty('PAGE2_RAW_UPDATED',oldP2);else props.deleteProperty('PAGE2_RAW_UPDATED');
+    Logger.log('MANTUL MONTHLY REFRESH FAILED: '+(err&&err.stack||err));
     throw err;
   }
+}
+
+
+function mantulHasMonthlyRefreshBase_(){
+ const ss=getDatabase_(),p=PropertiesService.getScriptProperties();
+ const ix=ss.getSheetByName(MANTUL_READ_INDEX_SHEET_),p2=ss.getSheetByName(PAGE2_FACT_SHEET_),p34=ss.getSheetByName(PAGE34_FACT_SHEET_);
+ if(!ix||!p2||!p34||ix.getLastRow()<2||ix.getLastColumn()!==RAW_SALES_COLUMN_COUNT)return false;
+ const sourceRows=ix.getLastRow()-1;
+ if(p.getProperty('MANTUL_READ_INDEX_STATUS')!=='COMPLETE'||p.getProperty('MANTUL_READ_INDEX_SOURCE_ID')!==ss.getId()||
+    Number(p.getProperty('MANTUL_READ_INDEX_SOURCE_LASTROW'))!==ix.getLastRow())return false;
+ const h2=p2.getLastRow()>1&&p2.getLastColumn()>=PAGE2_FACT_HEADERS_.length?p2.getRange(1,1,1,PAGE2_FACT_HEADERS_.length).getDisplayValues()[0].map(page2HeaderKey_):[];
+ const h34=p34.getLastRow()>1&&p34.getLastColumn()>=PAGE34_FACT_HEADERS_.length?p34.getRange(1,1,1,PAGE34_FACT_HEADERS_.length).getDisplayValues()[0].map(page2HeaderKey_):[];
+ return p.getProperty('PAGE2_FACT_STATUS')==='COMPLETE'&&p.getProperty('PAGE2_FACT_SOURCE_ID')===ss.getId()&&
+  Number(p.getProperty('PAGE2_FACT_SOURCE_ROWS'))===sourceRows&&Number(p.getProperty('PAGE2_FACT_WRITTEN'))===p2.getLastRow()-1&&
+  PAGE2_FACT_HEADERS_.every((v,i)=>h2[i]===page2HeaderKey_(v))&&
+  p.getProperty('PAGE34_FACT_STATUS')==='COMPLETE'&&p.getProperty('PAGE34_FACT_SOURCE_ID')===ss.getId()&&
+  Number(p.getProperty('PAGE34_FACT_SOURCE_ROWS'))===sourceRows&&Number(p.getProperty('PAGE34_FACT_WRITTEN'))===p34.getLastRow()-1&&
+  PAGE34_FACT_HEADERS_.every((v,i)=>h34[i]===page2HeaderKey_(v));
+}
+function mantulFactPeriod_(year,month){
+ const y=String(Number(year)||year||'').trim(),m=page2Month_(month);
+ return y&&m?y+'-'+String(PAGE2_MONTHS_.indexOf(m)+1).padStart(2,'0'):'';
+}
+function mantulDiscoverFactTail_(sheet,period,sourceCol,valueCol,cartonCol){
+ const last=sheet.getLastRow();if(last<2)throw new Error(sheet.getName()+' belum memiliki baris fact.');
+ const pairs=sheet.getRange(2,1,last-1,2).getValues();let first=-1;
+ for(let i=pairs.length-1;i>=0;i--){const p=mantulFactPeriod_(pairs[i][0],pairs[i][1]);if(p===period)first=i;else if(first>=0)break;}
+ if(first<0)throw new Error('Partisi bulan aktif '+period+' tidak ditemukan di '+sheet.getName()+'.');
+ for(let i=0;i<first;i++)if(mantulFactPeriod_(pairs[i][0],pairs[i][1])===period)throw new Error('Partisi '+period+' tidak kontigu di '+sheet.getName()+'.');
+ const startRow=first+2,count=last-startRow+1,values=sheet.getRange(startRow,1,count,sheet.getLastColumn()).getValues();
+ let sourceCount=0,value=0,carton=0;
+ values.forEach(r=>{sourceCount+=Number(r[sourceCol])||0;value+=Number(r[valueCol])||0;if(cartonCol!=null)carton+=Number(r[cartonCol])||0;});
+ return {period:period,startRow:startRow,rows:count,sourceCount:sourceCount,value:value,carton:carton};
+}
+function mantulWriteRows_(sheet,startRow,rows,columns){
+ const batch=2000;for(let i=0;i<rows.length;i+=batch){const part=rows.slice(i,i+batch);sheet.getRange(startRow+i,1,part.length,columns).setValues(part);}
+}
+function mantulPublishMonthlyFact_(kind,tail,rows,newMetrics,indexRows){
+ const isP2=kind==='P2',ss=getDatabase_(),props=PropertiesService.getScriptProperties();
+ const target=isP2?PAGE2_FACT_SHEET_:PAGE34_FACT_SHEET_,stageName=isP2?'P2_OUTLET_FACT_MONTH_BUILD':'P34_EVENT_FACT_MONTH_BUILD';
+ const headers=isP2?PAGE2_FACT_HEADERS_:PAGE34_FACT_HEADERS_,prefix=isP2?'PAGE2_FACT_':'PAGE34_FACT_',fact=ss.getSheetByName(target);
+ if(!fact||fact.getLastRow()<2)return {ok:true,status:'NEEDS_FULL_BUILD',reason:'FACT_MISSING'};
+ const oldStart=Number(props.getProperty(prefix+'TAIL_START')||0),oldPeriod=props.getProperty(prefix+'TAIL_PERIOD')||'';
+ if(oldStart<2||!oldPeriod)return {ok:true,status:'NEEDS_FULL_BUILD',reason:'TAIL_METADATA_MISSING'};
+ const newPeriod=tail.year+'-'+String(PAGE2_MONTHS_.indexOf(tail.month)+1).padStart(2,'0');
+ if(newPeriod<oldPeriod)return {ok:true,status:'NEEDS_FULL_BUILD',reason:'HISTORICAL_MONTH_REQUIRES_REBUILD'};
+ const replaceTail=newPeriod===oldPeriod;
+ if(oldStart>fact.getLastRow())return {ok:true,status:'NEEDS_FULL_BUILD',reason:'TAIL_BOUNDARY_INVALID'};
+ const oldTailSource=Number(props.getProperty(prefix+'TAIL_SOURCE_COUNT')||0),oldTailValue=Number(props.getProperty(prefix+'TAIL_VAL')||0),oldTailCarton=Number(props.getProperty(prefix+'TAIL_CARTON')||0);
+ const prefixLast=replaceTail?oldStart-1:fact.getLastRow(),oldStage=ss.getSheetByName(stageName);
+ if(oldStage)ss.deleteSheet(oldStage);
+ const stage=ss.insertSheet(stageName);
+ try{
+  stage.getRange(1,1,1,headers.length).setValues([headers]);
+  if(prefixLast>=1){
+   const needed=prefixLast+rows.length;if(stage.getMaxRows()<needed)stage.insertRowsAfter(stage.getMaxRows(),needed-stage.getMaxRows());
+   fact.getRange(1,1,prefixLast,headers.length).copyTo(stage.getRange(1,1),{contentsOnly:true});
+  }
+  if(rows.length)mantulWriteRows_(stage,prefixLast+1,rows,headers.length);
+  SpreadsheetApp.flush();
+  if(stage.getLastRow()!==prefixLast+rows.length)throw new Error('Jumlah baris staging '+target+' tidak sesuai.');
+  let checkCount=0,checkValue=0,checkCarton=0;
+  if(rows.length)stage.getRange(prefixLast+1,1,rows.length,headers.length).getValues().forEach(r=>{
+   checkCount+=Number(r[isP2?15:18])||0;checkValue+=Number(r[14])||0;if(!isP2)checkCarton+=Number(r[15])||0;
+  });
+  const close=(a,b)=>Math.abs(a-b)<=Math.max(.01,Math.abs(a)*1e-10);
+  if(checkCount!==newMetrics.sourceCount||!close(checkValue,newMetrics.value)||(!isP2&&!close(checkCarton,newMetrics.carton)))
+   throw new Error('Validasi partisi bulan '+newPeriod+' pada '+target+' gagal.');
+  const totalSource=Number(props.getProperty(prefix+'SOURCE_COUNT')||0)+(replaceTail?-oldTailSource:0)+checkCount;
+  const totalValue=Number(props.getProperty(prefix+'VAL')||0)+(replaceTail?-oldTailValue:0)+checkValue;
+  const totalCarton=isP2?0:Number(props.getProperty(prefix+'CARTON')||0)+(replaceTail?-oldTailCarton:0)+checkCarton;
+  const newStart=prefixLast+1,stamp=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyyMMdd_HHmmss'),backup=target+'_OLD_'+stamp;
+  props.setProperty(prefix+'STATUS','BUILDING');fact.setName(backup);
+  try{
+   stage.setName(target);stage.setFrozenRows(1);
+   const values={
+    [prefix+'STATUS']:'COMPLETE',[prefix+'SOURCE_ID']:ss.getId(),[prefix+'SOURCE_ROWS']:String(indexRows),
+    [prefix+'WRITTEN']:String(stage.getLastRow()-1),[prefix+'SOURCE_COUNT']:String(totalSource),[prefix+'VAL']:String(totalValue),
+    [prefix+'TAIL_START']:String(newStart),[prefix+'TAIL_PERIOD']:newPeriod,[prefix+'TAIL_SOURCE_COUNT']:String(checkCount),
+    [prefix+'TAIL_VAL']:String(checkValue),[prefix+'BUILT_AT']:new Date().toISOString()
+   };
+   if(!isP2){values[prefix+'CARTON']=String(totalCarton);values[prefix+'TAIL_CARTON']=String(checkCarton);}
+   props.setProperties(values);const old=ss.getSheetByName(backup);if(old)ss.deleteSheet(old);
+  }catch(e){
+   const live=ss.getSheetByName(target);if(live&&live.getSheetId()===stage.getSheetId())ss.deleteSheet(live);
+   const back=ss.getSheetByName(backup);if(back&&!ss.getSheetByName(target))back.setName(target);
+   props.setProperty(prefix+'STATUS','STALE');throw e;
+  }
+  return {ok:true,status:'UPDATED',sheet:target,period:newPeriod,sourceRows:checkCount,factRows:rows.length,sourceValue:checkValue,sourceCarton:isP2?undefined:checkCarton,validated:true};
+ }catch(err){
+  const leftover=ss.getSheetByName(stageName);if(leftover)ss.deleteSheet(leftover);
+  if(props.getProperty(prefix+'STATUS')==='BUILDING')props.setProperty(prefix+'STATUS','STALE');
+  throw err;
+ }
+}
+function refreshPage2OutletFactMonthly_(indexRefresh){
+ const index=mantulGetReadyReadIndex_(),tail=mantulTailPartition_(index),incoming=page2Read_(index,tail.startRow,tail.rows),grouped=new Map();
+ let sourceCount=0,value=0;
+ incoming.forEach(r=>{const key=JSON.stringify(r.slice(0,14));let item=grouped.get(key);if(!item){item=r.slice(0,14).concat([0,0]);grouped.set(key,item);}
+  item[14]+=Number(r[14])||0;item[15]+=Number(r[15])||1;sourceCount+=Number(r[15])||1;value+=Number(r[14])||0;});
+ return mantulPublishMonthlyFact_('P2',tail,Array.from(grouped.values()),{sourceCount:sourceCount,value:value},index.getLastRow()-1);
+}
+function refreshPage34EventFactMonthly_(indexRefresh){
+ const index=mantulGetReadyReadIndex_(),tail=mantulTailPartition_(index),incoming=page34ReadRawIndex_(tail.startRow,tail.rows),grouped=new Map();
+ let sourceCount=0,value=0,carton=0;
+ incoming.rows.forEach(r=>{const key=JSON.stringify(r.slice(0,14).concat(r.slice(16,18)));let item=grouped.get(key);if(!item){item=r.slice();item[14]=0;item[15]=0;item[18]=0;grouped.set(key,item);}
+  item[18]+=Number(r[18])||1;item[14]+=Number(r[14])||0;item[15]+=Number(r[15])||0;sourceCount+=Number(r[18])||1;value+=Number(r[14])||0;carton+=Number(r[15])||0;});
+ return mantulPublishMonthlyFact_('P34',tail,Array.from(grouped.values()),{sourceCount:sourceCount,value:value,carton:carton},index.getLastRow()-1);
 }
 
 function validateMantulDashboardSources() {
@@ -308,6 +411,7 @@ function refreshMantulReadIndexMonthly_() {
     if(samePeriod&&tail.startRow!==oldStart)
       throw new Error('Awal partisi bulan berjalan berubah; rebuild diperlukan demi keamanan.');
     const oldLast=index.getLastRow();
+    props.setProperty('MANTUL_READ_INDEX_STATUS','BUILDING');
     if(samePeriod&&oldLast>=writeStart)index.getRange(writeStart,1,oldLast-writeStart+1,RAW_SALES_COLUMN_COUNT).clearContent();
     if(tail.rows>0)index.getRange(writeStart,1,tail.rows,RAW_SALES_COLUMN_COUNT).setValues(tail.values);
     SpreadsheetApp.flush();
@@ -325,7 +429,7 @@ function refreshMantulReadIndexMonthly_() {
       MANTUL_READ_INDEX_TAIL_HASH:tail.hash,MANTUL_READ_INDEX_TAIL_VAL:String(tail.value)
     });
     return {ok:true,status:'UPDATED',sheet:MANTUL_READ_INDEX_SHEET_,tailPeriod:tail.year+'-'+tail.month,
-      tailRows:tail.rows,previousTailRows:oldLast-oldStart+1,sourceRows:raw.getLastRow()-1,indexValue:totalValue,validated:true};
+      tailRows:tail.rows,tailStartRow:tail.startRow,previousTailRows:oldLast-oldStart+1,sourceRows:raw.getLastRow()-1,indexValue:totalValue,validated:true};
   }finally{if(lockHeld)lock.releaseLock();}
 }
 
@@ -722,9 +826,10 @@ function mantulBootstrapPublish_(ss, stage, targetName, prefix, properties) {
   }
 }
 
-function mantulStartOrResumeBootstrap_() {
+function mantulStartOrResumeBootstrap_(forceIndex) {
   const props = PropertiesService.getScriptProperties();
   let state = mantulBootstrapLoad_();
+  if(state&&forceIndex)throw new Error('Bootstrap sedang berjalan. Selesaikan atau audit proses aktif sebelum memulai rebuild paksa.');
   if (state) {
     if (state.sourceId !== getDatabase_().getId()) throw new Error('Bootstrap aktif berasal dari spreadsheet berbeda. Hentikan dan audit sebelum melanjutkan.');
     mantulBootstrapEnsureTrigger_();
@@ -733,7 +838,7 @@ function mantulStartOrResumeBootstrap_() {
   const ss = getDatabase_(), raw = ss.getSheetByName(RAW_DATA_SHEET_NAME);
   if (!raw || raw.getLastRow() < 2 || raw.getLastColumn() < RAW_SALES_COLUMN_COUNT) throw new Error('RAW_DATA_SALES A:Y belum siap.');
   validateRawDatabaseHeaders_(raw.getRange(1,1,1,RAW_SALES_COLUMN_COUNT).getDisplayValues()[0]);
-  const readyIndex = mantulGetReadyReadIndex_();
+  const readyIndex = forceIndex ? null : mantulGetReadyReadIndex_();
   state = {
     version:1, sourceId:ss.getId(), sourceLastRow:raw.getLastRow(),
     sourceRows:raw.getLastRow()-1, sourceTailHash:mantulTailPartition_(raw).hash,
@@ -795,8 +900,16 @@ function mantulBootstrapIndexStep_(state, ss, raw) {
   if (state.phase === 'INDEX_VERIFY') {
     if (state.offset < state.sourceRows) {
       const n = Math.min(MANTUL_BOOTSTRAP_VERIFY_BATCH_, state.sourceRows - state.offset);
-      stage.getRange(state.offset + 2,1,n,RAW_SALES_COLUMN_COUNT).getValues()
-        .forEach(r => state.verifiedValue += Number(r[RAW_SALES_COL.VALUE]) || 0);
+      const sourceBatch=raw.getRange(state.offset+2,1,n,RAW_SALES_COLUMN_COUNT).getValues();
+      const stagedBatch=stage.getRange(state.offset+2,1,n,RAW_SALES_COLUMN_COUNT).getValues();
+      for(let i=0;i<n;i++){
+        for(let c=0;c<RAW_SALES_COLUMN_COUNT;c++){
+          const a=sourceBatch[i][c],b=stagedBatch[i][c];
+          const equal=(a instanceof Date||b instanceof Date)?(a instanceof Date&&b instanceof Date&&a.getTime()===b.getTime()):a===b;
+          if(!equal)throw new Error('Validasi INDEX gagal: konten A:Y berbeda pada baris '+(state.offset+i+2)+', kolom '+(c+1)+'.');
+        }
+        state.verifiedValue+=Number(stagedBatch[i][RAW_SALES_COL.VALUE])||0;
+      }
       state.offset += n;
       mantulBootstrapSave_(state);
       return;
@@ -985,6 +1098,17 @@ function mantulContinueDashboardBuild_() {
         mantulBootstrapP34Step_(state,context.ss);
       }else if(state.phase==='FINALIZE'){
         const props=PropertiesService.getScriptProperties();
+        const activeTail=mantulTailPartition_(context.ss.getSheetByName(MANTUL_READ_INDEX_SHEET_));
+        const activePeriod=activeTail.year+'-'+String(PAGE2_MONTHS_.indexOf(activeTail.month)+1).padStart(2,'0');
+        const p2Tail=mantulDiscoverFactTail_(context.ss.getSheetByName(PAGE2_FACT_SHEET_),activePeriod,15,14,null);
+        const p34Tail=mantulDiscoverFactTail_(context.ss.getSheetByName(PAGE34_FACT_SHEET_),activePeriod,18,14,15);
+        props.setProperties({
+          PAGE2_FACT_TAIL_START:String(p2Tail.startRow),PAGE2_FACT_TAIL_PERIOD:p2Tail.period,
+          PAGE2_FACT_TAIL_SOURCE_COUNT:String(p2Tail.sourceCount),PAGE2_FACT_TAIL_VAL:String(p2Tail.value),
+          PAGE34_FACT_TAIL_START:String(p34Tail.startRow),PAGE34_FACT_TAIL_PERIOD:p34Tail.period,
+          PAGE34_FACT_TAIL_SOURCE_COUNT:String(p34Tail.sourceCount),PAGE34_FACT_TAIL_VAL:String(p34Tail.value),
+          PAGE34_FACT_TAIL_CARTON:String(p34Tail.carton)
+        });
         const stamp=Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'dd MMM yyyy HH:mm');
         props.setProperties({SALES_LAST_UPDATED:stamp,PAGE2_RAW_UPDATED:stamp});
         props.deleteProperty('MANTUL_V2_DATA_STALE');
@@ -1013,6 +1137,13 @@ function mantulContinueDashboardBuild_() {
 }
 
 // Trigger continuation and manual resume entry point.
+/** Controlled full recovery from RAW A:Y. Rebuilds INDEX, P2 FACT and P34 FACT in resumable staging. */
+function rebuildMantulAllIndexesVerified(){
+ if(mantulBootstrapLoad_())throw new Error('Bootstrap sedang aktif. Periksa getMantulDashboardBuildStatus() sebelum memulai rebuild.');
+ const started=mantulStartOrResumeBootstrap_(true);
+ return Object.assign(started,mantulContinueDashboardBuild_());
+}
+
 function mantulContinueDashboardBuild() {
   return mantulContinueDashboardBuild_();
 }
