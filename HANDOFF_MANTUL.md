@@ -278,3 +278,28 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Next: let the trigger proceed through `P2_INIT/P2_BUILD/P2_PACK/P2_VERIFY`, then P34 phases. Check status again after a reasonable interval. Do not run ordinary monthly refresh or dashboard certification during bootstrap.
 - When overall status reaches `COMPLETE`, run `auditMantulRawIndexParity()` and require `differentRows=0` and `differentCells=0`; then run `auditMantulDashboardSync()` and confirm INDEX/P2/P34 all COMPLETE with matching source watermarks and VAL/CARTON validations. Do not infer audit success merely from entering P2_INIT.
 - No application source or spreadsheet data was changed in this checkpoint. RAW_DATA_SALES, Page 1/`P1_FACT`, and SO/SOO business rules remain protected; Manage deployments remains the user's responsibility.
+
+
+## 27 Nov 2026 — Page 4 tahap 1: pemisahan SO/SOO dan omzet per Brand/SKU
+- Implementasi tahap awal Page 4 dimulai berdasarkan keputusan bahwa harga master SKU dinamis dan tidak dapat dipakai untuk mengonversi seluruh histori transaksi.
+- Sumber transaksi tetap `P34_EVENT_FACT` (fallback tervalidasi `P2_EVENT_INDEX` melalui reader yang sudah ada). `CARTON` tidak digunakan untuk kalkulasi Page 4.
+- Sheet `SKU` dicocokkan melalui header `SKU` (kolom E); atribut master yang dipakai: `BRAND` (H), `SUB_BRAND` (G), dan `CATEGORY` (J). Kolom `ENTITAS`/O sengaja tidak dipakai. Kolom `UOM`/M dan `HARGA`/N belum dipakai untuk konversi histori karena HARGA berubah per bulan dan harga transaksi historis belum tersedia sebagai referensi yang dapat dipercaya.
+- Backend Page 4 kini membangun dataset omzet per SKU untuk dua mode:
+  - SO: semua tipe selain SOO; entitas memakai `SUB_DIST`, dengan mapping khusus AP. GEUBRINA RIZKI → EPM LSE dan PT RESTU INDO MEDICA → EPM BAC melalui `page34Entity_(..., 'SO')`; nilai SUB_DIST 0/kosong dan entitas di luar tujuh entitas resmi dikecualikan.
+  - SOO: hanya SALES_TYPE=SOO; entitas memakai `SUBDIST` melalui `page34Entity_(..., 'SOO')`.
+- UI Page 4 dipisah menjadi tabel SO dan SOO. Brand menjadi baris induk yang dapat expand/collapse untuk menampilkan SKU. Kolom omzet bulanan Jan–Dec, Avg 3M (VAL), Avg 6M (VAL), dan CTR kontribusi ditampilkan. Avg 3M/6M saat ini adalah rata-rata nilai omzet (VAL), bukan kuantitas karton.
+- Stock, DOI, BDP, DOI Akhir, Saran PO, dan growth vs LY/LM/L3M sengaja ditampilkan sebagai tanda kosong (—) pada tahap ini. Jangan menganggap nilai kosong sebagai nol atau sebagai hasil kalkulasi.
+- Filter tahun, bulan, tanggal, customer, entitas, PIC, Brand, Subbrand, dan Category tetap dikirim ke backend; filter tanggal juga diterapkan pada kedua mode.
+- Page 1 dan `P1_FACT` tidak diubah. Tidak ada perubahan pada RAW_DATA_SALES atau isi spreadsheet.
+- Commit terkait perubahan Page 4 (berurutan):
+  - `2991fdfad7dd46668821e560016f95094e735946` — sesuaikan kunci SKU master ke kolom SKU.
+  - `d52160ad3848e8a6a22d8e300882fc2405e92c09` — agregasi nilai penjualan SO dan SOO terpisah.
+  - `67c846aabe1bfdc59fbd4e666f79d167edac088a` — abaikan kolom ENTITAS pada master SKU.
+  - `94bd99cb75a32a6998ee46b6856455890d96deed` — dua tabel SO/SOO di UI.
+  - `0aaedaa70d027a7ce3e8e619529a96997b6571dc` — Brand accordion dan omzet bulanan.
+  - `0ff6cd22977a33588db7218113ece0fb65bd0a67` — perbaiki jumlah kolom placeholder.
+  - `68bd484d0cd330a8cc31d7f46da75d894b0765eb` — styling baris Brand dan metrik inventory kosong.
+  - `9f38890931a4da0ae10486ceb4224de001685b9d` — terapkan filter tanggal.
+- **Belum dilakukan:** validasi sintaks/runtime end-to-end di Apps Script, uji nilai SO/SOO terhadap angka kontrol pengguna, dan verifikasi hasil browser. Karena itu jangan menganggap fitur sudah tervalidasi hanya berdasarkan commit.
+- Langkah berikut: jalankan pemeriksaan kode/Apps Script untuk memastikan tidak ada error; setelah source push berhasil, pemilik melakukan Manage deployments sendiri; lalu uji SO dan SOO untuk tahun/bulan yang sama, cek mapping dua customer khusus SO, cek eksklusi entitas 0, dan cocokkan total omzet terhadap `P34_EVENT_FACT`. Jangan rebuild FACT kecuali statusnya stale.
+- Workflow `.github/workflows/deploy-apps-script.yml` pada branch ini harus tetap hanya menjalankan `clasp push --force`; jangan menjalankan `clasp deploy` dan jangan mengelola deployment Web App. Push source tidak sama dengan deployment live.
