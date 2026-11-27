@@ -309,3 +309,12 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Placeholder untuk kolom yang belum tersedia disesuaikan menjadi 8 sel setelah CTR: GRW vs LY, GRW vs LM, GRW vs L3M, Stock, DOI, BDP, DOI Akhir, dan Saran PO.
 - Commit koreksi terakhir UI: `d41bd0da64802accf297d4d7950df81de4c1be7b`.
 - Semua perubahan dibuat pada branch `perf/page2-single-pass`. Push otomatis workflow dipicu oleh commit ke branch ini; status run terakhir belum dapat diverifikasi melalui konektor pada sesi ini. Periksa Actions untuk run yang commit-nya paling baru sebelum menganggap source sudah masuk ke Apps Script.
+
+
+## 27 Nov 2026 — Page 4 filter SUBDIST per tabel dan kolom bulan berjalan
+- Mengganti judul tabel menjadi **SO SUBDIST** dan **SOO SUBDIST**.
+- Menghapus filter global bagian atas untuk SUBDIST, BRAND, SUBBRAND, CUSTOMER NAME, dan BULAN. Filter Tahun, Tanggal, PIC, dan Category tetap tersedia sebagai filter bersama.
+- Menambahkan tombol filter SUBDIST terpisah di masing-masing tabel: SO SUBDIST (SEMUA, EPM LSE, EPM BAC) hanya memfilter tabel SO; SOO SUBDIST (SEMUA, GMP BAC, GMP LSE, GMP LGS, DB MBO, DB BAC) hanya memfilter tabel SOO.
+- Tahun berjalan menampilkan Januari sampai bulan kalender saat ini; tahun lampau menampilkan Januari–Desember. Kolom bulan mendatang disembunyikan. Agregasi tetap mencakup seluruh bulan kalender dalam rentang tersebut, termasuk bulan tanpa transaksi sebagai nol untuk perhitungan Avg 3M/6M.
+- Aturan SO dikoreksi agar mengambil ALL jenis sales; SOO tetap hanya SALES_TYPE=SOO.
+- Tidak mengubah RAW_DATA_SALES, FACT/INDEX, Page 1, atau P1_FACT. Belum diuji runtime/browser terhadap spreadsheet live. Workflow branch tetap push source saja; tidak melakukan Manage deployments.
