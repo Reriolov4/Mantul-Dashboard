@@ -176,3 +176,10 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 
 - Follow-up guard in `Code.gs`: the bootstrap captures a SHA-256 fingerprint of the active RAW month partition at start and checks it on each continuation, in addition to source spreadsheet ID and last row. If the active month changes during the build, the job stops and preserves its checkpoint/staging output rather than mixing source versions.
 - Latest bootstrap code commit: `790cda2ffc5136d2d7c43bca4f051baa51d73227`. GitHub Actions run #380 for the preceding code/docs state completed successfully; the latest guard commit has its own push run to verify. Workflow success confirms source push to Apps Script, not execution of the bootstrap.
+
+## 27 Nov 2026 — Fix foreground full-index fallback
+- User runtime log showed `refreshMantulDashboard → refreshMantulReadIndexMonthly_ → buildMantulReadIndex` timing out in the Spreadsheet service.
+- Root cause: the routing condition checked only whether the read index was available, not whether both Page 2 and Page 3/4 facts were ready. When the index metadata was COMPLETE but fact readiness was missing, refresh fell through into the monthly synchronizer; missing tail metadata then invoked the one-shot `buildMantulReadIndex()`.
+- Fix in `Code.gs` commit `486910bf27d526be71bf554c359408e68c835e8c`: route using `mantulBootstrapRequired_()` (which checks both fact tables and their headers) before monthly synchronization. Remove the monthly synchronizer's one-shot full rebuild fallback. If only tail metadata is missing, seed it only after the existing INDEX and RAW final-month fingerprints match. Otherwise fail safely and require the resumable bootstrap.
+- This prevents the reported execution path from calling a full INDEX rebuild in one foreground execution. The user should not retry refresh until this commit is pushed and the new Apps Script version is active.
+- Runtime execution against the live spreadsheet is still pending. Never manually rebuild INDEX or FACT while this is being initialized.
