@@ -1,7 +1,7 @@
 <style>
 #p4View{padding:14px 0 28px;color:#172033;font-family:Inter,"Segoe UI",Arial,sans-serif}#p4View *{box-sizing:border-box}
 #p4View .p4-head h1{font-size:21px;color:#173b70;margin:0 0 4px;font-weight:850}#p4View .p4-head p{font-size:11px;color:#718096;margin:0 0 12px}
-#p4View .p4-filter-card{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start;background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 5px 20px #14213d08}
+#p4View .p4-filter-card{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start;background:#fff;border:1px solid #e5eaf1;border-radius:14px;padding:16px;margin-bottom:10px;box-shadow:0 5px 20px #14213d08}
 #p4View .p4-filter{min-width:0;position:relative}#p4View .p4-filter>label{display:block;font-size:10px;font-weight:800;color:#64748b;margin:0 0 8px}
 #p4View .p4-trigger{width:100%;height:42px;border:1px solid #dbe3ee;border-radius:9px;background:#fff;color:#172033;padding:0 10px;font:inherit;font-size:11px;text-align:left;cursor:pointer}
 #p4View .p4-menu{display:none;position:absolute;top:calc(100% + 5px);left:0;width:min(420px,90vw);max-height:360px;overflow:auto;background:#fff;border:1px solid #dbe3ee;border-radius:10px;box-shadow:0 12px 28px #14213d24;z-index:90;padding:9px}
@@ -23,8 +23,20 @@
 #p4View thead th:first-child{z-index:8}#p4View tbody td:first-child{background:#fff}
 #p4View td:nth-child(2),#p4View th:nth-child(2),#p4View td:nth-child(3),#p4View th:nth-child(3){text-align:left;min-width:120px}
 #p4View .p4-total td{background:#fff1cc;color:#173b70;font-weight:850;position:sticky;bottom:0;z-index:6}#p4View .p4-brand-row{background:#eef4fb;font-weight:800;cursor:pointer}#p4View .p4-brand-row td:first-child{background:#eef4fb;color:#173b70}#p4View .p4-brand-row small{color:#64748b;font-weight:600}#p4View .p4-sku-row td:first-child{padding-left:22px;color:#475569}#p4View .p4-na{color:#94a3b8;text-align:center}
-@media(max-width:760px){#p4View .p4-filter-card{grid-template-columns:1fr}}
- #p4View .p4-sbu-row td{background:#e8eef8!important;color:#1e3a5f!important;font-weight:800;border-top:2px solid #cbd5e1}#p4View .p4-sbu-total td{background:#f1f5f9!important;font-weight:800;border-top:1px solid #cbd5e1}#p4View .p4-brand-row{cursor:pointer}#p4View .p4-sbu-row{cursor:default}</style>
+@media(max-width:900px){#p4View .p4-filter-card{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){#p4View .p4-filter-card{grid-template-columns:1fr}}
+ #p4View .p4-sbu-row td{background:#e8eef8!important;color:#1e3a5f!important;font-weight:800;border-top:2px solid #cbd5e1}#p4View .p4-sbu-total td{background:#f1f5f9!important;font-weight:800;border-top:1px solid #cbd5e1}#p4View .p4-brand-row{cursor:pointer}#p4View .p4-sbu-row{cursor:default}/* Page 4 table layout refinement: shared SO/SOO styles */
+#p4View .p4-scroll{overflow:auto;max-height:650px;max-width:100%;overscroll-behavior:contain}
+#p4View table{table-layout:fixed;width:max-content;min-width:100%}
+#p4View th,#p4View td{min-width:104px;width:104px;padding:7px 9px;text-align:right;font-variant-numeric:tabular-nums}
+#p4View th:first-child,#p4View td:first-child{width:230px;min-width:230px;max-width:230px;text-align:left;white-space:nowrap}
+#p4View td:nth-child(2),#p4View th:nth-child(2),#p4View td:nth-child(3),#p4View th:nth-child(3){text-align:right;min-width:104px;width:104px}
+#p4View .p4-total td{background:#e9edf2!important;color:#263445!important;font-weight:850;position:static!important;z-index:auto!important;border-top:2px solid #cbd5e1;border-bottom:0}
+#p4View .p4-total td:first-child{background:#e9edf2!important;color:#263445!important;position:sticky!important;left:0;z-index:2!important}
+#p4View .p4-sbu-total td{background:#f3f6f9!important;color:#334155;font-weight:800}
+#p4View .p4-brand-row td{background:#eef4fb!important}
+@media(max-width:900px){#p4View .p4-filter-card{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){#p4View .p4-filter-card{grid-template-columns:1fr}}
+</style>
 <section id="p4View" hidden>
  <div class="p4-loading-overlay" aria-hidden="true"><div class="p4-loading-card"><span class="p4-loading-spinner" aria-hidden="true"></span><span id="p4LoadingText">Memuat data SKU...</span></div></div>
  <div class="p4-head"><h1>SKU KCH</h1><p>Monitoring omzet SKU KCH per Brand dengan pemisahan tabel SO SUBDIST dan SOO SUBDIST.</p></div>
