@@ -30,11 +30,11 @@ function p4RenderOne(data,tableId,mode){
  const money=v=>'<td>'+p4FmtValue(v)+'</td>';
  for(const [brand,items] of [...brands.entries()].sort((a,b)=>a[0].localeCompare(b[0],'id'))){
   const sumMonth=months.map((m,i)=>items.reduce((a,r)=>a+p4Num(r.months?.[i]),0)),sum=sumMonth.reduce((a,v)=>a+v,0),avg3=items.reduce((a,r)=>a+p4Num(r.avg3),0),avg6=items.reduce((a,r)=>a+p4Num(r.avg6),0),id='p4-'+mode+'-'+rows.length;
-  rows.push('<tr class="p4-brand-row" data-brand="'+id+'" onclick="p4ToggleBrand(\''+id+'\')"><td><b>＋ '+p4Esc(brand)+'</b> <small>('+items.length+' SKU)</small></td>'+sumMonth.map(money).join('')+money(avg3)+money(avg6)+'<td>'+(total?((sum/total)*100).toFixed(1)+'%':'—')+'</td>'+blank.repeat(9)+'</tr>');
-  items.sort((a,b)=>b.totalValue-a.totalValue||a.sku.localeCompare(b.sku,'id')).forEach(r=>rows.push('<tr class="p4-sku-row '+id+'" hidden><td class="p4-sku-indent">↳ '+p4Esc(r.sku)+'</td>'+months.map((m,i)=>money(r.months?.[i])).join('')+money(r.avg3)+money(r.avg6)+'<td>'+(total?((r.totalValue/total)*100).toFixed(2)+'%':'—')+'</td>'+blank.repeat(9)+'</tr>'));
+  rows.push('<tr class="p4-brand-row" data-brand="'+id+'" onclick="p4ToggleBrand(\''+id+'\')"><td><b>＋ '+p4Esc(brand)+'</b> <small>('+items.length+' SKU)</small></td>'+sumMonth.map(money).join('')+money(avg3)+money(avg6)+'<td>'+(total?((sum/total)*100).toFixed(1)+'%':'—')+'</td>'+blank.repeat(8)+'</tr>');
+  items.sort((a,b)=>b.totalValue-a.totalValue||a.sku.localeCompare(b.sku,'id')).forEach(r=>rows.push('<tr class="p4-sku-row '+id+'" hidden><td class="p4-sku-indent">↳ '+p4Esc(r.sku)+'</td>'+months.map((m,i)=>money(r.months?.[i])).join('')+money(r.avg3)+money(r.avg6)+'<td>'+(total?((r.totalValue/total)*100).toFixed(2)+'%':'—')+'</td>'+blank.repeat(8)+'</tr>'));
  }
  const totalsMonth=months.map((m,i)=>(data.rows||[]).reduce((a,r)=>a+p4Num(r.months?.[i]),0));
- rows.push('<tr class="p4-total"><td>GRAND TOTAL</td>'+totalsMonth.map(money).join('')+money((data.rows||[]).reduce((a,r)=>a+p4Num(r.avg3),0))+money((data.rows||[]).reduce((a,r)=>a+p4Num(r.avg6),0))+'<td>100%</td>'+blank.repeat(9)+'</tr>');
+ rows.push('<tr class="p4-total"><td>GRAND TOTAL</td>'+totalsMonth.map(money).join('')+money((data.rows||[]).reduce((a,r)=>a+p4Num(r.avg3),0))+money((data.rows||[]).reduce((a,r)=>a+p4Num(r.avg6),0))+'<td>100%</td>'+blank.repeat(8)+'</tr>');
  table.querySelector('tbody').innerHTML=rows.join('');
 }
 function p4ToggleBrand(id){const rows=document.querySelectorAll('.'+id);const hide=[...rows].some(r=>r.hidden);rows.forEach(r=>r.hidden=!hide);const head=document.querySelector('[data-brand="'+id+'"]');if(head){const b=head.querySelector('b');if(b)b.textContent=(hide?'－ ':'＋ ')+b.textContent.replace(/^[＋－] /,'')}}
