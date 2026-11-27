@@ -242,6 +242,8 @@ function mantulTailPartition_(sheet) {
 }
 
 function refreshMantulReadIndexMonthly_() {
+  const lock=LockService.getScriptLock();lock.waitLock(30000);let lockHeld=true;
+  try{
     const ss=getDatabase_(),raw=ss.getSheetByName(RAW_DATA_SHEET_NAME),index=ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
     if(!raw||raw.getLastRow()<2)throw new Error('RAW_DATA_SALES kosong atau tidak ditemukan.');
     validateRawDatabaseHeaders_(raw.getRange(1,1,1,RAW_SALES_COLUMN_COUNT).getDisplayValues()[0]);
@@ -253,6 +255,7 @@ function refreshMantulReadIndexMonthly_() {
       Number(props.getProperty('MANTUL_READ_INDEX_TAIL_START'))>=2&&
       props.getProperty('MANTUL_READ_INDEX_TAIL_PERIOD');
     if(!ready){
+      lock.releaseLock();lockHeld=false;
       const built=buildMantulReadIndex();
       const current=ss.getSheetByName(MANTUL_READ_INDEX_SHEET_);
       const saved=mantulTailPartition_(current);
@@ -297,6 +300,7 @@ function refreshMantulReadIndexMonthly_() {
     });
     return {ok:true,status:'UPDATED',sheet:MANTUL_READ_INDEX_SHEET_,tailPeriod:tail.year+'-'+tail.month,
       tailRows:tail.rows,previousTailRows:oldLast-oldStart+1,sourceRows:raw.getLastRow()-1,indexValue:totalValue,validated:true};
+  }finally{if(lockHeld)lock.releaseLock();}
 }
 
 function refreshMantulReadIndexIncremental_() {
