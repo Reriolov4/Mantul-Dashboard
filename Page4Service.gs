@@ -39,8 +39,8 @@ function page4ReadSource_() {
 function page4BuildMeta_(src){
  const years=new Set(),monthsByYear={},skuAttrs=new Map(),customers=new Set(),pics=new Set(),brands=new Set(),subbrands=new Set(),categories=new Set(),dateKeys=new Set();let sooRows=0,soModeRows=0,sourceRows=0;const c=src.columns;
  const add=(map,key,field,value)=>{if(!key||value==null||String(value).trim()==='')return;let obj=map.get(key);if(!obj){obj={subbrand:new Set(),brand:new Set(),category:new Set(),entity:new Set()};map.set(key,obj);}obj[field].add(String(value).trim());};
- for(let i=0;i<src.sourceRows;i++){const type=page2Key_(c.salesType[i]),sourceCount=Number(c.sourceRows[i])||1;sourceRows+=sourceCount;soModeRows+=sourceCount;if(type!=='SOO')continue;sooRows+=sourceCount;
-  const y=String(Number(c.year[i])||c.year[i]||'').trim(),m=page2Month_(c.month[i]),name=page2Text_(c.sku[i]);if(page2Text_(c.customer[i]))customers.add(page2Text_(c.customer[i]));if(page2Text_(c.pic[i]))pics.add(page2Text_(c.pic[i]));if(page2Text_(c.brand[i]))brands.add(page2Text_(c.brand[i]));if(page2Text_(c.subbrand[i]))subbrands.add(page2Text_(c.subbrand[i]));if(page2Text_(c.category[i]))categories.add(page2Text_(c.category[i]));const dateKey=page2Date_(y,m,c.dd[i]);if(dateKey)dateKeys.add(dateKey);if(y)years.add(y);if(y&&m){if(!monthsByYear[y])monthsByYear[y]=new Set();monthsByYear[y].add(m);}
+ for(let i=0;i<src.sourceRows;i++){const type=page2Key_(c.salesType[i]),sourceCount=Number(c.sourceRows[i])||1;sourceRows+=sourceCount;soModeRows+=sourceCount;
+  const y=String(Number(c.year[i])||c.year[i]||'').trim(),m=page2Month_(c.month[i]),name=page2Text_(c.sku[i]);if(type==='SOO')sooRows+=sourceCount;if(page2Text_(c.customer[i]))customers.add(page2Text_(c.customer[i]));if(page2Text_(c.pic[i]))pics.add(page2Text_(c.pic[i]));if(page2Text_(c.brand[i]))brands.add(page2Text_(c.brand[i]));if(page2Text_(c.subbrand[i]))subbrands.add(page2Text_(c.subbrand[i]));if(page2Text_(c.category[i]))categories.add(page2Text_(c.category[i]));const dateKey=page2Date_(y,m,c.dd[i]);if(dateKey)dateKeys.add(dateKey);if(y)years.add(y);if(y&&m){if(!monthsByYear[y])monthsByYear[y]=new Set();monthsByYear[y].add(m);}
   add(skuAttrs,name,'subbrand',c.subbrand[i]);add(skuAttrs,name,'brand',c.brand[i]);add(skuAttrs,name,'category',c.category[i]);add(skuAttrs,name,'entity',c.sbu[i]);
  }
  const masterMap=new Map();for(let i=0;i<src.masterRows;i++){const name=page2Text_(src.master.sku[i]);if(!name)continue;let x=masterMap.get(name);if(!x){x={subbrand:new Set(),brand:new Set(),category:new Set(),entity:new Set()};masterMap.set(name,x);}['subbrand','brand','category','entity'].forEach(k=>{const v=src.master[k][i];if(v!=null&&String(v).trim())x[k].add(String(v).trim());});}
@@ -50,35 +50,36 @@ function page4BuildMeta_(src){
 }
 function page4BuildData_(src,meta,filters){
  filters=filters||{};
+ const mode=String(filters.mode||'SOO').toUpperCase()==='SO'?'SO':'SOO';
  const years=(meta.years||[]).map(Number).filter(Number.isFinite);
  const year=Number(filters.year)||(years.includes(2026)?2026:(years[years.length-1]||new Date().getFullYear()));
  const available=(meta.monthsByYear||{})[String(year)]||[];
  const requested=(Array.isArray(filters.months)?filters.months:[]).map(page2Month_).filter(m=>PAGE4_MONTHS_.includes(m));
  const monthsUsed=requested.length?PAGE4_MONTHS_.filter(m=>requested.includes(m)&&available.includes(m)):available.slice();
- const monthSet=new Set(monthsUsed),selected=new Set(page2FilterList_(filters.subdists).map(page2Key_)),customers=new Set(page2FilterList_(filters.customers).map(page2Key_)),pics=new Set(page2FilterList_(filters.pics).map(page2Key_)),brands=new Set(page2FilterList_(filters.brands).map(page2Key_)),subbrands=new Set(page2FilterList_(filters.subbrands).map(page2Key_)),categories=new Set(page2FilterList_(filters.categories).map(page2Key_)),dates=new Set(page2FilterList_(filters.dates).map(v=>String(v).padStart(2,'0')));
- const map=new Map(meta.skuMaster.map(s=>[s.sku,{...s,total:{value:0,carton:0}}]));
- let matchedSourceRows=0;const c=src.columns;
+ const monthSet=new Set(monthsUsed),selected=new Set(page2FilterList_(filters.subdists).map(page2Key_)),customers=new Set(page2FilterList_(filters.customers).map(page2Key_)),pics=new Set(page2FilterList_(filters.pics).map(page2Key_)),brands=new Set(page2FilterList_(filters.brands).map(page2Key_)),subbrands=new Set(page2FilterList_(filters.subbrands).map(page2Key_)),categories=new Set(page2FilterList_(filters.categories).map(page2Key_));
+ const master=new Map((meta.skuMaster||[]).map(x=>[page2Key_(x.sku),x]));
+ const map=new Map();let matchedSourceRows=0,totalValue=0;const c=src.columns;
  for(let i=0;i<src.sourceRows;i++){
-  if(page2Key_(c.salesType[i])!=='SOO'||Number(c.year[i])!==year||!monthSet.has(page2Month_(c.month[i])))continue;
-  const row=[null,null,null,null,null,c.subdist[i],null,null,null,null,null,c.salesType[i],null,null,null,null,c.sku[i]];
-  const entity=page34Entity_(row,'SOO'),customer=page2Text_(c.customer[i]),day=String(Number(c.dd[i])||c.dd[i]||'').padStart(2,'0');
-  if(!entity||(selected.size&&!selected.has(page2Key_(entity)))||(customers.size&&!customers.has(page2Key_(customer)))||(pics.size&&!pics.has(page2Key_(c.pic[i])))||(brands.size&&!brands.has(page2Key_(c.brand[i])))||(subbrands.size&&!subbrands.has(page2Key_(c.subbrand[i])))||(categories.size&&!categories.has(page2Key_(c.category[i])))||(dates.size&&!dates.has(day)))continue;
-  const name=page2Text_(c.sku[i]);if(!name)continue;
+  const type=page2Key_(c.salesType[i]);
+  if((mode==='SOO'&&type!=='SOO')||(mode==='SO'&&type==='SOO'))continue;
+  if(Number(c.year[i])!==year||!monthSet.has(page2Month_(c.month[i])))continue;
+  const adapter=[null,null,null,null,c.customer[i],c.subdist[i],null,null,null,null,null,c.salesType[i],null,null,null,null,null,c.subDist[i]];
+  const entity=page34Entity_(adapter,mode),customer=page2Text_(c.customer[i]),name=page2Text_(c.sku[i]);
+  if(!entity||!name||(selected.size&&!selected.has(page2Key_(entity)))||(customers.size&&!customers.has(page2Key_(customer)))||(pics.size&&!pics.has(page2Key_(c.pic[i])))||(brands.size&&!brands.has(page2Key_(c.brand[i])))||(subbrands.size&&!subbrands.has(page2Key_(c.subbrand[i])))||(categories.size&&!categories.has(page2Key_(c.category[i]))))continue;
   matchedSourceRows+=Number(c.sourceRows[i])||1;
-  let x=map.get(name);
-  if(!x){x={sku:name,brand:page2Text_(c.brand[i]),subbrand:page2Text_(c.subbrand[i]),category:page2Text_(c.category[i]),entity:page2Text_(c.sbu[i]),total:{value:0,carton:0}};map.set(name,x);}
-  x.total.value+=Number(c.value[i])||0;x.total.carton+=Number(c.carton[i])||0;
+  const key=page2Key_(name),m=page2Month_(c.month[i]),value=Number(c.value[i])||0;
+  let x=map.get(key);if(!x){const masterSku=master.get(key)||{};x={sku:name,brand:masterSku.brand||page2Text_(c.brand[i]),subbrand:masterSku.subbrand||page2Text_(c.subbrand[i]),category:masterSku.category||page2Text_(c.category[i]),entity:entity,monthly:{},totalValue:0};PAGE4_MONTHS_.forEach(mm=>x.monthly[mm]=0);map.set(key,x);}
+  x.monthly[m]+=value;x.totalValue+=value;totalValue+=value;
  }
- const all=Array.from(map.values()).sort((a,b)=>(b.total.value-a.total.value)||a.sku.localeCompare(b.sku,'id'));
- const totals=all.reduce((a,r)=>({value:a.value+r.total.value,carton:a.carton+r.total.carton}),{value:0,carton:0});
- return {mode:'SOO',modeSalesType:'SOO',label:'SUBDIST',year:year,monthsUsed:monthsUsed,subdist:selected.size?Array.from(selected).join(', '):'Semua SUBDIST',rows:all,skuCount:all.length,totals:totals,matchedSourceRows:matchedSourceRows,sourceRows:meta.sourceRows};
+ const rows=Array.from(map.values()).map(x=>{const vals=monthsUsed.map(m=>x.monthly[m]||0),last=monthsUsed.length?PAGE4_MONTHS_.indexOf(monthsUsed[monthsUsed.length-1]):-1,tail3=last<0?[]:PAGE4_MONTHS_.slice(Math.max(0,last-2),last+1),tail6=last<0?[]:PAGE4_MONTHS_.slice(Math.max(0,last-5),last+1);x.avg3=tail3.length?tail3.reduce((a,m)=>a+x.monthly[m],0)/3:0;x.avg6=tail6.length?tail6.reduce((a,m)=>a+x.monthly[m],0)/6:0;x.months=PAGE4_MONTHS_.map(m=>x.monthly[m]||0);return x;}).sort((a,b)=>b.totalValue-a.totalValue||a.sku.localeCompare(b.sku,'id'));
+ return {mode:mode,modeSalesType:mode==='SOO'?'SOO':'ALL',label:mode==='SOO'?'SUBDIST':'SUB_DIST',year:year,monthsUsed:monthsUsed,subdist:selected.size?Array.from(selected).join(', '):'Semua Entitas',rows:rows,skuCount:rows.length,totals:{value:totalValue},matchedSourceRows:matchedSourceRows,sourceRows:meta.sourceRows};
 }
 function getPage4InitialPayload(mode){
  const started=Date.now(),readStarted=Date.now(),src=page4ReadSource_(),readMs=Date.now()-readStarted;
  const metaStarted=Date.now(),meta=page4BuildMeta_(src),metaMs=Date.now()-metaStarted;
  const selectedMode=page34Mode_(mode),year=meta.years.includes('2026')?2026:Number(meta.years[meta.years.length-1]);
- const aggregateStarted=Date.now(),data=page4BuildData_(src,meta,{mode:selectedMode,year:year}),aggregateMs=Date.now()-aggregateStarted;
- return {meta:meta,data:data,diagnostics:{source:src.sourceName,sourceRows:src.sourceRows,readMs:readMs,metaMs:metaMs,aggregateMs:aggregateMs,totalMs:Date.now()-started}};
+ const aggregateStarted=Date.now(),data=page4BuildData_(src,meta,{mode:'SOO',year:year}),dataSO=page4BuildData_(src,meta,{mode:'SO',year:year}),aggregateMs=Date.now()-aggregateStarted;
+ return {meta:meta,data:data,dataSO:dataSO,diagnostics:{source:src.sourceName,sourceRows:src.sourceRows,readMs:readMs,metaMs:metaMs,aggregateMs:aggregateMs,totalMs:Date.now()-started}};
 }
 function getPage4SkuData(filters){
  const started=Date.now(),readStarted=Date.now(),src=page4ReadSource_(),readMs=Date.now()-readStarted;
