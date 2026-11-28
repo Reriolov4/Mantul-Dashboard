@@ -371,3 +371,11 @@ Push source ke Apps Script bukan berarti Web App live otomatis memakai versi bar
 - Correct pivot interpretation: the top pivot filters `SALES_TYPE = ALL` and `SUB_DIST = ALL`, but its row/group field is `SUBDIST` (P34_EVENT_FACT column F / RAW column I). Therefore Page 4 SO must group by `c.subdist`, and retain only `EPM BAC` and `EPM LSE` rows. The separate `SUB_DIST` field remains unfiltered (ALL), exactly as in the screenshot.
 - Page 4 SO aggregation now reads the grouping entity directly from `c.subdist`; it no longer uses the SO branch of `page34Entity_` for this table. This does not alter Page 2, Page 3, SOO, or other SO rules.
 - This correction is specifically intended to make the SO table totals reconcile to the screenshot's top pivot: YTD Rp29,068,281,363 and November Rp1,731,905,455 under the same year/date/filter context. Live numeric validation is still pending.
+
+
+## 28 Nov 2026 — Page 4 SBU colors and accordion subtotal boundaries
+- Removed the Page 4 heading block above the filters, including `SKU KCH` and the explanatory sentence, to give the four main filters a cleaner top position.
+- Shared SO/SOO subtotal palette: `TOTAL SBU B7` uses a soft sky-blue/tosca fill with deep teal text; `TOTAL SBU SAKA` uses a soft pink fill with muted plum text. Each subtotal row is tagged with its SBU key for independent styling.
+- Accordion expansion now explicitly keeps each Brand's SKU child rows inside that Brand's own SBU group and immediately before that group's subtotal row. Expanding Brands in B7 therefore cannot move or overlap `TOTAL SBU B7` with `TOTAL SBU SAKA`; SAKA children similarly remain above `TOTAL SBU SAKA`.
+- Expanded table height remains fixed to the captured initial table viewport height, with internal scrolling. Grand Total keeps the same light-grey footer treatment/typography and sticky behavior.
+- Applied to both SO and SOO through their shared renderer. No business aggregation rules or other pages/data sources changed. Live Apps Script/browser verification is pending.
