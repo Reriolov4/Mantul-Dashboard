@@ -44,10 +44,17 @@
 #p4View .p4-total td{background:#e9edf2!important;color:#263445!important;font-weight:850;position:sticky!important;bottom:0!important;z-index:7!important;border-top:2px solid #cbd5e1;border-bottom:0}
 #p4View .p4-total td:first-child{position:sticky!important;left:0!important;bottom:0!important;z-index:9!important;background:#e9edf2!important;color:#263445!important}
 #p4View .p4-total td:not(:first-child){z-index:7!important}
+
+/* Page 4 requested SBU palette + Grand Total typography */
+#p4View .p4-sbu-total[data-sbu="B7"] td{background:#d9f0f7!important;color:#174b5b!important;border-top:2px solid #b7e2ed;border-bottom:1px solid #b7e2ed;font-weight:850}
+#p4View .p4-sbu-total[data-sbu="SAKA"] td{background:#f8e3ee!important;color:#713c58!important;border-top:2px solid #ecc5d8;border-bottom:1px solid #ecc5d8;font-weight:850}
+#p4View .p4-total td{background:#e9edf2!important;color:#263445!important;font-family:inherit;font-size:10px;font-weight:850;letter-spacing:0;border-top:2px solid #cbd5e1}
+#p4View .p4-total td:first-child{background:#e9edf2!important;color:#263445!important;font-weight:900}
+#p4View .p4-scroll.p4-expanded{overflow:auto;height:var(--p4-initial-height,440px);max-height:var(--p4-initial-height,440px)}
 </style>
 <section id="p4View" hidden>
  <div class="p4-loading-overlay" aria-hidden="true"><div class="p4-loading-card"><span class="p4-loading-spinner" aria-hidden="true"></span><span id="p4LoadingText">Memuat data SKU...</span></div></div>
- <div class="p4-head"><h1>SKU KCH</h1><p>Analisis omzet Brand dan SKU untuk kebutuhan PESTA ke RDC dan distribusi SOO.</p></div>
+ 
  <div class="p4-filter-card">
   <div class="p4-filter" id="p4YearFilter"><label>TAHUN ANALISIS</label><button class="p4-trigger" id="p4YearTrigger" type="button">Pilih Tahun</button><div class="p4-menu"><div class="p4-menu-actions"><button class="p4-menu-apply" data-action="year-apply">Terapkan</button></div><div id="p4Years" class="p4-checklist"></div></div></div>
   <div class="p4-filter" id="p4DatesFilter"><label>TANGGAL</label><button class="p4-trigger" id="p4DatesTrigger" type="button">Semua Tanggal</button><div class="p4-menu"><div class="p4-menu-actions"><button data-action="all" data-target="p4Dates">Pilih Semua</button><button data-action="reset" data-target="p4Dates">Reset</button><button class="p4-menu-apply" data-action="apply">Terapkan Pilihan</button></div><div id="p4Dates" class="p4-checklist"></div></div></div>
